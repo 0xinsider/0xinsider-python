@@ -1,0 +1,32 @@
+name: Regenerate from OpenAPI
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/generate.py
+      - name: Open a pull request when the contract changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then echo "no change"; exit 0; fi
+          branch="regenerate/$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "chore: regenerate operations from the OpenAPI document"
+          git push origin "$branch"
+          gh pr create --title "Regenerate operations from the OpenAPI document" --body "The published OpenAPI document changed. Review the generated diff before releasing."
