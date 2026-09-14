@@ -17,6 +17,7 @@ class Operation(NamedTuple):
 OPERATIONS: dict[str, Operation] = {
     "getApiDiscovery": Operation("GET", "/api/v1", streaming=False),
     "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False),
+    "registerAgent": Operation("POST", "/api/v1/agents/register", streaming=False),
     "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False),
     "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False),
     "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False),
@@ -106,6 +107,20 @@ class OperationsMixin:
         JSON document at https://0xinsider.com/api/v1/openapi.json.
         """
         return self._call("redirectApiOpenapiSpec", path_params={}, query={})
+
+    def register_agent(
+        self,
+    ) -> Any:
+        """Register an agent for a sandbox key.
+
+        ``POST /api/v1/agents/register`` (operationId ``registerAgent``).
+
+        Self-serve agent onboarding: no account, no request body, no human step. Returns a
+        sandbox API key (oxi_sk_test_...) and the path to live access. The key works only on the
+        sandbox server (https://0xinsider.com/sandbox/api/v1), where it is optional: send it as
+        Authorization: Bearer to exercise the ...
+        """
+        return self._call("registerAgent", path_params={}, query={})
 
     def get_trader(
         self,
