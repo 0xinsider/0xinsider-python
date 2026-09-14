@@ -42,3 +42,7 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A version already on PyPI is skipped, not failed: a release event
+          # after a manual dispatch of the same version is then a no-op.
+          skip-existing: true
