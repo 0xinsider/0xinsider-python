@@ -12,7 +12,7 @@ import httpx
 from ._download import Download, DownloadError
 from ._errors import OxinsiderApiError, OxinsiderConnectionError, error_class_for
 from ._operations import OPERATIONS, OperationsMixin
-from ._policy import is_trusted_destination
+from ._policy import assert_credential_destination, is_trusted_destination
 from ._version import __version__
 
 PRODUCTION_BASE_URL = "https://api.0xinsider.com"
@@ -56,6 +56,12 @@ class Client(OperationsMixin):
     Use ``Client.sandbox()`` to build against the zero-credential sandbox, which
     answers every documented operation with example data and never touches
     production data.
+
+    A credential is only ever sent over ``https://``, or over ``http://`` to a
+    loopback host (``localhost``, ``127.0.0.1``, ``[::1]``). A ``base_url`` that
+    would send the key anywhere else raises ``InsecureTransportError`` here,
+    before any request; a keyless client may still call the public operations
+    on such a base. Redirects are never followed automatically.
     """
 
     def __init__(
@@ -70,6 +76,8 @@ class Client(OperationsMixin):
         self.base_url = base_url.rstrip("/")
         self._owns_http = http_client is None
         self._http = http_client or httpx.Client(timeout=timeout)
+        if self.api_key or self._http.auth is not None:
+            assert_credential_destination(httpx.URL(self.base_url))
 
     @classmethod
     def sandbox(cls, *, timeout: float = 30.0) -> Client:
@@ -164,7 +172,14 @@ class Client(OperationsMixin):
     def _send(self, request: httpx.Request, *, stream: bool) -> httpx.Response:
         """Send one request to the API origin. Redirects are never followed here:
         the two documented ones (the OpenAPI document and a finished export) are
-        handled by ``download``, which keeps the credential on the API origin."""
+        handled by ``download``, which keeps the credential on the API origin.
+
+        The destination is checked again on the final request, so a credential
+        that arrived through ``headers=``, a later ``client.api_key = ...``, or an
+        ``auth=`` on a supplied ``httpx.Client`` cannot travel over plain HTTP to
+        a host that is not loopback either."""
+        if request.headers.get("Authorization") or self._http.auth is not None:
+            assert_credential_destination(request.url)
         try:
             return self._http.send(request, stream=stream, follow_redirects=False)
         except httpx.HTTPError as error:
