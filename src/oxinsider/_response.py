@@ -26,9 +26,11 @@ is what the API publishes for a browser to read.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Generic, TypeVar
 
 import httpx
+
+BodyT = TypeVar("BodyT")
 
 
 def _int(headers: httpx.Headers, name: str) -> int | None:
@@ -89,17 +91,19 @@ def _budget(
 
 
 @dataclass(frozen=True)
-class ApiResponse:
+class ApiResponse(Generic[BodyT]):
     """A successful response: the decoded body, and everything else the API said.
 
-    ``data`` is exactly what the plain operation method returns -- the decoded
+    ``data`` carries the operation's own response type (``oxinsider.types``),
+    so ``client.with_response.get_trader(...).data["data"]["grade"]`` is typed
+    the same as the plain call. It is exactly what the plain operation method returns -- the decoded
     JSON for a JSON route, the text for a Markdown one, ``None`` for a ``204``
     or an empty body, and ``{"object": "not_modified", "data": None, "etag":
     ...}`` for a ``304`` answered to ``if_none_match``. ``headers`` is
     case-insensitive.
     """
 
-    data: Any
+    data: BodyT
     status: int
     headers: httpx.Headers
 

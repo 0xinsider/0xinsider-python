@@ -36,6 +36,10 @@ jobs:
         run: |
           python -m pip install --quiet .
           python -c "import oxinsider, oxinsider._operations; from oxinsider._provenance import OPERATION_COUNT; print(oxinsider.__version__, OPERATION_COUNT, 'operations')"
+          # Every generated annotation must resolve against its own module: a
+          # name the generator emitted but never defined fails here, before the
+          # push, rather than in a caller's type checker.
+          python -c "import typing, oxinsider.types as t; shapes = [n for n in t.__all__ if isinstance(getattr(t, n), type)]; [typing.get_type_hints(getattr(t, n)) for n in shapes]; print(len(shapes), 'of', len(t.__all__), 'generated types resolve')"
           python -m compileall -q examples
       - name: Commit the regenerated package to main
         run: |

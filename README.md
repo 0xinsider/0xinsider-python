@@ -35,7 +35,7 @@ import oxinsider
 
 client = oxinsider.Client()  # reads OXINSIDER_API_KEY
 trader = client.get_trader("swisstony", expand=["strategy", "categories"])
-print(trader["data"]["grade"])
+print(trader["data"].get("grade", "ungraded"))
 
 for trade in client.paginate("list_whale_trades", min_grade="A", limit=100):
     print(trade["size_usd"], trade["market"]["title"])
@@ -47,13 +47,37 @@ for trade in client.paginate("list_whale_trades", min_grade="A", limit=100):
 - The SSE stream is read with `client.request("GET", "/api/v1/stream", stream=True)`, which returns the open `httpx.Response`.
 - A redirect-only operation returns a streaming `Download` instead of a body: `download_trader_export` (the API answers 302 to a short-lived file location once the job is `ready`) and `redirect_api_openapi_spec` (307 to the web origin). The redirect is followed once, and the credential is never sent to the file host.
 
+## Types
+
+Every operation is typed from the same OpenAPI document that generates it. The request body, the query values and the response envelope each have a `TypedDict` in `oxinsider.types`, and an editor infers them without an annotation:
+
+```python
+trader = client.get_trader("swisstony")        # GetTraderResponse
+trader["data"]["pnl"].get("realized")          # float | None
+client.list_positions(min_grade="A")           # min_grade is Literal["S", "A", ... "F"]
+client.get_trader_context_markdown("swisstony")  # str, not an envelope
+```
+
+Nothing is validated, converted or copied: the methods return the decoded JSON exactly as before, so upgrading changes what a type checker sees and nothing that runs.
+
+What the types say, and what they deliberately do not:
+
+- **A key the API omits is an optional key.** `trader["data"]["grade"]` is a type error, because an ungraded wallet has no `grade` and reading it would raise. Use `.get("grade")` and serve the absence: a missing value is not a zero and not an `F`. `pnl.realized` is the same -- it is omitted when no native accounting snapshot matches, and raw total P&L is never a substitute.
+- **`| None` is a key that is present and null.** Omitted and null are different facts. Neither is a zero.
+- **An enum the API returns is `Literal[...] | str`.** The documented values complete in an editor, and a value the API adds later is not a type error in a client that has not upgraded. An enum you *send* is a strict `Literal`, so a typo fails before it spends a request.
+- **A `const` is exact**, which is what lets a union narrow: the Pick of the Day ledger is `PickOfTheDayLedgerSealedEntry | ...OpenedEntry | ...UncommittedEntry`, and `if entry["state"] == "opened":` narrows to the shape that carries the nonce and the payload.
+- **Keys added after your release are still in the dictionary** at runtime, as received. A type checker will not know them: read one through `client.request(...)`, which is typed `Any`, or `cast` the value. Regenerating picks them up.
+- **A conditional read returns a union.** `client.get_trader(addr, if_none_match=etag)` is `GetTraderResponse | NotModifiedResponse`; without a validator it is just `GetTraderResponse`. `client.with_response.<method>()` returns `ApiResponse[<the same body>]`.
+
+The package ships `py.typed`, so mypy and pyright read these without a stub package.
+
 ## Headers, caching and budgets
 
 Every operation method returns the decoded body, and that does not change. When you need the rest of the answer, call the same operation through `with_response` and get an `ApiResponse`: `.data` is the identical body, and `.status` and `.headers` come with it.
 
 ```python
 r = client.with_response.get_trader("swisstony")
-print(r.data["data"]["grade"], r.status, r.etag, r.request_id)
+print(r.data["data"].get("grade"), r.status, r.etag, r.request_id)
 ```
 
 ### Conditional reads
@@ -175,7 +199,7 @@ Every non-2xx response from the API raises `oxinsider.OxinsiderApiError` or a su
 
 ## How it is built
 
-`src/oxinsider/_operations.py` is generated from the published [OpenAPI document](https://0xinsider.com/api/v1/openapi.json) by `scripts/generate.py`, and a weekly workflow opens a pull request when the contract changes. Releases publish to PyPI from GitHub Actions through trusted publishing.
+`src/oxinsider/_operations.py` and `src/oxinsider/types.py` are generated from the published [OpenAPI document](https://0xinsider.com/api/v1/openapi.json) by `scripts/generate.py`, which also writes the typing policy above into `types.py`. A weekly workflow regenerates them and commits to `main` when the contract changes, so a new field or operation reaches the types without anyone editing a generated file. Releases publish to PyPI from GitHub Actions through trusted publishing.
 
 Which document a release was generated from is in `src/oxinsider/_provenance.py`, generated alongside: `oxinsider.OPENAPI_SHA256` (the SHA-256 of the document bytes), `oxinsider.OPENAPI_VERSION`, `oxinsider.OPERATION_COUNT`, and `oxinsider.APP_COMMIT`, the `0xinsider/0xinsider` commit that last changed `web/public/api/v1/openapi.json` (or `None` when it could not be resolved). Compare `OPENAPI_SHA256` with `shasum -a 256` of the live document to see whether a release is behind the API.
 

@@ -43,7 +43,7 @@ class OxinsiderApiError(OxinsiderError):
         retry_after: float | None = None,
         request_id: str | None = None,
         body: Any = None,
-        response: ApiResponse | None = None,
+        response: ApiResponse[Any] | None = None,
     ) -> None:
         super().__init__(f"{status} {code or 'error'}: {message}")
         self.status = status
