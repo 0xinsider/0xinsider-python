@@ -18,6 +18,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: python scripts/generate.py
+        env:
+          # Resolves the app commit that last changed the document for _provenance.py.
+          GH_TOKEN: ${{ github.token }}
       - name: Open a pull request when the contract changed
         env:
           GH_TOKEN: ${{ github.token }}

@@ -15,16 +15,19 @@ class Operation(NamedTuple):
     path: str
     streaming: bool = False
     redirect: bool = False
+    accept: str = "application/json"
 
 
 OPERATIONS: dict[str, Operation] = {
     "getApiDiscovery": Operation("GET", "/api/v1", streaming=False, redirect=False),
     "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False, redirect=True),
+    "registerAgent": Operation("POST", "/api/v1/agents/register", streaming=False, redirect=False),
     "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False, redirect=False),
-    "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False),
+    "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False, accept="text/markdown"),
     "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False, redirect=False),
     "batchGetTraders": Operation("POST", "/api/v1/traders/batch", streaming=False, redirect=False),
     "getPositionTimeline": Operation("GET", "/api/v1/trader/{address}/position-timeline", streaming=False, redirect=False),
+    "getTraderCategoryRecords": Operation("GET", "/api/v1/trader/{address}/categories", streaming=False, redirect=False),
     "getTraderPnl": Operation("GET", "/api/v1/trader/{address}/pnl", streaming=False, redirect=False),
     "getPositionTimelineById": Operation("GET", "/api/v1/traders/{trader}/position-timeline", streaming=False, redirect=False),
     "listPositions": Operation("GET", "/api/v1/positions", streaming=False, redirect=False),
@@ -37,6 +40,7 @@ OPERATIONS: dict[str, Operation] = {
     "listLeaderboard": Operation("GET", "/api/v1/leaderboard", streaming=False, redirect=False),
     "getPickOfTheDay": Operation("GET", "/api/v1/pick-of-the-day", streaming=False, redirect=False),
     "getPickOfTheDayArchive": Operation("GET", "/api/v1/pick-of-the-day/archive", streaming=False, redirect=False),
+    "getPickOfTheDayLedger": Operation("GET", "/api/v1/pick-of-the-day/ledger", streaming=False, redirect=False),
     "listTrendingWallets": Operation("GET", "/api/v1/leaderboard/trending", streaming=False, redirect=False),
     "searchMarkets": Operation("GET", "/api/v1/markets/search", streaming=False, redirect=False),
     "searchContent": Operation("GET", "/api/v1/content/search", streaming=False, redirect=False),
@@ -46,6 +50,7 @@ OPERATIONS: dict[str, Operation] = {
     "listSportsEdgeSignals": Operation("GET", "/api/v1/sports-edge-signals", streaming=False, redirect=False),
     "listSportsEdgeObservations": Operation("GET", "/api/v1/sports-edge-observations", streaming=False, redirect=False),
     "getPlatforms": Operation("GET", "/api/v1/platforms", streaming=False, redirect=False),
+    "getMarketHolders": Operation("GET", "/api/v1/market/{condition_id}/holders", streaming=False, redirect=False),
     "getMarketIntel": Operation("GET", "/api/v1/market/{condition_id}/intel", streaming=False, redirect=False),
     "batchGetMarketIntel": Operation("POST", "/api/v1/markets/intel/batch", streaming=False, redirect=False),
     "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False, redirect=False),
@@ -58,13 +63,14 @@ OPERATIONS: dict[str, Operation] = {
     "createWebhook": Operation("POST", "/api/v1/webhooks", streaming=False, redirect=False),
     "listWebhookEvents": Operation("GET", "/api/v1/webhooks/events", streaming=False, redirect=False),
     "listWebhookDeliveries": Operation("GET", "/api/v1/webhooks/{id}/deliveries", streaming=False, redirect=False),
+    "redeliverWebhookDelivery": Operation("POST", "/api/v1/webhooks/{id}/deliveries/{delivery_id}/redeliver", streaming=False, redirect=False),
     "getWebhook": Operation("GET", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
     "updateWebhook": Operation("PATCH", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
     "deleteWebhook": Operation("DELETE", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
     "verifyWebhook": Operation("POST", "/api/v1/webhooks/{id}/verify", streaming=False, redirect=False),
     "rotateWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret", streaming=False, redirect=False),
     "getHealth": Operation("GET", "/api/v1/health", streaming=False, redirect=False),
-    "openMcpEventStream": Operation("GET", "/api/v1/mcp", streaming=True, redirect=False),
+    "openMcpEventStream": Operation("GET", "/api/v1/mcp", streaming=False, redirect=False),
     "createMcpJsonRpcResponse": Operation("POST", "/api/v1/mcp", streaming=False, redirect=False),
     "getReports": Operation("GET", "/api/v1/reports", streaming=False, redirect=False),
     "getDailyReportSnapshot": Operation("GET", "/api/v1/reports/daily", streaming=False, redirect=False),
@@ -75,6 +81,8 @@ OPERATIONS: dict[str, Operation] = {
     "getTraderExportStatus": Operation("GET", "/api/v1/trader/{address}/export/status", streaming=False, redirect=False),
     "downloadTraderExport": Operation("GET", "/api/v1/trader/{address}/export/download", streaming=False, redirect=True),
     "getUsage": Operation("GET", "/api/v1/usage", streaming=False, redirect=False),
+    "getMarketContextMarkdown": Operation("GET", "/api/v1/market/{condition_id}/context.md", streaming=False, redirect=False, accept="text/markdown"),
+    "getAccountIdentity": Operation("GET", "/api/v1/me", streaming=False, redirect=False),
 }
 
 
@@ -118,6 +126,20 @@ class OperationsMixin:
         the API's own errors raise ``OxinsiderApiError``.
         """
         return self._download("redirectApiOpenapiSpec", path_params={}, query={})
+
+    def register_agent(
+        self,
+    ) -> Any:
+        """Register an agent for a sandbox key.
+
+        ``POST /api/v1/agents/register`` (operationId ``registerAgent``).
+
+        Self-serve agent onboarding: no account, no request body, no human step. Returns a
+        sandbox API key (oxi_sk_test_...) and the path to live access. The key works only on the
+        sandbox server (https://0xinsider.com/sandbox/api/v1), where it is optional: send it as
+        Authorization: Bearer to exercise the ...
+        """
+        return self._call("registerAgent", path_params={}, query={})
 
     def get_trader(
         self,
@@ -212,6 +234,27 @@ class OperationsMixin:
         """
         return self._call("getPositionTimeline", path_params={"address": address}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
 
+    def get_trader_category_records(
+        self,
+        address: str,
+        *,
+        category: Any = None,
+        if_none_match: str | None = None,
+    ) -> Any:
+        """Get trader category win records.
+
+        ``GET /api/v1/trader/{address}/categories`` (operationId ``getTraderCategoryRecords``).
+
+        Returns one wallet's win record in every canonical category it has a settled market in:
+        wins, decided (wins plus losses) and the rate, per category, busiest category first.
+        These are the same counts the Pick of the Day holder chips carry. The Esports record
+        also carries games: the wallet's record ...
+
+        Query parameters:
+            category: Filter to one canonical category, matched through the same rollup every other category surface uses: soccer, EPL and champions league all reach Soccer, every ...
+        """
+        return self._call("getTraderCategoryRecords", path_params={"address": address}, query={"category": category}, if_none_match=if_none_match)
+
     def get_trader_pnl(
         self,
         address: str,
@@ -259,6 +302,7 @@ class OperationsMixin:
         cursor: Any = None,
         min_size: Any = None,
         category: Any = None,
+        condition_id: Any = None,
         min_grade: Any = None,
         side: Any = None,
         if_none_match: str | None = None,
@@ -270,17 +314,18 @@ class OperationsMixin:
         Returns the current positions-board feed backed by the wallet_positions mirror. Ordered
         by current_value_usd DESC with deterministic (wallet, condition_id, outcome_index)
         tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Cursor-
-        paginated. Every filter pushes into SQL.
+        paginated. Every filter pushes into SQL. Deep ...
 
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
-            min_size: Minimum current position value in USD.
+            min_size: Minimum current position value in USD. Defaults to 100 when omitted; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
+            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        return self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        return self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
 
     def list_large_positions(
         self,
@@ -297,14 +342,14 @@ class OperationsMixin:
         ``GET /api/v1/large-positions`` (operationId ``listLargePositions``).
 
         Returns the largest current open positions from graded traders, value-descending, with
-        opaque cursor pagination. Polymarket-only by design: the large-positions scanner filters
-        platform = 'polymarket' (backend/crates/large-positions/src/scanner.rs), so only
-        Polymarket rows are scanned and an unknown ...
+        opaque cursor pagination. This is a change-detection feed, not a holder list: a row
+        needs a current value of at least 50,000 USD and a live detection in the last 24 hours,
+        so a wallet that holds a market without ...
 
         Query parameters:
             limit: Maximum number of large positions to return.
             cursor: Opaque pagination cursor from a previous response.
-            min_size: Minimum position value in USD.
+            min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
             min_grade: Minimum trader grade.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Polymarket-only; an ...
@@ -497,6 +542,22 @@ class OperationsMixin:
         measured. Coverage divides measured rows ...
         """
         return self._call("getPickOfTheDayArchive", path_params={}, query={}, if_none_match=if_none_match)
+
+    def get_pick_of_the_day_ledger(
+        self,
+        *,
+        if_none_match: str | None = None,
+    ) -> Any:
+        """Get the Pick of the Day commitment ledger.
+
+        ``GET /api/v1/pick-of-the-day/ledger`` (operationId ``getPickOfTheDayLedger``).
+
+        Returns the pre-game commitment for every published pick, so the public track record can
+        be checked by someone who was not watching when the pick dropped. One entry per
+        (pick_date, pick_rank), ascending by pick_date then pick_rank, in one of three states.
+        `sealed` is a live pick: the hash, the ...
+        """
+        return self._call("getPickOfTheDayLedger", path_params={}, query={}, if_none_match=if_none_match)
 
     def list_trending_wallets(
         self,
@@ -729,6 +790,33 @@ class OperationsMixin:
         """
         return self._call("getPlatforms", path_params={}, query={})
 
+    def get_market_holders(
+        self,
+        condition_id: str,
+        *,
+        outcome: Any = None,
+        min_grade: Any = None,
+        limit: Any = None,
+        cursor: Any = None,
+        if_none_match: str | None = None,
+    ) -> Any:
+        """List a market's graded holders.
+
+        ``GET /api/v1/market/{condition_id}/holders`` (operationId ``getMarketHolders``).
+
+        The graded holder roster of one market, the list a Pick of the Day shows for its market,
+        for any Polymarket market: every S/A/B wallet with open shares on either outcome, from a
+        complete provider holder scan, each with its shares, Polymarket's own currentValue for
+        the leg, its grade, its win record ...
+
+        Query parameters:
+            outcome: Keep holders netting one side. `all` (default) lists both.
+            min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
+            limit: Maximum holders per page.
+            cursor: Pagination cursor from the previous response's next_cursor (prefix mh_). Pages are cut from one shared roster, so a cursor stays valid across the roster's ...
+        """
+        return self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+
     def get_market_intel(
         self,
         condition_id: str,
@@ -857,13 +945,13 @@ class OperationsMixin:
 
         ``GET /api/v1/events/feed/since`` (operationId ``getEventReplaySince``).
 
-        Returns durable public whale-trade intelligence events strictly after an opaque cursor
-        backed by whale_alerts.id. This is a separate API-key contract from the browser/session
-        /api/events/feed stream: browser-only and private alert, following, radar, and position
-        patch events are excluded until they ...
+        Returns durable public whale-trade intelligence events strictly after an opaque cursor,
+        in commit order: events are ordered by the position at which their write became visible
+        to every reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never
+        reaches past the oldest write ...
 
         Query parameters:
-            cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to whale_alerts.id and is valid across backend replicas. Omit to fetch ...
+            cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
             limit: Maximum durable public whale-trade events to return.
         """
         return self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit})
@@ -875,10 +963,10 @@ class OperationsMixin:
 
         ``GET /api/v1/webhooks`` (operationId ``listWebhooks``).
 
-        Returns webhook destinations owned by the authenticated API key user. Disabled endpoints
-        are omitted. Subscribable event_types and their payload shapes are described by GET
-        /api/v1/webhooks/events. Four subscribable event types are Pro-only and only deliver to
-        API keys on an active Pro ...
+        Returns webhook destinations owned by the authenticated API key user. Deleted endpoints
+        are omitted; an endpoint paused with PATCH or disabled after consecutive failures is
+        listed with status disabled. Subscribable event_types and their payload shapes are
+        described by GET /api/v1/webhooks/events. ...
         """
         return self._call("listWebhooks", path_params={}, query={})
 
@@ -934,6 +1022,24 @@ class OperationsMixin:
             limit: Maximum delivery rows to return per page.
         """
         return self._call("listWebhookDeliveries", path_params={"id": id}, query={"cursor": cursor, "limit": limit})
+
+    def redeliver_webhook_delivery(
+        self,
+        id: str,
+        delivery_id: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        """Redeliver a dead-lettered webhook delivery.
+
+        ``POST /api/v1/webhooks/{id}/deliveries/{delivery_id}/redeliver`` (operationId ``redeliverWebhookDelivery``).
+
+        Returns one dead_letter delivery to the delivery queue with a fresh attempt budget:
+        status becomes pending, attempt_count resets to 0, and next_attempt_at is now, so the
+        delivery worker claims it like any queued delivery, under the same per-owner and per-
+        origin concurrency limits. Use it after a ...
+        """
+        return self._call("redeliverWebhookDelivery", path_params={"id": id, "delivery_id": delivery_id}, query={}, idempotency_key=idempotency_key)
 
     def get_webhook(
         self,
@@ -1029,22 +1135,17 @@ class OperationsMixin:
     def create_mcp_json_rpc_response(
         self,
         body: Any,
-        *,
-        token: Any = None,
     ) -> Any:
         """Remote MCP endpoint (JSON-RPC).
 
         ``POST /api/v1/mcp`` (operationId ``createMcpJsonRpcResponse``).
 
-        Model Context Protocol (MCP) Streamable HTTP transport. Accepts a JSON-RPC 2.0 request
-        and returns a JSON-RPC response. Supported methods: initialize,
-        notifications/initialized, ping, tools/list, tools/call. Remote MCP exposes 33 read-only
-        tools for public V1 read operations: get_leaderboard, ...
-
-        Query parameters:
-            token: Legacy API-key query parameter for exact /api/v1/mcp only. Every other protected V1 route rejects it. Prefer Authorization: Bearer <token> or the stdio package ...
+        Model Context Protocol (MCP) Streamable HTTP transport. Accepts one JSON-RPC 2.0 request
+        or notification. ID-bearing initialize, ping, tools/list, and tools/call requests
+        receive one same-ID JSON-RPC response. ID-less ping, notifications/initialized, and
+        notifications/cancelled receive HTTP 202 ...
         """
-        return self._call("createMcpJsonRpcResponse", path_params={}, query={"token": token}, body=body)
+        return self._call("createMcpJsonRpcResponse", path_params={}, query={}, body=body)
 
     def get_reports(
         self,
@@ -1215,3 +1316,32 @@ class OperationsMixin:
         user to protect the usage-count ...
         """
         return self._call("getUsage", path_params={}, query={})
+
+    def get_market_context_markdown(
+        self,
+        condition_id: str,
+    ) -> Any:
+        """Get market context (Markdown).
+
+        ``GET /api/v1/market/{condition_id}/context.md`` (operationId ``getMarketContextMarkdown``).
+
+        Authenticated, self-contained Polymarket market evidence document. Renders the same
+        typed data as the market snapshot with trust included: identity, outcome labels and
+        tokens, cached quotes, liquidity, live sports, and per-source freshness or unavailable
+        reasons. Provider text is encoded as ...
+        """
+        return self._call("getMarketContextMarkdown", path_params={"condition_id": condition_id}, query={})
+
+    def get_account_identity(
+        self,
+    ) -> Any:
+        """Identify the authenticated account and credential.
+
+        ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
+
+        Returns the account and credential IDs admitted by API authentication, credential kind,
+        and approved scopes. Null scopes mean full developer-key access. Requires an active Pro
+        subscription and read scope for OAuth grants. Does not return credentials or personal
+        contact details.
+        """
+        return self._call("getAccountIdentity", path_params={}, query={})

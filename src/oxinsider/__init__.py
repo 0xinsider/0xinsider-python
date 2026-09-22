@@ -19,14 +19,18 @@ from ._errors import (
 )
 from ._operations import OPENAPI_VERSION, OPERATIONS
 from ._policy import InsecureTransportError
+from ._provenance import APP_COMMIT, OPENAPI_SHA256, OPERATION_COUNT
 from ._version import __version__
 
 __all__ = [
     "API_KEY_ENV",
+    "APP_COMMIT",
     "DEFAULT_MAX_READ_BYTES",
     "NOT_MODIFIED",
+    "OPENAPI_SHA256",
     "OPENAPI_VERSION",
     "OPERATIONS",
+    "OPERATION_COUNT",
     "PRODUCTION_BASE_URL",
     "SANDBOX_BASE_URL",
     "AuthenticationError",
