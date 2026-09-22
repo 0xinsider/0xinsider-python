@@ -11,7 +11,7 @@ import httpx
 
 from ._download import Download, DownloadError
 from ._errors import OxinsiderApiError, OxinsiderConnectionError, error_class_for
-from ._operations import OPERATIONS, OperationsMixin
+from ._operations import OPERATIONS, OperationsMixin, ResponseOperationsMixin
 from ._pagination import PaginationProgress
 from ._pagination import paginate as _walk_items
 from ._pagination import paginate_pages as _walk_pages
@@ -450,7 +450,7 @@ class Client(OperationsMixin):
         )
 
 
-class _ResponseClient(OperationsMixin):
+class _ResponseClient(ResponseOperationsMixin):
     """The operation methods of one ``Client``, answering with ``ApiResponse``.
 
     Reached as ``client.with_response``; it holds no state of its own and sends
@@ -460,11 +460,11 @@ class _ResponseClient(OperationsMixin):
     def __init__(self, client: Client) -> None:
         self._client = client
 
-    def request(self, method: str, path: str, **kwargs: Any) -> ApiResponse:
+    def request(self, method: str, path: str, **kwargs: Any) -> ApiResponse[Any]:
         """``Client.request`` with ``raw=True``."""
         return self._client.request(method, path, raw=True, **kwargs)
 
-    def _call(self, operation_id: str, **kwargs: Any) -> ApiResponse:
+    def _call(self, operation_id: str, **kwargs: Any) -> ApiResponse[Any]:
         return self._client._call(operation_id, raw=True, **kwargs)
 
     def _download(self, operation_id: str, **kwargs: Any) -> Download:

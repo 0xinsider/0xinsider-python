@@ -42,6 +42,9 @@ line-length = 120
 select = ["E", "F", "W", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# Generated: docstrings quote the OpenAPI descriptions verbatim.
+# Generated: docstrings, field comments and enum unions quote the OpenAPI
+# document verbatim, and a Literal of every documented value does not wrap.
 "src/oxinsider/_operations.py" = ["E501"]
+# E741: `Candle.l` is the low price, a field name the API owns.
+"src/oxinsider/types.py" = ["E501", "E741"]
 "scripts/generate.py" = ["E501"]

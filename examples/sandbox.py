@@ -7,7 +7,8 @@ with oxinsider.Client.sandbox() as client:
     print("leaderboard object:", leaderboard["object"], "rows:", len(leaderboard["data"]))
 
     trader = client.get_trader("0x0000000000000000000000000000000000000001")
-    print("trader grade:", trader["data"]["grade"])
+    # An ungraded wallet is uncovered, not unskilled: the key is absent, not "F".
+    print("trader grade:", trader["data"].get("grade", "ungraded"))
 
     try:
         client.request("GET", "/api/v1/leaderboard", query={"sandbox_status": 429})
