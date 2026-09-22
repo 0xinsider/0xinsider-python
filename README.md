@@ -209,6 +209,8 @@ An operation the document lists only to refuse (`GET /api/v1/mcp` answers `405`:
 
 - CLI and MCP server: `npm install --global @0xinsider/mcp` or `brew install 0xinsider/tap/oxinsider`
 - Go SDK: `go get github.com/0xinsider/0xinsider-go`
+- Node.js and TypeScript SDK: `@0xinsider/sdk` ([0xinsider/0xinsider-node](https://github.com/0xinsider/0xinsider-node))
+- Rust SDK: crate `oxinsider` ([0xinsider/0xinsider-rust](https://github.com/0xinsider/0xinsider-rust))
 - Remote MCP server: `https://api.0xinsider.com/api/v1/mcp`
 
 ## License
