@@ -25,6 +25,7 @@ from ._pagination import (
     pagination_checkpoint,
 )
 from ._policy import InsecureTransportError
+from ._response import ApiResponse, Budget
 from ._provenance import APP_COMMIT, OPENAPI_SHA256, OPERATION_COUNT
 from ._version import __version__
 
@@ -40,8 +41,10 @@ __all__ = [
     "OPERATION_COUNT",
     "PRODUCTION_BASE_URL",
     "SANDBOX_BASE_URL",
+    "ApiResponse",
     "AuthenticationError",
     "BadRequestError",
+    "Budget",
     "Client",
     "Download",
     "DownloadError",

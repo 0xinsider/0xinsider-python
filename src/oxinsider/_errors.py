@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._response import ApiResponse
+
 
 class OxinsiderError(Exception):
     """Base class for every error this package raises."""
@@ -21,6 +23,12 @@ class OxinsiderApiError(OxinsiderError):
     ``rate_limited``, ``rate_limit_unavailable``, ``internal_error``). ``reason`` is
     the additive, specific cause when the API sends one: branch on it first.
     A 408 transport timeout has an empty body, so ``code`` is ``None`` there.
+
+    ``response`` is the failed response itself (#16175): ``status``, ``headers``
+    and the parsed ``data``, with the same ``rate_limit``, ``monthly_quota``,
+    ``request_id`` and ``retry_after`` accessors a success has, so a 429 can be
+    handled from the window the API described rather than from a guess. It is
+    ``None`` only for an error built without one.
     """
 
     def __init__(
@@ -35,6 +43,7 @@ class OxinsiderApiError(OxinsiderError):
         retry_after: float | None = None,
         request_id: str | None = None,
         body: Any = None,
+        response: ApiResponse | None = None,
     ) -> None:
         super().__init__(f"{status} {code or 'error'}: {message}")
         self.status = status
@@ -46,6 +55,7 @@ class OxinsiderApiError(OxinsiderError):
         self.retry_after = retry_after
         self.request_id = request_id
         self.body = body
+        self.response = response
 
 
 class BadRequestError(OxinsiderApiError):
