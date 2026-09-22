@@ -36,7 +36,11 @@ npx skills add 0xinsider/agent-plugin
   100-request-per-minute budget.
 - **Branch on `error.code`, never the message string.**
 - **Follow cursors to completion.** Feeds and timelines are paged and move
-  while you read them. Never page by offset, never total a partial page.
+  while you read them. Never page by offset, never total a partial page. Use
+  `client.paginate(...)`: it validates each page before yielding it, refuses a
+  `has_more` with no cursor and a cursor that repeats, and keeps a resumable
+  checkpoint (`progress=`, `oxinsider.pagination_checkpoint(error)`). A
+  `PaginationError` is a malformed response, never an exhausted collection.
 - **Send `Idempotency-Key` on writes,** and reuse it across retries.
 
 ## Rules for presenting the data
