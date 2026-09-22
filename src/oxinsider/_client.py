@@ -12,6 +12,9 @@ import httpx
 from ._download import Download, DownloadError
 from ._errors import OxinsiderApiError, OxinsiderConnectionError, error_class_for
 from ._operations import OPERATIONS, OperationsMixin
+from ._pagination import PaginationProgress
+from ._pagination import paginate as _walk_items
+from ._pagination import paginate_pages as _walk_pages
 from ._policy import assert_credential_destination, is_trusted_destination
 from ._version import __version__
 
@@ -271,22 +274,74 @@ class Client(OperationsMixin):
             )
         return Download(file_response, location=location)
 
-    def paginate(self, method_name: str, **kwargs: Any) -> Iterator[Any]:
+    def paginate(
+        self,
+        method_name: str,
+        *,
+        max_pages: int | None = None,
+        max_items: int | None = None,
+        progress: PaginationProgress | None = None,
+        **kwargs: Any,
+    ) -> Iterator[Any]:
         """Yield every item of a cursor-paginated list, following ``next_cursor``.
 
         ``client.paginate("list_whale_trades", min_grade="A", limit=100)``
+
+        The filters are sent unchanged on every page; only the cursor moves.
+        ``cursor=`` starts the walk part way through, which is how an
+        interrupted one is resumed.
+
+        A page that breaks the list protocol raises ``PaginationError`` before
+        it is yielded and before another request: a response that is not a list
+        envelope, ``data`` that is not a list, ``has_more`` with no usable
+        ``next_cursor``, or a ``next_cursor`` this walk already requested. An
+        exhausted collection and a valid empty page still end the walk quietly.
+
+        ``max_pages`` caps requests and ``max_items`` caps items; each is a
+        positive integer or ``None``, checked before the first request. Pass a
+        ``PaginationProgress`` as ``progress=`` to read afterwards where the
+        walk got to and why it stopped, and see ``pagination_checkpoint`` to
+        recover the same from a failure.
         """
-        method = getattr(self, method_name)
         cursor = kwargs.pop("cursor", None)
-        while True:
-            page = method(cursor=cursor, **kwargs)
-            data = page.get("data") if isinstance(page, dict) else None
-            if isinstance(data, list):
-                yield from data
-            next_cursor = page.get("next_cursor") if isinstance(page, dict) else None
-            if not (isinstance(page, dict) and page.get("has_more") and next_cursor):
-                return
-            cursor = next_cursor
+        return _walk_items(
+            getattr(self, method_name),
+            method_name,
+            filters=kwargs,
+            cursor=cursor,
+            max_pages=max_pages,
+            max_items=max_items,
+            progress=progress,
+        )
+
+    def paginate_pages(
+        self,
+        method_name: str,
+        *,
+        max_pages: int | None = None,
+        max_items: int | None = None,
+        progress: PaginationProgress | None = None,
+        **kwargs: Any,
+    ) -> Iterator[Any]:
+        """Yield whole list pages instead of items, with the same checks as ``paginate``.
+
+        Use it when you need the envelope rather than only the items: ``total``,
+        ``has_more``, ``next_cursor``, or ``meta`` for the request ID and the
+        request's cost.
+
+        ``max_items`` stops the walk after the first page that reaches it; a
+        page is never cut in half here.
+        """
+        cursor = kwargs.pop("cursor", None)
+        return _walk_pages(
+            getattr(self, method_name),
+            method_name,
+            filters=kwargs,
+            cursor=cursor,
+            max_pages=max_pages,
+            max_items=max_items,
+            progress=progress,
+        )
 
     @staticmethod
     def _operation_path(operation_id: str, path_params: Mapping[str, str]) -> str:

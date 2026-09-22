@@ -47,6 +47,47 @@ for trade in client.paginate("list_whale_trades", min_grade="A", limit=100):
 - The SSE stream is read with `client.request("GET", "/api/v1/stream", stream=True)`, which returns the open `httpx.Response`.
 - A redirect-only operation returns a streaming `Download` instead of a body: `download_trader_export` (the API answers 302 to a short-lived file location once the job is `ready`) and `redirect_api_openapi_spec` (307 to the web origin). The redirect is followed once, and the credential is never sent to the file host.
 
+## Paging
+
+`paginate` walks a cursor-paginated list to the end. The filters go out unchanged on every page; only the cursor moves. `paginate_pages` yields whole envelopes instead of items, when you need `total`, `has_more` or `meta`.
+
+```python
+progress = oxinsider.PaginationProgress()
+for trade in client.paginate("list_whale_trades", min_grade="A", limit=100, max_pages=20, progress=progress):
+    handle(trade)
+
+print(progress.pages_fetched, progress.items_yielded, progress.stopped_by)
+if progress.stopped_by == "max_pages":
+    print("more to read from", progress.next_cursor)
+```
+
+The walk checks each page before handing it to you, so a broken response is visible instead of looking like a finished dataset:
+
+| What came back | What happens |
+| --- | --- |
+| `has_more: false` | The walk ends. `stopped_by` reads `"exhausted"`. A valid empty page is a normal end. |
+| Not a list envelope, or `data` is not a list | `PaginationError` with `reason` `invalid_envelope` or `invalid_data`, before anything is yielded. |
+| `has_more: true`, `next_cursor` missing, null or empty | `PaginationError`, `reason` `missing_cursor`. |
+| `next_cursor` this walk already requested | `PaginationError`, `reason` `repeated_cursor`, raised before the duplicate request goes out. |
+| A 304 from `if_none_match` | The walk ends with `stopped_by` `"not_modified"`. |
+
+`max_pages` and `max_items` are each a positive integer or `None`, checked before the first request; `0`, a negative or a float raises `ValueError` without spending one. Reaching a bound is your choice, not the end of the collection: `stopped_by` says which, and `progress.next_cursor` carries on.
+
+Wherever a walk stops, the checkpoint survives it. `progress.cursor` is the page the walk stopped on -- pass it back as `cursor=` to refetch that page and lose nothing -- and `progress.next_cursor` continues past a page you finished. On a failure (a rate limit, an expired cursor, a dropped connection) the original error is raised unchanged and `oxinsider.pagination_checkpoint(error)` returns the same checkpoint, so recovery never silently restarts at page one:
+
+```python
+try:
+    for trade in client.paginate("list_whale_trades", min_grade="A"):
+        handle(trade)
+except oxinsider.OxinsiderError as error:
+    resume = oxinsider.pagination_checkpoint(error)
+    if resume is not None:
+        for trade in client.paginate("list_whale_trades", min_grade="A", cursor=resume.cursor):
+            handle(trade)
+```
+
+`PaginationError` carries `reason`, `method_name`, `page` (the response as received), `cursor`, `next_cursor`, `pages_fetched`, `items_yielded`, `checkpoint` and the page's `request_id` when it had one. The last `oxinsider.CURSOR_HISTORY_LIMIT` cursors are remembered for the repeat check, which keeps a long walk's memory flat; a cycle longer than that is not detected.
+
 ## Exports
 
 ```python
