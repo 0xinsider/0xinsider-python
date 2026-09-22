@@ -59,6 +59,7 @@ wrong number.
 ## Conventions
 
 - No emojis, in code, docs, commits, or issues. Use plain-text markers.
+- A credential goes over `https://` only, or `http://` to a loopback host (`src/oxinsider/_policy.py`, hand-written, kept outside the generated file): the constructor and every request check the destination, and the SDK never follows a redirect on its own (`Client.download` follows the one documented hop without the credential). Regeneration must not route credentials around it.
 - The import name is `oxinsider`, not `0xinsider`. Python 3.9+, one dependency (httpx). Generated sources are regenerated from the spec, not hand-edited.
 
 ## Official resources

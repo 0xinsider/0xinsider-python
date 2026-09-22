@@ -18,6 +18,7 @@ from ._errors import (
     SubscriptionRequiredError,
 )
 from ._operations import OPENAPI_VERSION, OPERATIONS
+from ._policy import InsecureTransportError
 from ._version import __version__
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "Client",
     "Download",
     "DownloadError",
+    "InsecureTransportError",
     "NotFoundError",
     "OxinsiderApiError",
     "OxinsiderConnectionError",

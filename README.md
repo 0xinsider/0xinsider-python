@@ -60,6 +60,10 @@ print(saved.bytes_written, saved.sha256)
 
 `iter_bytes()` streams the decoded file and `iter_raw()` the bytes as sent, so memory stays bounded whatever the size; `read()` returns the file in memory and refuses more than 64 MiB unless `max_bytes` says otherwise. No manifest or checksum is published for an export: `save` returns the SHA-256 of exactly what it wrote, and `etag` is the file host's object identity, not a content hash. A job that is not `ready` raises the API's own `BadRequestError`; an expired location, a refused host, or an interrupted transfer raises `DownloadError` with `reason` (`insecure_location`, `unexpected_redirect`, `unavailable`, `too_large`, `interrupted`, `not_redirected`, `missing_location`) and never the signed URL.
 
+## Where the key goes
+
+The key is sent over `https://` only, or over `http://` to a loopback host (`localhost`, `127.0.0.1`, `[::1]`) for a backend you run yourself. A `base_url` that would send it anywhere else raises `oxinsider.InsecureTransportError` from the constructor, before any request; the same check runs on every request, so a key added later or an `auth=` on your own `httpx.Client` cannot bypass it. A keyless client may still call the public operations on such a base. The SDK never follows a redirect on its own (see `Download`), so an `https://` answer cannot downgrade a request to `http://`.
+
 ## Errors
 
 Every non-2xx response from the API raises `oxinsider.OxinsiderApiError` or a subclass: `BadRequestError`, `AuthenticationError`, `SubscriptionRequiredError`, `PermissionDeniedError`, `NotFoundError`, `RateLimitedError` or `ServerError`. Each carries `status`, `code`, `reason`, `param`, `retry_at`, `retry_after` and `request_id`. Branch on `reason` when it is present. For `RateLimitedError`, wait `retry_after` seconds. A request that gets no response raises `OxinsiderConnectionError`.
