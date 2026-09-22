@@ -34,7 +34,14 @@ npx skills add 0xinsider/agent-plugin
   generated files.
 - **Batch instead of looping.** Batch reads accept 25 items against a
   100-request-per-minute budget.
-- **Branch on `error.code`, never the message string.**
+- **Branch on `error.code`, never the message string.** `error.response` carries
+  the failed response's status and headers, including the rate-limit window.
+- **Read your budget from the response, not from a guess.**
+  `client.with_response.<method>()` returns an `ApiResponse`: the same body under
+  `.data`, plus `.etag` for the next conditional read, `.request_id`,
+  `.rate_limit`, `.monthly_quota`, `.batch_rate_limit` and `.request_cost`. A
+  header the API did not send reads `None`, never `0`; do not treat a missing
+  budget as an exhausted one.
 - **Follow cursors to completion.** Feeds and timelines are paged and move
   while you read them. Never page by offset, never total a partial page. Use
   `client.paginate(...)`: it validates each page before yielding it, refuses a

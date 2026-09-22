@@ -16,6 +16,7 @@ from ._pagination import PaginationProgress
 from ._pagination import paginate as _walk_items
 from ._pagination import paginate_pages as _walk_pages
 from ._policy import assert_credential_destination, is_trusted_destination
+from ._response import ApiResponse
 from ._version import __version__
 
 PRODUCTION_BASE_URL = "https://api.0xinsider.com"
@@ -108,6 +109,7 @@ class Client(OperationsMixin):
         idempotency_key: str | None = None,
         headers: Mapping[str, str] | None = None,
         stream: bool = False,
+        raw: bool = False,
     ) -> Any:
         """Send one request and return the decoded body.
 
@@ -116,7 +118,17 @@ class Client(OperationsMixin):
         (Markdown, CSV) returns the text. With ``stream=True`` the open
         ``httpx.Response`` is returned for the caller to iterate and close, which
         is how the SSE stream (``GET /api/v1/stream``) is read.
+
+        With ``raw=True`` the same call returns an ``ApiResponse`` instead: the
+        identical body as ``.data``, plus ``.status``, ``.headers`` and the
+        ``etag``, ``request_id``, ``rate_limit``, ``monthly_quota`` and
+        ``retry_after`` accessors. It changes nothing about the request that
+        goes out, and an error status still raises. ``stream=True`` already
+        hands back the open response with its own headers, so the two cannot be
+        combined.
         """
+        if raw and stream:
+            raise ValueError("raw=True and stream=True cannot be combined: a stream returns the open response")
         request = self._build_api_request(
             method,
             path,
@@ -132,14 +144,39 @@ class Client(OperationsMixin):
         if stream:
             response.read()
         if response.status_code == 304:
-            return {**NOT_MODIFIED, "etag": response.headers.get("etag")}
-        if not response.is_success:
+            decoded: Any = {**NOT_MODIFIED, "etag": response.headers.get("etag")}
+        elif not response.is_success:
             raise self._error(response)
-        if response.status_code == 204 or not response.content:
-            return None
-        if "json" in response.headers.get("content-type", ""):
-            return response.json()
-        return response.text
+        elif response.status_code == 204 or not response.content:
+            decoded = None
+        elif "json" in response.headers.get("content-type", ""):
+            decoded = response.json()
+        else:
+            decoded = response.text
+        if raw:
+            return ApiResponse(data=decoded, status=response.status_code, headers=response.headers)
+        return decoded
+
+    @property
+    def with_response(self) -> _ResponseClient:
+        """Every operation, returning an ``ApiResponse`` instead of the body alone.
+
+        ``client.with_response.get_trader("swisstony")`` sends exactly the
+        request ``client.get_trader("swisstony")`` sends and answers with the
+        same body under ``.data``, plus the status, the headers, the ``etag``
+        for the next conditional read, the ``request_id``, and the
+        ``rate_limit`` and ``monthly_quota`` budgets. The body-only methods are
+        unchanged.
+
+        A redirect-only operation (``download_trader_export``,
+        ``redirect_api_openapi_spec``) already returns a ``Download`` carrying
+        the file's own headers, so it is unchanged here too.
+        """
+        client = getattr(self, "_with_response", None)
+        if client is None:
+            client = _ResponseClient(self)
+            self._with_response = client
+        return client
 
     def _build_api_request(
         self,
@@ -369,6 +406,7 @@ class Client(OperationsMixin):
         body: Any = None,
         if_none_match: str | None = None,
         idempotency_key: str | None = None,
+        raw: bool = False,
     ) -> Any:
         operation = OPERATIONS[operation_id]
         path = self._operation_path(operation_id, path_params)
@@ -380,6 +418,7 @@ class Client(OperationsMixin):
             if_none_match=if_none_match,
             idempotency_key=idempotency_key,
             headers={"Accept": operation.accept},
+            raw=raw,
         )
 
     @staticmethod
@@ -407,4 +446,27 @@ class Client(OperationsMixin):
             retry_after=_retry_after(response),
             request_id=meta.get("request_id") or response.headers.get("x-request-id"),
             body=payload,
+            response=ApiResponse(data=payload, status=response.status_code, headers=response.headers),
         )
+
+
+class _ResponseClient(OperationsMixin):
+    """The operation methods of one ``Client``, answering with ``ApiResponse``.
+
+    Reached as ``client.with_response``; it holds no state of its own and sends
+    the same requests the client does.
+    """
+
+    def __init__(self, client: Client) -> None:
+        self._client = client
+
+    def request(self, method: str, path: str, **kwargs: Any) -> ApiResponse:
+        """``Client.request`` with ``raw=True``."""
+        return self._client.request(method, path, raw=True, **kwargs)
+
+    def _call(self, operation_id: str, **kwargs: Any) -> ApiResponse:
+        return self._client._call(operation_id, raw=True, **kwargs)
+
+    def _download(self, operation_id: str, **kwargs: Any) -> Download:
+        # A redirect-only operation already answers with the file's own headers.
+        return self._client._download(operation_id, **kwargs)

@@ -41,11 +41,75 @@ for trade in client.paginate("list_whale_trades", min_grade="A", limit=100):
     print(trade["size_usd"], trade["market"]["title"])
 ```
 
-- Every documented operation is a method named after its operationId in snake_case (`listLeaderboard` becomes `list_leaderboard`). Each returns the decoded JSON body.
+- Every documented operation is a method named after its operationId in snake_case (`listLeaderboard` becomes `list_leaderboard`). Each returns the decoded JSON body; `client.with_response.<method>()` returns the same body with the status and headers beside it.
 - `if_none_match="<etag>"` returns `{"object": "not_modified", "data": None, "etag": ...}` when nothing changed.
 - `idempotency_key=` is accepted on the webhook mutations that document it.
 - The SSE stream is read with `client.request("GET", "/api/v1/stream", stream=True)`, which returns the open `httpx.Response`.
 - A redirect-only operation returns a streaming `Download` instead of a body: `download_trader_export` (the API answers 302 to a short-lived file location once the job is `ready`) and `redirect_api_openapi_spec` (307 to the web origin). The redirect is followed once, and the credential is never sent to the file host.
+
+## Headers, caching and budgets
+
+Every operation method returns the decoded body, and that does not change. When you need the rest of the answer, call the same operation through `with_response` and get an `ApiResponse`: `.data` is the identical body, and `.status` and `.headers` come with it.
+
+```python
+r = client.with_response.get_trader("swisstony")
+print(r.data["data"]["grade"], r.status, r.etag, r.request_id)
+```
+
+### Conditional reads
+
+`.etag` on a `200` is what you send back as `if_none_match`. A `304` means your cached copy is still current, and it does not count against your data budget the way a full read does.
+
+```python
+cached = client.with_response.get_trader("swisstony")
+body, etag = cached.data, cached.etag
+
+fresh = client.with_response.get_trader("swisstony", if_none_match=etag)
+if fresh.not_modified:
+    pass                      # keep `body`; fresh.etag is the same validator
+else:
+    body, etag = fresh.data, fresh.etag
+```
+
+### Budgets
+
+`.rate_limit`, `.monthly_quota` and `.batch_rate_limit` each return a `Budget` (`limit`, `remaining`, `reset_at`, `reset_after`) or `None` when the response said nothing about that window. `reset_at` is a UNIX epoch second; `reset_after` is seconds from now and only the per-minute window publishes it. `.request_cost` is how many batch items a batch call charged, and `.server_timing_ms` is the API's own processing time.
+
+```python
+r = client.with_response.batch_get_traders({"traders": ["swisstony", "0xabc..."]})
+print(r.request_cost, r.batch_rate_limit, r.monthly_quota, r.server_timing_ms)
+
+month = r.monthly_quota
+if month is not None and month.remaining is not None and month.remaining < 1000:
+    slow_down()
+```
+
+An absent header is `None`, never `0`. "This response carried no quota information" and "you have no quota left" are different facts, and only the second one should stop your client. A header that is present but not a number reads `None` as well, rather than raising in the middle of your read.
+
+| You want | Read |
+| --- | --- |
+| The validator for the next conditional read | `.etag` |
+| Whether a conditional read matched | `.not_modified` (the `304`) |
+| The id to quote in a bug report | `.request_id` (same as `meta.request_id`) |
+| How long to wait | `.retry_after` |
+| The per-minute window | `.rate_limit` |
+| The calendar-month request quota | `.monthly_quota` |
+| The batch routes' per-item window | `.batch_rate_limit`, `.request_cost` |
+| The API's own processing time | `.server_timing_ms` |
+| Whether the sandbox answered | `.sandbox` |
+| Anything else | `.header("name")`, `.headers` |
+
+A failure carries the same thing: `OxinsiderApiError.response` is the failed `ApiResponse`, so a `429` can be handled from the window the API described rather than from a guess.
+
+```python
+try:
+    client.list_whale_trades(limit=100)
+except oxinsider.RateLimitedError as error:
+    window = error.response.rate_limit if error.response else None
+    wait(error.retry_after or (window.reset_after if window else 60))
+```
+
+`client.request(method, path, raw=True)` does the same for a hand-built call. `stream=True` already hands back the open `httpx.Response` with its own headers, so the two cannot be combined; a redirect-only operation already returns a `Download` carrying the file's headers.
 
 ## Paging
 
