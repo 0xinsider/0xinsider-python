@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, NamedTuple
 
+from ._download import Download
+
 
 OPENAPI_VERSION = "1.0.0"
 
@@ -12,73 +14,78 @@ class Operation(NamedTuple):
     method: str
     path: str
     streaming: bool = False
+    redirect: bool = False
 
 
 OPERATIONS: dict[str, Operation] = {
-    "getApiDiscovery": Operation("GET", "/api/v1", streaming=False),
-    "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False),
-    "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False),
-    "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False),
-    "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False),
-    "batchGetTraders": Operation("POST", "/api/v1/traders/batch", streaming=False),
-    "getPositionTimeline": Operation("GET", "/api/v1/trader/{address}/position-timeline", streaming=False),
-    "getTraderPnl": Operation("GET", "/api/v1/trader/{address}/pnl", streaming=False),
-    "getPositionTimelineById": Operation("GET", "/api/v1/traders/{trader}/position-timeline", streaming=False),
-    "listPositions": Operation("GET", "/api/v1/positions", streaming=False),
-    "listLargePositions": Operation("GET", "/api/v1/large-positions", streaming=False),
-    "listWhaleTrades": Operation("GET", "/api/v1/whale-trades", streaming=False),
-    "listWhaleTradeHistory": Operation("GET", "/api/v1/whale-trades/history", streaming=False),
-    "getWhaleTrade": Operation("GET", "/api/v1/whale-trades/{id}", streaming=False),
-    "listWhaleTradeCounterpartyExecutions": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions", streaming=False),
-    "listWhaleTradeCounterpartyMakers": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers", streaming=False),
-    "listLeaderboard": Operation("GET", "/api/v1/leaderboard", streaming=False),
-    "getPickOfTheDay": Operation("GET", "/api/v1/pick-of-the-day", streaming=False),
-    "getPickOfTheDayArchive": Operation("GET", "/api/v1/pick-of-the-day/archive", streaming=False),
-    "listTrendingWallets": Operation("GET", "/api/v1/leaderboard/trending", streaming=False),
-    "searchMarkets": Operation("GET", "/api/v1/markets/search", streaming=False),
-    "searchContent": Operation("GET", "/api/v1/content/search", streaming=False),
-    "exploreMarkets": Operation("GET", "/api/v1/markets/explore", streaming=False),
-    "listSmartMoneyFlows": Operation("GET", "/api/v1/markets/smart-money-flows", streaming=False),
-    "listSharpMoneyFlows": Operation("GET", "/api/v1/markets/sharp-money-flows", streaming=False),
-    "listSportsEdgeSignals": Operation("GET", "/api/v1/sports-edge-signals", streaming=False),
-    "listSportsEdgeObservations": Operation("GET", "/api/v1/sports-edge-observations", streaming=False),
-    "getPlatforms": Operation("GET", "/api/v1/platforms", streaming=False),
-    "getMarketIntel": Operation("GET", "/api/v1/market/{condition_id}/intel", streaming=False),
-    "batchGetMarketIntel": Operation("POST", "/api/v1/markets/intel/batch", streaming=False),
-    "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False),
-    "getMarketCandles": Operation("GET", "/api/v1/market/{condition_id}/candles", streaming=False),
-    "listInsiderRadar": Operation("GET", "/api/v1/insider-radar", streaming=False),
-    "getInsiderRadarFlag": Operation("GET", "/api/v1/insider-radar/{id}", streaming=False),
-    "getStream": Operation("GET", "/api/v1/stream", streaming=True),
-    "getEventReplaySince": Operation("GET", "/api/v1/events/feed/since", streaming=False),
-    "listWebhooks": Operation("GET", "/api/v1/webhooks", streaming=False),
-    "createWebhook": Operation("POST", "/api/v1/webhooks", streaming=False),
-    "listWebhookEvents": Operation("GET", "/api/v1/webhooks/events", streaming=False),
-    "listWebhookDeliveries": Operation("GET", "/api/v1/webhooks/{id}/deliveries", streaming=False),
-    "getWebhook": Operation("GET", "/api/v1/webhooks/{id}", streaming=False),
-    "updateWebhook": Operation("PATCH", "/api/v1/webhooks/{id}", streaming=False),
-    "deleteWebhook": Operation("DELETE", "/api/v1/webhooks/{id}", streaming=False),
-    "verifyWebhook": Operation("POST", "/api/v1/webhooks/{id}/verify", streaming=False),
-    "rotateWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret", streaming=False),
-    "getHealth": Operation("GET", "/api/v1/health", streaming=False),
-    "openMcpEventStream": Operation("GET", "/api/v1/mcp", streaming=True),
-    "createMcpJsonRpcResponse": Operation("POST", "/api/v1/mcp", streaming=False),
-    "getReports": Operation("GET", "/api/v1/reports", streaming=False),
-    "getDailyReportSnapshot": Operation("GET", "/api/v1/reports/daily", streaming=False),
-    "getWeeklyReportSnapshot": Operation("GET", "/api/v1/reports/weekly", streaming=False),
-    "getMonthlyReportSnapshot": Operation("GET", "/api/v1/reports/monthly", streaming=False),
-    "getTraderExportSnapshot": Operation("GET", "/api/v1/trader/{address}/export", streaming=False),
-    "submitTraderExport": Operation("POST", "/api/v1/trader/{address}/export", streaming=False),
-    "getTraderExportStatus": Operation("GET", "/api/v1/trader/{address}/export/status", streaming=False),
-    "downloadTraderExport": Operation("GET", "/api/v1/trader/{address}/export/download", streaming=False),
-    "getUsage": Operation("GET", "/api/v1/usage", streaming=False),
+    "getApiDiscovery": Operation("GET", "/api/v1", streaming=False, redirect=False),
+    "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False, redirect=True),
+    "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False, redirect=False),
+    "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False),
+    "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False, redirect=False),
+    "batchGetTraders": Operation("POST", "/api/v1/traders/batch", streaming=False, redirect=False),
+    "getPositionTimeline": Operation("GET", "/api/v1/trader/{address}/position-timeline", streaming=False, redirect=False),
+    "getTraderPnl": Operation("GET", "/api/v1/trader/{address}/pnl", streaming=False, redirect=False),
+    "getPositionTimelineById": Operation("GET", "/api/v1/traders/{trader}/position-timeline", streaming=False, redirect=False),
+    "listPositions": Operation("GET", "/api/v1/positions", streaming=False, redirect=False),
+    "listLargePositions": Operation("GET", "/api/v1/large-positions", streaming=False, redirect=False),
+    "listWhaleTrades": Operation("GET", "/api/v1/whale-trades", streaming=False, redirect=False),
+    "listWhaleTradeHistory": Operation("GET", "/api/v1/whale-trades/history", streaming=False, redirect=False),
+    "getWhaleTrade": Operation("GET", "/api/v1/whale-trades/{id}", streaming=False, redirect=False),
+    "listWhaleTradeCounterpartyExecutions": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions", streaming=False, redirect=False),
+    "listWhaleTradeCounterpartyMakers": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers", streaming=False, redirect=False),
+    "listLeaderboard": Operation("GET", "/api/v1/leaderboard", streaming=False, redirect=False),
+    "getPickOfTheDay": Operation("GET", "/api/v1/pick-of-the-day", streaming=False, redirect=False),
+    "getPickOfTheDayArchive": Operation("GET", "/api/v1/pick-of-the-day/archive", streaming=False, redirect=False),
+    "listTrendingWallets": Operation("GET", "/api/v1/leaderboard/trending", streaming=False, redirect=False),
+    "searchMarkets": Operation("GET", "/api/v1/markets/search", streaming=False, redirect=False),
+    "searchContent": Operation("GET", "/api/v1/content/search", streaming=False, redirect=False),
+    "exploreMarkets": Operation("GET", "/api/v1/markets/explore", streaming=False, redirect=False),
+    "listSmartMoneyFlows": Operation("GET", "/api/v1/markets/smart-money-flows", streaming=False, redirect=False),
+    "listSharpMoneyFlows": Operation("GET", "/api/v1/markets/sharp-money-flows", streaming=False, redirect=False),
+    "listSportsEdgeSignals": Operation("GET", "/api/v1/sports-edge-signals", streaming=False, redirect=False),
+    "listSportsEdgeObservations": Operation("GET", "/api/v1/sports-edge-observations", streaming=False, redirect=False),
+    "getPlatforms": Operation("GET", "/api/v1/platforms", streaming=False, redirect=False),
+    "getMarketIntel": Operation("GET", "/api/v1/market/{condition_id}/intel", streaming=False, redirect=False),
+    "batchGetMarketIntel": Operation("POST", "/api/v1/markets/intel/batch", streaming=False, redirect=False),
+    "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False, redirect=False),
+    "getMarketCandles": Operation("GET", "/api/v1/market/{condition_id}/candles", streaming=False, redirect=False),
+    "listInsiderRadar": Operation("GET", "/api/v1/insider-radar", streaming=False, redirect=False),
+    "getInsiderRadarFlag": Operation("GET", "/api/v1/insider-radar/{id}", streaming=False, redirect=False),
+    "getStream": Operation("GET", "/api/v1/stream", streaming=True, redirect=False),
+    "getEventReplaySince": Operation("GET", "/api/v1/events/feed/since", streaming=False, redirect=False),
+    "listWebhooks": Operation("GET", "/api/v1/webhooks", streaming=False, redirect=False),
+    "createWebhook": Operation("POST", "/api/v1/webhooks", streaming=False, redirect=False),
+    "listWebhookEvents": Operation("GET", "/api/v1/webhooks/events", streaming=False, redirect=False),
+    "listWebhookDeliveries": Operation("GET", "/api/v1/webhooks/{id}/deliveries", streaming=False, redirect=False),
+    "getWebhook": Operation("GET", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
+    "updateWebhook": Operation("PATCH", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
+    "deleteWebhook": Operation("DELETE", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
+    "verifyWebhook": Operation("POST", "/api/v1/webhooks/{id}/verify", streaming=False, redirect=False),
+    "rotateWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret", streaming=False, redirect=False),
+    "getHealth": Operation("GET", "/api/v1/health", streaming=False, redirect=False),
+    "openMcpEventStream": Operation("GET", "/api/v1/mcp", streaming=True, redirect=False),
+    "createMcpJsonRpcResponse": Operation("POST", "/api/v1/mcp", streaming=False, redirect=False),
+    "getReports": Operation("GET", "/api/v1/reports", streaming=False, redirect=False),
+    "getDailyReportSnapshot": Operation("GET", "/api/v1/reports/daily", streaming=False, redirect=False),
+    "getWeeklyReportSnapshot": Operation("GET", "/api/v1/reports/weekly", streaming=False, redirect=False),
+    "getMonthlyReportSnapshot": Operation("GET", "/api/v1/reports/monthly", streaming=False, redirect=False),
+    "getTraderExportSnapshot": Operation("GET", "/api/v1/trader/{address}/export", streaming=False, redirect=False),
+    "submitTraderExport": Operation("POST", "/api/v1/trader/{address}/export", streaming=False, redirect=False),
+    "getTraderExportStatus": Operation("GET", "/api/v1/trader/{address}/export/status", streaming=False, redirect=False),
+    "downloadTraderExport": Operation("GET", "/api/v1/trader/{address}/export/download", streaming=False, redirect=True),
+    "getUsage": Operation("GET", "/api/v1/usage", streaming=False, redirect=False),
 }
 
 
 class OperationsMixin:
-    """One method per documented operation. Each returns the decoded JSON body."""
+    """One method per documented operation. Each returns the decoded JSON body,
+    except a redirect-only operation, which returns a streaming ``Download``."""
 
     def _call(self, operation_id: str, **kwargs: Any) -> Any:  # pragma: no cover - provided by Client
+        raise NotImplementedError
+
+    def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client
         raise NotImplementedError
 
     def get_api_discovery(
@@ -97,15 +104,20 @@ class OperationsMixin:
 
     def redirect_api_openapi_spec(
         self,
-    ) -> Any:
+    ) -> Download:
         """Redirect to the canonical OpenAPI spec.
 
         ``GET /api/v1/openapi.json`` (operationId ``redirectApiOpenapiSpec``).
 
         Unauthenticated API-origin compatibility redirect to the canonical web-origin OpenAPI
         JSON document at https://0xinsider.com/api/v1/openapi.json.
+
+        Returns a ``Download``: the redirect is followed once, without the credential, and the
+        file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
+        (bounded); close it when done. A redirect or transfer fault raises ``DownloadError``;
+        the API's own errors raise ``OxinsiderApiError``.
         """
-        return self._call("redirectApiOpenapiSpec", path_params={}, query={})
+        return self._download("redirectApiOpenapiSpec", path_params={}, query={})
 
     def get_trader(
         self,
@@ -1170,7 +1182,7 @@ class OperationsMixin:
         address: str,
         *,
         job_id: Any = None,
-    ) -> Any:
+    ) -> Download:
         """Download a finished trader export.
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
@@ -1180,10 +1192,15 @@ class OperationsMixin:
         (application/json, application/x-ndjson, or text/csv). Returns 400 while the job is not
         yet ready (poll the status route ...
 
+        Returns a ``Download``: the redirect is followed once, without the credential, and the
+        file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
+        (bounded); close it when done. A redirect or transfer fault raises ``DownloadError``;
+        the API's own errors raise ``OxinsiderApiError``.
+
         Query parameters:
             job_id: Export job id returned by the submit route.
         """
-        return self._call("downloadTraderExport", path_params={"address": address}, query={"job_id": job_id})
+        return self._download("downloadTraderExport", path_params={"address": address}, query={"job_id": job_id})
 
     def get_usage(
         self,

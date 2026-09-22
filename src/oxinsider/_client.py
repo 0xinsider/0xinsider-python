@@ -9,8 +9,10 @@ from urllib.parse import quote
 
 import httpx
 
+from ._download import Download, DownloadError
 from ._errors import OxinsiderApiError, OxinsiderConnectionError, error_class_for
 from ._operations import OPERATIONS, OperationsMixin
+from ._policy import is_trusted_destination
 from ._version import __version__
 
 PRODUCTION_BASE_URL = "https://api.0xinsider.com"
@@ -104,28 +106,16 @@ class Client(OperationsMixin):
         ``httpx.Response`` is returned for the caller to iterate and close, which
         is how the SSE stream (``GET /api/v1/stream``) is read.
         """
-        request_headers = {
-            "Accept": "application/json",
-            "User-Agent": f"0xinsider-python/{__version__}",
-        }
-        if self.api_key:
-            request_headers["Authorization"] = f"Bearer {self.api_key}"
-        if if_none_match:
-            request_headers["If-None-Match"] = if_none_match
-        if idempotency_key:
-            request_headers["Idempotency-Key"] = idempotency_key
-        request_headers.update(headers or {})
-        request = self._http.build_request(
-            method.upper(),
-            f"{self.base_url}{path}",
-            params=_clean_query(query),
-            json=body,
-            headers=request_headers,
+        request = self._build_api_request(
+            method,
+            path,
+            query=query,
+            body=body,
+            if_none_match=if_none_match,
+            idempotency_key=idempotency_key,
+            headers=headers,
         )
-        try:
-            response = self._http.send(request, stream=stream)
-        except httpx.HTTPError as error:
-            raise OxinsiderConnectionError(f"{method.upper()} {path} failed: {error}") from error
+        response = self._send(request, stream=stream)
         if stream and response.is_success:
             return response
         if stream:
@@ -139,6 +129,132 @@ class Client(OperationsMixin):
         if "json" in response.headers.get("content-type", ""):
             return response.json()
         return response.text
+
+    def _build_api_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: Mapping[str, Any] | None = None,
+        body: Any = None,
+        if_none_match: str | None = None,
+        idempotency_key: str | None = None,
+        headers: Mapping[str, str] | None = None,
+        accept: str = "application/json",
+    ) -> httpx.Request:
+        request_headers = {
+            "Accept": accept,
+            "User-Agent": f"0xinsider-python/{__version__}",
+        }
+        if self.api_key:
+            request_headers["Authorization"] = f"Bearer {self.api_key}"
+        if if_none_match:
+            request_headers["If-None-Match"] = if_none_match
+        if idempotency_key:
+            request_headers["Idempotency-Key"] = idempotency_key
+        request_headers.update(headers or {})
+        return self._http.build_request(
+            method.upper(),
+            f"{self.base_url}{path}",
+            params=_clean_query(query),
+            json=body,
+            headers=request_headers,
+        )
+
+    def _send(self, request: httpx.Request, *, stream: bool) -> httpx.Response:
+        """Send one request to the API origin. Redirects are never followed here:
+        the two documented ones (the OpenAPI document and a finished export) are
+        handled by ``download``, which keeps the credential on the API origin."""
+        try:
+            return self._http.send(request, stream=stream, follow_redirects=False)
+        except httpx.HTTPError as error:
+            raise OxinsiderConnectionError(f"{request.method} {request.url.path} failed: {error}") from error
+
+    def download(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Download:
+        """Call a redirect-only operation and open the file it points at.
+
+        The API request carries the credential; the redirect's ``Location`` is
+        fetched with a fresh request that carries none, so the bearer never
+        reaches the file host. Only ``https://`` locations are followed (``http://``
+        for a loopback host); one hop only. The API's own errors raise the usual
+        typed ``OxinsiderApiError`` (a 400 while an export job is not ``ready``,
+        a 404 for an unknown job); a redirect or transfer fault raises
+        ``DownloadError``. The returned ``Download`` streams the bytes: iterate,
+        ``save`` or ``read`` it, and close it.
+        """
+        request = self._build_api_request(method, path, query=query, headers=headers, accept="*/*")
+        response = self._send(request, stream=True)
+        if not response.is_redirect:
+            response.read()
+            if response.is_success:
+                raise DownloadError(
+                    f"{request.method} {path} answered {response.status_code} instead of a redirect to the file",
+                    reason="not_redirected",
+                    status=response.status_code,
+                )
+            raise self._error(response)
+        location_header = response.headers.get("location")
+        response.close()
+        if not location_header:
+            raise DownloadError(
+                f"{request.method} {path} redirected without a Location header",
+                reason="missing_location",
+                status=response.status_code,
+            )
+        location = request.url.join(location_header)
+        host = f"{location.scheme}://{location.netloc.decode('ascii')}"
+        if not is_trusted_destination(location):
+            raise DownloadError(
+                f"refusing to fetch the file from {host}: only https:// (or http:// on a loopback host) is followed",
+                reason="insecure_location",
+                host=host,
+            )
+        file_request = self._http.build_request(
+            "GET",
+            location,
+            headers={"Accept": "*/*", "User-Agent": f"0xinsider-python/{__version__}"},
+        )
+        # A user-supplied httpx.Client may carry default headers; the credential
+        # and cookies stay on the API origin whatever the client was built with.
+        file_request.headers.pop("Authorization", None)
+        file_request.headers.pop("Cookie", None)
+        try:
+            file_response = self._http.send(file_request, stream=True, auth=None, follow_redirects=False)
+        except httpx.HTTPError as error:
+            raise DownloadError(
+                f"fetching the file from {host} failed: {error}",
+                reason="interrupted",
+                host=host,
+            ) from error
+        if file_response.is_redirect:
+            file_response.close()
+            raise DownloadError(
+                f"{host} answered {file_response.status_code} with another redirect; only one hop is followed",
+                reason="unexpected_redirect",
+                host=host,
+                status=file_response.status_code,
+            )
+        if not file_response.is_success:
+            file_response.close()
+            raise DownloadError(
+                f"{host} answered {file_response.status_code} for the file"
+                + (
+                    "; the download location has expired, call the download operation again for a fresh one"
+                    if file_response.status_code == 403
+                    else ""
+                ),
+                reason="unavailable",
+                host=host,
+                status=file_response.status_code,
+            )
+        return Download(file_response, location=location)
 
     def paginate(self, method_name: str, **kwargs: Any) -> Iterator[Any]:
         """Yield every item of a cursor-paginated list, following ``next_cursor``.
@@ -157,6 +273,23 @@ class Client(OperationsMixin):
                 return
             cursor = next_cursor
 
+    @staticmethod
+    def _operation_path(operation_id: str, path_params: Mapping[str, str]) -> str:
+        path = OPERATIONS[operation_id].path
+        for name, value in path_params.items():
+            path = path.replace("{" + name + "}", quote(str(value), safe="@"))
+        return path
+
+    def _download(
+        self,
+        operation_id: str,
+        *,
+        path_params: Mapping[str, str],
+        query: Mapping[str, Any],
+    ) -> Download:
+        operation = OPERATIONS[operation_id]
+        return self.download(operation.method, self._operation_path(operation_id, path_params), query=query)
+
     def _call(
         self,
         operation_id: str,
@@ -168,9 +301,7 @@ class Client(OperationsMixin):
         idempotency_key: str | None = None,
     ) -> Any:
         operation = OPERATIONS[operation_id]
-        path = operation.path
-        for name, value in path_params.items():
-            path = path.replace("{" + name + "}", quote(str(value), safe="@"))
+        path = self._operation_path(operation_id, path_params)
         return self.request(
             operation.method,
             path,
