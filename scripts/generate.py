@@ -20,6 +20,11 @@ METHODS = ("get", "post", "put", "patch", "delete")
 # Operations whose success response is a Server-Sent Events stream. They are
 # reachable through Client.request(..., stream=True), not a generated method.
 STREAMING_CONTENT = "text/event-stream"
+# Operations whose only success response is a redirect (a 3xx and no 2xx): the
+# finished export (302 to the artifact host) and the OpenAPI document (307 to
+# the web origin). Their method returns Client.download(...), which follows the
+# one hop without forwarding the credential and streams the file.
+REDIRECT_CODES = ("301", "302", "303", "307", "308")
 
 
 def load(source: str) -> dict:
@@ -59,6 +64,13 @@ def success_content_types(operation: dict) -> list[str]:
     return []
 
 
+def is_redirect_only(operation: dict) -> bool:
+    responses = operation.get("responses", {})
+    has_success = any(code.startswith("2") for code in responses)
+    has_redirect = any(code in REDIRECT_CODES for code in responses)
+    return has_redirect and not has_success
+
+
 def generate(doc: dict) -> str:
     entries = []
     methods = []
@@ -88,12 +100,14 @@ def generate(doc: dict) -> str:
             has_body = "requestBody" in operation
             content_types = success_content_types(operation)
             streaming = content_types == [STREAMING_CONTENT]
+            redirect = is_redirect_only(operation)
             entries.append(
                 {
                     "operation_id": operation_id,
                     "method": method.upper(),
                     "path": path,
                     "streaming": streaming,
+                    "redirect": redirect,
                 }
             )
             if streaming:
@@ -119,6 +133,17 @@ def generate(doc: dict) -> str:
             doc_lines = [f"{summary}.".replace("..", "."), "", f"``{method.upper()} {path}`` (operationId ``{operation_id}``)."]
             if description:
                 doc_lines += ["", *textwrap.wrap(description, 88)]
+            if redirect:
+                doc_lines += [
+                    "",
+                    *textwrap.wrap(
+                        "Returns a ``Download``: the redirect is followed once, without the credential, "
+                        "and the file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or "
+                        "``read()`` it (bounded); close it when done. A redirect or transfer fault "
+                        "raises ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.",
+                        88,
+                    ),
+                ]
             if query_params:
                 doc_lines += ["", "Query parameters:"]
                 for p in query_params:
@@ -137,29 +162,42 @@ def generate(doc: dict) -> str:
                 call.append("body=body")
             call += header_args
             signature = ",\n        ".join(args)
+            if redirect:
+                methods.append(
+                    f"    def {name}(\n        {signature},\n    ) -> Download:\n"
+                    f'        """{docstring}\n        """\n'
+                    f"        return self._download({', '.join(call[:3])})\n"
+                )
+                continue
             methods.append(
                 f"    def {name}(\n        {signature},\n    ) -> Any:\n"
                 f'        """{docstring}\n        """\n'
                 f"        return self._call({', '.join(call)})\n"
             )
     table = ",\n".join(
-        f'    "{e["operation_id"]}": Operation("{e["method"]}", "{e["path"]}", streaming={e["streaming"]})'
+        f'    "{e["operation_id"]}": Operation("{e["method"]}", "{e["path"]}", '
+        f"streaming={e['streaming']}, redirect={e['redirect']})"
         for e in entries
     )
     version = doc.get("info", {}).get("version", "unknown")
     header = (
         '"""Generated from the 0xinsider OpenAPI document by scripts/generate.py. Do not edit."""\n\n'
         "from __future__ import annotations\n\n"
-        "from typing import Any, NamedTuple\n\n\n"
+        "from typing import Any, NamedTuple\n\n"
+        "from ._download import Download\n\n\n"
         f'OPENAPI_VERSION = "{version}"\n\n\n'
         "class Operation(NamedTuple):\n"
         "    method: str\n"
         "    path: str\n"
-        "    streaming: bool = False\n\n\n"
+        "    streaming: bool = False\n"
+        "    redirect: bool = False\n\n\n"
         f"OPERATIONS: dict[str, Operation] = {{\n{table},\n}}\n\n\n"
         "class OperationsMixin:\n"
-        '    """One method per documented operation. Each returns the decoded JSON body."""\n\n'
+        '    """One method per documented operation. Each returns the decoded JSON body,\n'
+        '    except a redirect-only operation, which returns a streaming ``Download``."""\n\n'
         "    def _call(self, operation_id: str, **kwargs: Any) -> Any:  # pragma: no cover - provided by Client\n"
+        "        raise NotImplementedError\n\n"
+        "    def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client\n"
         "        raise NotImplementedError\n\n"
     )
     source = header + "\n".join(methods)
