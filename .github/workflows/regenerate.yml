@@ -5,9 +5,16 @@ on:
     - cron: "23 6 * * 1"
   workflow_dispatch:
 
+# contents: write is all this needs. It does NOT open a pull request: the
+# organization refuses createPullRequest for GITHUB_TOKEN org-wide
+# ("GitHub Actions is not permitted to create or approve pull requests"), so
+# every run from 2026-09-14 on pushed a regenerate/* branch and then died at
+# the PR step, leaving this package behind the API. The verify step below is
+# the review: the job fails before any push when the regenerated package does
+# not import or an example stops compiling. A release is still tagged by hand
+# from main.
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   regenerate:
@@ -19,17 +26,31 @@ jobs:
           python-version: "3.12"
       - run: python scripts/generate.py
         env:
-          # Resolves the app commit that last changed the document for _provenance.py.
+          # Resolves the app commit that last changed the document for
+          # _provenance.py. 0xinsider/0xinsider is private and this token is
+          # scoped to this repository, so the lookup returns 404 here and the
+          # generator records APP_COMMIT = None, which is its documented
+          # "unknown". OPENAPI_SHA256 still identifies the document exactly.
           GH_TOKEN: ${{ github.token }}
-      - name: Open a pull request when the contract changed
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Verify the regenerated package
         run: |
-          if git diff --quiet; then echo "no change"; exit 0; fi
-          branch="regenerate/$(date -u +%Y%m%d)"
+          python -m pip install --quiet .
+          python -c "import oxinsider, oxinsider._operations; from oxinsider._provenance import OPERATION_COUNT; print(oxinsider.__version__, OPERATION_COUNT, 'operations')"
+          python -m compileall -q examples
+      - name: Commit the regenerated package to main
+        run: |
+          if git diff --quiet; then
+            echo "No change: the package already matches the published document." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
           git commit -am "chore: regenerate operations from the OpenAPI document"
-          git push origin "$branch"
-          gh pr create --title "Regenerate operations from the OpenAPI document" --body "The published OpenAPI document changed. Review the generated diff before releasing."
+          git push origin HEAD:main
+          {
+            echo "Pushed $(git rev-parse HEAD) to main."
+            echo
+            echo '```'
+            git show --stat --format=%s HEAD
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
