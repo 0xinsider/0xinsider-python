@@ -68,6 +68,9 @@ OPERATIONS: dict[str, Operation] = {
     "updateWebhook": Operation("PATCH", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
     "deleteWebhook": Operation("DELETE", "/api/v1/webhooks/{id}", streaming=False, redirect=False),
     "verifyWebhook": Operation("POST", "/api/v1/webhooks/{id}/verify", streaming=False, redirect=False),
+    "prepareWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret/prepare", streaming=False, redirect=False),
+    "activateWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret/activate", streaming=False, redirect=False),
+    "retireWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret/retire", streaming=False, redirect=False),
     "rotateWebhookSecret": Operation("POST", "/api/v1/webhooks/{id}/rotate-secret", streaming=False, redirect=False),
     "getHealth": Operation("GET", "/api/v1/health", streaming=False, redirect=False),
     "openMcpEventStream": Operation("GET", "/api/v1/mcp", streaming=False, redirect=False),
@@ -303,6 +306,7 @@ class OperationsMixin:
         min_size: Any = None,
         category: Any = None,
         condition_id: Any = None,
+        wallet: Any = None,
         min_grade: Any = None,
         side: Any = None,
         if_none_match: str | None = None,
@@ -319,13 +323,14 @@ class OperationsMixin:
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
-            min_size: Minimum current position value in USD. Defaults to 100 when omitted; send 0 to include every reconciled position.
+            min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
+            wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        return self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        return self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
 
     def list_large_positions(
         self,
@@ -381,7 +386,7 @@ class OperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
         """
         return self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only}, if_none_match=if_none_match)
@@ -414,11 +419,11 @@ class OperationsMixin:
         Query parameters:
             limit: Maximum number of historical large trades to return.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
-            min_size: Minimum trade size in USD.
+            min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
             trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade as of today (trader.grade), not at trade time. On a historical window it selects wallets by a grade they may have earned after the trade; ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -521,9 +526,9 @@ class OperationsMixin:
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
         Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        six ranked picks. Each pick carries the backed side, the pre-game price, the $100
-        return, the sharp-money holders, the grade, and a thesis. The price is frozen before
-        kickoff. A prior day's pick never appears ...
+        six ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
+        (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
+        $100 basis), the sharp-money holders, ...
         """
         return self._call("getPickOfTheDay", path_params={}, query={}, if_none_match=if_none_match)
 
@@ -577,7 +582,7 @@ class OperationsMixin:
 
         Query parameters:
             limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50.
-            cursor: Opaque pagination cursor from a previous response.
+            cursor: Opaque pagination cursor from a previous response, bound to its effective limit, window and ranked-board generation. A changed board or request scope returns ...
             window: Trailing window.
         """
         return self._call("listTrendingWallets", path_params={}, query={"limit": limit, "cursor": cursor, "window": window})
@@ -679,12 +684,12 @@ class OperationsMixin:
         Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
         this discovery endpoint to answer where smart money is flowing before drilling into a
         specific market with /api/v1/market/{condition_id}/intel. Pagination is anchored by an
-        opaque cursor carrying the first page ...
+        opaque cursor carrying the first-page ...
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
             limit: Page size.
-            cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp plus the last row's absolute net flow and condition_id.
+            cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
             min_grade: Minimum latest trader grade included in the flow. Default B means S/A/B only; unranked traders are excluded.
@@ -716,7 +721,7 @@ class OperationsMixin:
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
             limit: Page size.
-            cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp plus the last row's absolute net flow and condition_id.
+            cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
             min_grade: Minimum latest trader grade included in the flow. Default B means S/A/B only; unranked traders are excluded.
@@ -891,8 +896,8 @@ class OperationsMixin:
 
         Query parameters:
             resolution: Bucketing granularity. 1d aggregates by UTC calendar day, 1w by ISO week (Monday 00:00 UTC start). Defaults to 1d.
-            from_: Exclusive lower bound as a unix timestamp in seconds; points at or before this timestamp are omitted (the underlying daily snapshot read filters bucket_start > ...
-            to: Inclusive upper bound as a unix timestamp in seconds; points after this timestamp are omitted.
+            from_: Exclusive lower bound as a URL-decoded unix timestamp in seconds; points at or before this timestamp are omitted (the underlying daily snapshot read filters ...
+            to: Inclusive upper bound as a URL-decoded unix timestamp in seconds; points after this timestamp are omitted. If from is also present, from must be less than or ...
         """
         return self._call("getMarketCandles", path_params={"condition_id": condition_id}, query={"resolution": resolution, "from": from_, "to": to}, if_none_match=if_none_match)
 
@@ -903,6 +908,7 @@ class OperationsMixin:
         cursor: Any = None,
         min_suspicion: Any = None,
         severity: Any = None,
+        mode: Any = None,
         if_none_match: str | None = None,
     ) -> Any:
         """Get insider radar flags.
@@ -910,15 +916,18 @@ class OperationsMixin:
         ``GET /api/v1/insider-radar`` (operationId ``listInsiderRadar``).
 
         Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
-        contains the scorer's stored signals. Cursor-paginated by suspicion score.
+        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
+        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
+        generation and returns cursor_expired ...
 
         Query parameters:
             limit: Maximum number of radar flags to return.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
+            mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
         """
-        return self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity}, if_none_match=if_none_match)
+        return self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
 
     def get_insider_radar_flag(
         self,
@@ -940,6 +949,11 @@ class OperationsMixin:
         *,
         cursor: Any = None,
         limit: Any = None,
+        trader: Any = None,
+        condition_id: Any = None,
+        min_grade: Any = None,
+        min_size: Any = None,
+        expand: Any = None,
     ) -> Any:
         """Replay public whale-trade intelligence events.
 
@@ -953,8 +967,13 @@ class OperationsMixin:
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
             limit: Maximum durable public whale-trade events to return.
+            trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
+            condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
+            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
+            min_size: Only trades of at least this size in USD (compared in cents). Bound to the cursor.
+            expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
-        return self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit})
+        return self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
 
     def list_webhooks(
         self,
@@ -1102,6 +1121,56 @@ class OperationsMixin:
         """
         return self._call("verifyWebhook", path_params={"id": id}, query={}, body=body)
 
+    def prepare_webhook_secret(
+        self,
+        id: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        """Prepare a staged builder webhook signing secret.
+
+        ``POST /api/v1/webhooks/{id}/rotate-secret/prepare`` (operationId ``prepareWebhookSecret``).
+
+        Creates a pending signing secret while the current secret remains active. Deploy the
+        returned one-time signing_secret to the receiver before calling activate. The response
+        exposes secret_rotation.status=pending; an existing pending secret is returned again so
+        a lost response can be recovered safely.
+        """
+        return self._call("prepareWebhookSecret", path_params={"id": id}, query={}, idempotency_key=idempotency_key)
+
+    def activate_webhook_secret(
+        self,
+        id: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        """Activate a staged builder webhook signing secret.
+
+        ``POST /api/v1/webhooks/{id}/rotate-secret/activate`` (operationId ``activateWebhookSecret``).
+
+        Promotes the prepared signing secret to current, returns it once, and signs every
+        delivery with both the new and previous secrets for one hour. Call retire after the
+        receiver has completed its rollout. The current secret remains available through the
+        existing immediate rotate-secret route for ...
+        """
+        return self._call("activateWebhookSecret", path_params={"id": id}, query={}, idempotency_key=idempotency_key)
+
+    def retire_webhook_secret(
+        self,
+        id: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Any:
+        """Retire the previous builder webhook signing secret.
+
+        ``POST /api/v1/webhooks/{id}/rotate-secret/retire`` (operationId ``retireWebhookSecret``).
+
+        Ends the one-hour dual-signature overlap and removes the previous signing secret from
+        future delivery authorization. Call this after the receiver accepts the activated
+        secret. The operation is idempotent and does not return signing_secret.
+        """
+        return self._call("retireWebhookSecret", path_params={"id": id}, query={}, idempotency_key=idempotency_key)
+
     def rotate_webhook_secret(
         self,
         id: str,
@@ -1164,7 +1233,7 @@ class OperationsMixin:
 
         Query parameters:
             granularity: Report granularity selector.
-            period: Period token for the granularity. daily: UTC date YYYY-MM-DD. weekly: ISO week YYYY-WW, or a from,to YYYY-MM-DD pair. monthly: UTC month YYYY-MM.
+            period: Period token for the granularity. daily: UTC date YYYY-MM-DD. weekly: ISO week YYYY-WW for a durable canonical snapshot, or a from,to YYYY-MM-DD pair for an ...
         """
         return self._call("getReports", path_params={}, query={"granularity": granularity, "period": period})
 
@@ -1197,14 +1266,15 @@ class OperationsMixin:
 
         ``GET /api/v1/reports/weekly`` (operationId ``getWeeklyReportSnapshot``).
 
-        Returns a weekly whale-activity report snapshot. Pass either from/to UTC dates or an ISO
-        YYYY-WW week token. The response identifies closed ranges as final and current ranges as
+        Returns a weekly whale-activity report snapshot. Pass an ISO YYYY-WW token for a durable
+        canonical snapshot, or an exact from/to UTC range of at most 31 inclusive days for an
+        ephemeral response. The response identifies closed ranges as final and current ranges as
         rolling.
 
         Query parameters:
-            from_: UTC source-range start in YYYY-MM-DD format; required with to.
-            to: UTC source-range end in YYYY-MM-DD format; required with from.
-            week: ISO week selector in YYYY-WW format; alternative to from/to.
+            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days.
+            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days.
+            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot.
         """
         return self._call("getWeeklyReportSnapshot", path_params={}, query={"from": from_, "to": to, "week": week})
 
@@ -1310,10 +1380,10 @@ class OperationsMixin:
 
         ``GET /api/v1/usage`` (operationId ``getUsage``).
 
-        Returns the authenticated caller sliding-window request budget and UTC-day usage. This
-        endpoint is authenticated and does not increment the primary Redis rate-limit counter or
-        log itself into the API usage table; it is separately throttled at 100 reads/minute per
-        user to protect the usage-count ...
+        Returns the authenticated caller sliding-window request budget, UTC-day usage and
+        monthly quota. This control-plane endpoint remains available for a valid credential
+        after paid data access lapses and does not increment the primary Redis rate-limit
+        counter, monthly quota or API usage table; it ...
         """
         return self._call("getUsage", path_params={}, query={})
 
@@ -1339,9 +1409,9 @@ class OperationsMixin:
 
         ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
 
-        Returns the account and credential IDs admitted by API authentication, credential kind,
-        and approved scopes. Null scopes mean full developer-key access. Requires an active Pro
-        subscription and read scope for OAuth grants. Does not return credentials or personal
-        contact details.
+        Returns caller-owned account and credential IDs, credential validity, paid-data
+        entitlement and approved scopes. Null scopes mean full developer-key access. Valid
+        credentials can use this control-plane diagnostic path after paid access lapses; data
+        routes still require active paid access. OAuth ...
         """
         return self._call("getAccountIdentity", path_params={}, query={})
