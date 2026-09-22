@@ -324,6 +324,7 @@ class Client(OperationsMixin):
             body=body,
             if_none_match=if_none_match,
             idempotency_key=idempotency_key,
+            headers={"Accept": operation.accept},
         )
 
     @staticmethod

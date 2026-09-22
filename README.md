@@ -72,6 +72,10 @@ Every non-2xx response from the API raises `oxinsider.OxinsiderApiError` or a su
 
 `src/oxinsider/_operations.py` is generated from the published [OpenAPI document](https://0xinsider.com/api/v1/openapi.json) by `scripts/generate.py`, and a weekly workflow opens a pull request when the contract changes. Releases publish to PyPI from GitHub Actions through trusted publishing.
 
+Which document a release was generated from is in `src/oxinsider/_provenance.py`, generated alongside: `oxinsider.OPENAPI_SHA256` (the SHA-256 of the document bytes), `oxinsider.OPENAPI_VERSION`, `oxinsider.OPERATION_COUNT`, and `oxinsider.APP_COMMIT`, the `0xinsider/0xinsider` commit that last changed `web/public/api/v1/openapi.json` (or `None` when it could not be resolved). Compare `OPENAPI_SHA256` with `shasum -a 256` of the live document to see whether a release is behind the API.
+
+An operation the document lists only to refuse (`GET /api/v1/mcp` answers `405`: the server offers no server-to-client stream) stays in `oxinsider.OPERATIONS` and gets no method.
+
 ## Other official tools
 
 - CLI and MCP server: `npm install --global @0xinsider/mcp` or `brew install 0xinsider/tap/oxinsider`

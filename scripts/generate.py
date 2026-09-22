@@ -1,13 +1,23 @@
-"""Generate src/oxinsider/_operations.py from the published 0xinsider OpenAPI document.
+"""Generate src/oxinsider/_operations.py and _provenance.py from the 0xinsider OpenAPI document.
 
-Usage: python scripts/generate.py [path-or-url]
+Usage: python scripts/generate.py [path-or-url] [--app-commit SHA]
 Default source: https://0xinsider.com/api/v1/openapi.json
+
+_provenance.py records which document this release was generated from: the
+SHA-256 of the document bytes as fetched, its info.version, the operation
+count, and the 0xinsider/0xinsider commit that last changed
+web/public/api/v1/openapi.json (``--app-commit``, the ``OXINSIDER_APP_COMMIT``
+environment variable, or a lookup of the GitHub commits API; ``GH_TOKEN`` is
+used when set). An app commit that cannot be resolved is recorded as ``None``
+and reported on stderr, never guessed.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import keyword
+import os
 import re
 import sys
 import textwrap
@@ -15,7 +25,11 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_SOURCE = "https://0xinsider.com/api/v1/openapi.json"
-OUTPUT = Path(__file__).resolve().parent.parent / "src" / "oxinsider" / "_operations.py"
+PACKAGE = Path(__file__).resolve().parent.parent / "src" / "oxinsider"
+OUTPUT = PACKAGE / "_operations.py"
+PROVENANCE_OUTPUT = PACKAGE / "_provenance.py"
+APP_REPOSITORY = "0xinsider/0xinsider"
+APP_SPEC_PATH = "web/public/api/v1/openapi.json"
 METHODS = ("get", "post", "put", "patch", "delete")
 # Operations whose success response is a Server-Sent Events stream. They are
 # reachable through Client.request(..., stream=True), not a generated method.
@@ -27,12 +41,55 @@ STREAMING_CONTENT = "text/event-stream"
 REDIRECT_CODES = ("301", "302", "303", "307", "308")
 
 
-def load(source: str) -> dict:
+def load(source: str) -> bytes:
     if source.startswith("http://") or source.startswith("https://"):
         request = urllib.request.Request(source, headers={"User-Agent": "0xinsider-python-generator"})
         with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310 - fixed https source
-            return json.load(response)
-    return json.loads(Path(source).read_text())
+            return response.read()
+    return Path(source).read_bytes()
+
+
+def resolve_app_commit(explicit: str | None) -> str | None:
+    """The app commit the document belongs to, or None when it cannot be known."""
+    candidate = explicit or os.environ.get("OXINSIDER_APP_COMMIT")
+    if candidate:
+        return candidate
+    url = f"https://api.github.com/repos/{APP_REPOSITORY}/commits?path={APP_SPEC_PATH}&per_page=1"
+    headers = {"User-Agent": "0xinsider-python-generator", "Accept": "application/vnd.github+json"}
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - fixed https source
+            commits = json.load(response)
+    except OSError as error:
+        print(f"warning: app commit not resolved from the GitHub API ({error}); recording None", file=sys.stderr)
+        return None
+    if not commits:
+        print("warning: the GitHub API listed no commit for the document; recording None", file=sys.stderr)
+        return None
+    return str(commits[0]["sha"])
+
+
+def provenance(raw: bytes, doc: dict, *, source: str, app_commit: str | None, operation_count: int) -> str:
+    version = doc.get("info", {}).get("version", "unknown")
+    commit = "None" if app_commit is None else f'"{app_commit}"'
+    return (
+        '"""Generated from the 0xinsider OpenAPI document by scripts/generate.py. Do not edit.\n\n'
+        "Which document this release was generated from. OPENAPI_SHA256 is the SHA-256 of the\n"
+        "document bytes as fetched; APP_COMMIT is the 0xinsider/0xinsider commit that last changed\n"
+        "web/public/api/v1/openapi.json when it could be resolved, else None.\n"
+        '"""\n\n'
+        "from __future__ import annotations\n\n"
+        f'OPENAPI_SOURCE = "{source}"\n'
+        f'OPENAPI_SHA256 = "{hashlib.sha256(raw).hexdigest()}"\n'
+        f'OPENAPI_VERSION = "{version}"\n'
+        f"OPERATION_COUNT = {operation_count}\n"
+        f'APP_REPOSITORY = "{APP_REPOSITORY}"\n'
+        f'APP_SPEC_PATH = "{APP_SPEC_PATH}"\n'
+        f"APP_COMMIT: str | None = {commit}\n"
+    )
 
 
 def snake(name: str) -> str:
@@ -71,7 +128,15 @@ def is_redirect_only(operation: dict) -> bool:
     return has_redirect and not has_success
 
 
-def generate(doc: dict) -> str:
+def has_no_success(operation: dict) -> bool:
+    """An operation the server documents only to refuse (GET /api/v1/mcp answers
+    405: it offers no server-to-client stream). It stays in OPERATIONS with its
+    method and path, and gets no method, because a call could only raise."""
+    responses = operation.get("responses", {})
+    return not any(code.startswith(("2", "3")) for code in responses)
+
+
+def generate(doc: dict) -> tuple[str, int]:
     entries = []
     methods = []
     for path, item in doc.get("paths", {}).items():
@@ -101,6 +166,9 @@ def generate(doc: dict) -> str:
             content_types = success_content_types(operation)
             streaming = content_types == [STREAMING_CONTENT]
             redirect = is_redirect_only(operation)
+            # The Accept header a method sends: the operation's success media type
+            # (text/markdown for the context.md routes), else application/json.
+            accept = content_types[0] if len(content_types) == 1 and not streaming else "application/json"
             entries.append(
                 {
                     "operation_id": operation_id,
@@ -108,9 +176,10 @@ def generate(doc: dict) -> str:
                     "path": path,
                     "streaming": streaming,
                     "redirect": redirect,
+                    "accept": accept,
                 }
             )
-            if streaming:
+            if streaming or has_no_success(operation):
                 continue
             name = snake(operation_id)
             args = ["self"]
@@ -176,7 +245,9 @@ def generate(doc: dict) -> str:
             )
     table = ",\n".join(
         f'    "{e["operation_id"]}": Operation("{e["method"]}", "{e["path"]}", '
-        f"streaming={e['streaming']}, redirect={e['redirect']})"
+        f"streaming={e['streaming']}, redirect={e['redirect']}"
+        + (f', accept="{e["accept"]}"' if e["accept"] != "application/json" else "")
+        + ")"
         for e in entries
     )
     version = doc.get("info", {}).get("version", "unknown")
@@ -190,7 +261,8 @@ def generate(doc: dict) -> str:
         "    method: str\n"
         "    path: str\n"
         "    streaming: bool = False\n"
-        "    redirect: bool = False\n\n\n"
+        "    redirect: bool = False\n"
+        '    accept: str = "application/json"\n\n\n'
         f"OPERATIONS: dict[str, Operation] = {{\n{table},\n}}\n\n\n"
         "class OperationsMixin:\n"
         '    """One method per documented operation. Each returns the decoded JSON body,\n'
@@ -202,13 +274,27 @@ def generate(doc: dict) -> str:
     )
     source = header + "\n".join(methods)
     # Blank docstring lines must not carry the indentation.
-    return re.sub(r"[ \t]+\n", "\n", source)
+    return re.sub(r"[ \t]+\n", "\n", source), len(entries)
 
 
 def main() -> None:
-    source = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SOURCE
-    OUTPUT.write_text(generate(load(source)))
-    print(f"wrote {OUTPUT}")
+    args = [arg for arg in sys.argv[1:]]
+    app_commit: str | None = None
+    if "--app-commit" in args:
+        index = args.index("--app-commit")
+        app_commit = args[index + 1]
+        del args[index : index + 2]
+    source = args[0] if args else DEFAULT_SOURCE
+    raw = load(source)
+    doc = json.loads(raw)
+    operations, count = generate(doc)
+    OUTPUT.write_text(operations)
+    print(f"wrote {OUTPUT} ({count} operations)")
+    recorded_source = source if source.startswith(("http://", "https://")) else f"{APP_REPOSITORY}:{APP_SPEC_PATH}"
+    PROVENANCE_OUTPUT.write_text(
+        provenance(raw, doc, source=recorded_source, app_commit=resolve_app_commit(app_commit), operation_count=count)
+    )
+    print(f"wrote {PROVENANCE_OUTPUT}")
 
 
 if __name__ == "__main__":
