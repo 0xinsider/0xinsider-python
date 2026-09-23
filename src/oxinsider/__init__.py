@@ -7,6 +7,7 @@ generated from the same OpenAPI document as the methods themselves.
 """
 
 from . import types
+from ._data_quality import DataQualityAssessment, DataQualityFailure, assess_data_quality
 from ._client import API_KEY_ENV, NOT_MODIFIED, PRODUCTION_BASE_URL, SANDBOX_BASE_URL, Client
 from ._download import DEFAULT_MAX_READ_BYTES, Download, DownloadError, SavedDownload
 from ._errors import (
@@ -35,6 +36,7 @@ from ._version import __version__
 from .types import NotModifiedResponse
 
 __all__ = [
+    "assess_data_quality",
     "API_KEY_ENV",
     "APP_COMMIT",
     "CURSOR_HISTORY_LIMIT",
@@ -51,6 +53,8 @@ __all__ = [
     "BadRequestError",
     "Budget",
     "Client",
+    "DataQualityAssessment",
+    "DataQualityFailure",
     "Download",
     "DownloadError",
     "InsecureTransportError",
