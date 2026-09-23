@@ -47,6 +47,21 @@ for trade in client.paginate("list_whale_trades", min_grade="A", limit=100):
 - The SSE stream is read with `client.request("GET", "/api/v1/stream", stream=True)`, which returns the open `httpx.Response`.
 - A redirect-only operation returns a streaming `Download` instead of a body: `download_trader_export` (the API answers 302 to a short-lived file location once the job is `ready`) and `redirect_api_openapi_spec` (307 to the web origin). The redirect is followed once, and the credential is never sent to the file host.
 
+### How old is it?
+
+A trader carries `data_quality` inside `data`, and the positions and large-trade pages carry it beside `data`: a `status`, the oldest `as_of` the body rests on, and one entry per field group. `assess_data_quality` turns it into one decision against your own tolerance. It is a pure function and makes no request:
+
+```python
+from datetime import timedelta
+
+verdict = oxinsider.assess_data_quality(trader["data"], max_age=timedelta(minutes=15))
+if not verdict.ok:
+    for failure in verdict.failing:
+        print(failure.group, failure.status, failure.reason)
+```
+
+A group passes only when its `status` is `fresh`, it carries `as_of`, and that clock is within `max_age`. `fresh` means tracked and clocked, not current enough for you. `unknown` fails: the read cannot date that group, and missing is never recent. `untracked` groups are listed in `verdict.untracked` and left out of the verdict. Pass `groups=["ranking", "volume"]` to judge only the groups you read; a named group the body does not carry fails as `missing`. The TypeScript (`assessDataQuality`) and Go (`AssessDataQuality`) SDKs apply the same rule.
+
 ## Types
 
 Every operation is typed from the same OpenAPI document that generates it. The request body, the query values and the response envelope each have a `TypedDict` in `oxinsider.types`, and an editor infers them without an annotation:
