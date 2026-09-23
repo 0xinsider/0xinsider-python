@@ -100,3 +100,36 @@ def error_class_for(status: int) -> type[OxinsiderApiError]:
     if status >= 500:
         return ServerError
     return _BY_STATUS.get(status, OxinsiderApiError)
+
+
+class StreamClosedError(OxinsiderError):
+    """``AsyncClient.stream`` ended on a documented ``event: error`` frame, not a disconnect.
+
+    ``GET /api/v1/stream`` ends the body with this frame instead of a plain
+    close when the credential backing an open stream is revoked, rotated,
+    de-scoped or otherwise refused while the stream is open, or when the
+    credential store itself stops answering
+    (``backend/docs/internal-api/028-public-v1-stream-sse.md``). ``code`` and
+    ``message`` are the frame's own ``error`` object; ``retry`` is the frame's
+    own verdict on whether reconnecting is worth it -- ``False`` for a
+    permanently refused credential, ``True`` for a transient one
+    (``database_unavailable``, with ``retry_at`` naming when to try again).
+    ``AsyncClient.stream`` stops reconnecting and raises this when ``retry`` is
+    ``False``; it backs off and reconnects on its own when ``retry`` is ``True``.
+    """
+
+    def __init__(
+        self,
+        *,
+        code: str | None,
+        message: str,
+        retry: bool,
+        retry_at: str | None = None,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(f"stream closed ({code or 'error'}): {message}")
+        self.code = code
+        self.message = message
+        self.retry = retry
+        self.retry_at = retry_at
+        self.request_id = request_id

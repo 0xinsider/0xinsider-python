@@ -10,6 +10,13 @@ returns ``str``, and a redirect-only operation returns a ``Download``. Nothing
 about the requests that go out or the objects that come back changes; the
 methods still return the decoded body exactly as the API sent it.
 
+Each operation is emitted twice more, as coroutines: ``AsyncOperationsMixin``
+and ``AsyncResponseOperationsMixin`` are the same methods `await`-ing
+``self._call``/``self._download`` instead of calling them directly, provided
+by ``AsyncClient`` on ``httpx.AsyncClient``. One ``Op.render(asynchronous=...)``
+keeps all four mixins (plain and ``with_response``, sync and async) generated
+from the same signatures and docstrings, so they cannot drift from each other.
+
 Typing policy, applied here and documented in types.py:
 
 * A key the document lists in ``required`` is a required TypedDict key. A key
@@ -656,6 +663,8 @@ def generate(doc: dict) -> tuple[str, str, int]:
     type_imports = "from .types import (\n" + "".join(f"    {name},\n" for name in imported) + ")\n" if imported else ""
     body = "".join(op.render(response=False) for op in operations)
     response_body = "".join(op.render(response=True) for op in operations)
+    async_body = "".join(op.render(response=False, asynchronous=True) for op in operations)
+    async_response_body = "".join(op.render(response=True, asynchronous=True) for op in operations)
     typing_imports = ["Any", "NamedTuple"]
     for candidate in ("Literal", "Optional", "Union"):
         if re.search(rf"\b{candidate}\[", body):
@@ -669,7 +678,7 @@ def generate(doc: dict) -> tuple[str, str, int]:
         'follow; ``Client`` provides ``_call`` and ``_download``."""\n\n'
         "from __future__ import annotations\n\n"
         f"from typing import {', '.join(sorted(typing_imports))}\n\n"
-        "from ._download import Download\n"
+        "from ._download import AsyncDownload, Download\n"
         "from ._response import ApiResponse\n"
         f"{type_imports}\n\n"
         f'OPENAPI_VERSION = "{version}"\n\n\n'
@@ -702,7 +711,42 @@ def generate(doc: dict) -> tuple[str, str, int]:
         "    def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client\n"
         "        raise NotImplementedError\n\n"
     )
-    source = header + body + "\n" + response_header + response_body
+    async_header = (
+        "\nclass AsyncOperationsMixin:\n"
+        '    """The async counterpart of ``OperationsMixin``: the same methods, as coroutines.\n\n'
+        "    Provided by ``AsyncClient``, which awaits the request on ``httpx.AsyncClient``\n"
+        '    instead of blocking the event loop with the synchronous transport."""\n\n'
+        "    async def _call(self, operation_id: str, **kwargs: Any) -> Any:  # pragma: no cover - provided by AsyncClient\n"
+        "        raise NotImplementedError\n\n"
+        "    async def _download(\n"
+        "        self, operation_id: str, **kwargs: Any\n"
+        "    ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient\n"
+        "        raise NotImplementedError\n\n"
+    )
+    async_response_header = (
+        "\nclass AsyncResponseOperationsMixin:\n"
+        '    """The async operations, each returning an ``ApiResponse`` over the same body.\n\n'
+        '    Reached as ``async_client.with_response``, mirroring ``ResponseOperationsMixin``."""\n\n'
+        "    async def _call(self, operation_id: str, **kwargs: Any) -> Any:  # pragma: no cover - provided by AsyncClient\n"
+        "        raise NotImplementedError\n\n"
+        "    async def _download(\n"
+        "        self, operation_id: str, **kwargs: Any\n"
+        "    ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient\n"
+        "        raise NotImplementedError\n\n"
+    )
+    source = (
+        header
+        + body
+        + "\n"
+        + response_header
+        + response_body
+        + "\n"
+        + async_header
+        + async_body
+        + "\n"
+        + async_response_header
+        + async_response_body
+    )
     # Blank docstring lines must not carry the indentation.
     return re.sub(r"[ \t]+\n", "\n", source), types.render(), len(entries)
 
@@ -804,19 +848,24 @@ class Op:
             args += keyword_args
         return args
 
-    def _docstring(self) -> str:
+    def _docstring(self, *, asynchronous: bool = False) -> str:
         summary = first_sentence(self.operation.get("summary") or self.operation_id, 200)
         description = first_sentence(self.operation.get("description") or "")
         lines = [f"{summary}.".replace("..", "."), "", f"``{self.method} {self.path}`` (operationId ``{self.operation_id}``)."]
         if description:
             lines += ["", *textwrap.wrap(description, 88)]
         if self.redirect:
+            download_type = "AsyncDownload" if asynchronous else "Download"
+            article = "an" if asynchronous else "a"
+            close_call = "aclose()" if asynchronous else "close()"
+            read_call = "aread()" if asynchronous else "read()"
+            save_call = "asave(path)" if asynchronous else "save(path)"
             lines += [
                 "",
                 *textwrap.wrap(
-                    "Returns a ``Download``: the redirect is followed once, without the credential, "
-                    "and the file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or "
-                    "``read()`` it (bounded); close it when done. A redirect or transfer fault "
+                    f"Returns {article} ``{download_type}``: the redirect is followed once, without the credential, "
+                    f"and the file is streamed. Iterate it, ``{save_call}`` it for its SHA-256, or "
+                    f"``{read_call}`` it (bounded); ``{close_call}`` it when done. A redirect or transfer fault "
                     "raises ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.",
                     88,
                 ),
@@ -853,25 +902,31 @@ class Op:
             call.append("idempotency_key=idempotency_key")
         return ", ".join(call)
 
-    def render(self, *, response: bool) -> str:
+    def render(self, *, response: bool, asynchronous: bool = False) -> str:
         def wrap(inner: str) -> str:
             return f"ApiResponse[{inner}]" if response and not self.redirect else inner
 
+        keyword = "async def" if asynchronous else "def"
+        awaited = "await " if asynchronous else ""
+        # A redirect-only operation answers ``Client.download``'s file wrapper,
+        # not a decoded body: ``AsyncClient.download`` answers its async
+        # counterpart instead, so the annotation must switch with it too.
+        return_type = "AsyncDownload" if (asynchronous and self.redirect) else self.return_type
         if self.redirect:
-            body_line = f"        return self._download({self._call_args()})\n"
+            body_line = f"        return {awaited}self._download({self._call_args()})\n"
         else:
             # Client._call dispatches dynamically and answers ``Any``. Naming the
             # decoded body here is what states its shape, and costs one local.
-            body_line = f"        result: RETURN_TYPE = self._call({self._call_args()})\n        return result\n"
+            body_line = f"        result: RETURN_TYPE = {awaited}self._call({self._call_args()})\n        return result\n"
         if not self.conditional:
             signature = ",\n        ".join(self._args(if_none_match=None))
-            plain_only = wrap(self.return_type)
+            plain_only = wrap(return_type)
             return (
-                f"    def {self.name}(\n        {signature},\n    ) -> {plain_only}:\n"
-                f'        """{self._docstring()}\n        """\n'
+                f"    {keyword} {self.name}(\n        {signature},\n    ) -> {plain_only}:\n"
+                f'        """{self._docstring(asynchronous=asynchronous)}\n        """\n'
                 f"{body_line.replace('RETURN_TYPE', plain_only)}\n"
             )
-        plain = wrap(self.return_type)
+        plain = wrap(return_type)
         # An ApiResponse is invariant in its body, so the conditional form is a
         # union of the two responses rather than one response over a union.
         conditional = union([plain, wrap("NotModifiedResponse")], pep604=True)
@@ -880,11 +935,11 @@ class Op:
         implementation = ",\n        ".join(self._args(if_none_match="if_none_match: str | None = None"))
         return (
             "    @overload\n"
-            f"    def {self.name}(\n        {unmatched},\n    ) -> {plain}: ...\n\n"
+            f"    {keyword} {self.name}(\n        {unmatched},\n    ) -> {plain}: ...\n\n"
             "    @overload\n"
-            f"    def {self.name}(\n        {matched},\n    ) -> {conditional}: ...\n\n"
-            f"    def {self.name}(\n        {implementation},\n    ) -> {conditional}:\n"
-            f'        """{self._docstring()}\n        """\n'
+            f"    {keyword} {self.name}(\n        {matched},\n    ) -> {conditional}: ...\n\n"
+            f"    {keyword} {self.name}(\n        {implementation},\n    ) -> {conditional}:\n"
+            f'        """{self._docstring(asynchronous=asynchronous)}\n        """\n'
             f"{body_line.replace('RETURN_TYPE', conditional)}\n"
         )
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from email.message import Message
 from typing import IO
@@ -251,6 +251,167 @@ class Download:
     def __repr__(self) -> str:
         return (
             f"Download(host={self.host!r}, status={self.status}, content_type={self.content_type!r}, "
+            f"content_encoding={self.content_encoding!r}, content_length={self.content_length!r}, "
+            f"filename={self.filename!r})"
+        )
+
+
+class AsyncDownload:
+    """The async counterpart of ``Download``: the same file, read without blocking the event loop.
+
+    ``AsyncClient.download`` returns this. The properties (``host``, ``status``,
+    ``content_type``, ``content_encoding``, ``content_length``, ``etag``,
+    ``filename``, ``headers``) are the same plain attribute reads as
+    ``Download``'s; only the methods that touch the network are coroutines, so
+    they are named with the same ``a``-prefix convention ``httpx.AsyncClient``
+    itself uses (``aiter_bytes``, ``aiter_raw``, ``aread``, ``asave``,
+    ``aclose``). Writing to ``path`` in ``asave`` is an ordinary local file
+    write, same as ``Download.save``: nothing here adds a thread-pool wrapper
+    for disk I/O the standard library has no async form for either.
+    """
+
+    def __init__(self, response: httpx.Response, *, location: httpx.URL) -> None:
+        self._response = response
+        self._location = location
+        self._closed = False
+
+    @property
+    def host(self) -> str:
+        """The file host (scheme, host and port), never the signed query."""
+        return f"{self._location.scheme}://{self._location.netloc.decode('ascii')}"
+
+    @property
+    def status(self) -> int:
+        return self._response.status_code
+
+    @property
+    def content_type(self) -> str | None:
+        return self._response.headers.get("content-type")
+
+    @property
+    def content_encoding(self) -> str | None:
+        return self._response.headers.get("content-encoding")
+
+    @property
+    def content_length(self) -> int | None:
+        raw = self._response.headers.get("content-length")
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    @property
+    def etag(self) -> str | None:
+        return self._response.headers.get("etag")
+
+    @property
+    def filename(self) -> str | None:
+        return _filename_from_disposition(self._response.headers.get("content-disposition"))
+
+    @property
+    def headers(self) -> httpx.Headers:
+        return self._response.headers
+
+    async def aiter_bytes(self, chunk_size: int = DEFAULT_CHUNK_SIZE) -> AsyncIterator[bytes]:
+        """Yield the decoded file in chunks; closes the download at the end."""
+        async for chunk in self._aiterate(self._response.aiter_bytes(chunk_size)):
+            yield chunk
+
+    async def aiter_raw(self, chunk_size: int = DEFAULT_CHUNK_SIZE) -> AsyncIterator[bytes]:
+        """Yield the bytes exactly as sent (gzip-compressed for an export); closes the download at the end."""
+        async for chunk in self._aiterate(self._response.aiter_raw(chunk_size)):
+            yield chunk
+
+    async def _aiterate(self, chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+        try:
+            async for chunk in chunks:
+                if chunk:
+                    yield chunk
+        except httpx.HTTPError as error:
+            raise DownloadError(
+                f"download from {self.host} was interrupted: {error}",
+                reason="interrupted",
+                host=self.host,
+                status=self.status,
+            ) from error
+        finally:
+            await self.aclose()
+
+    async def asave(
+        self,
+        path: str | os.PathLike[str] | IO[bytes],
+        *,
+        decode: bool = True,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+    ) -> SavedDownload:
+        """Write the file to ``path`` (a filename or a binary file object).
+
+        Same contract as ``Download.save``: ``decode=True`` (the default)
+        writes a gzip-compressed export decompressed, as the file its
+        ``content_type`` names; ``decode=False`` writes the bytes as sent.
+        Returns the byte count and the SHA-256 of exactly what was written.
+        """
+        chunks = self.aiter_bytes(chunk_size) if decode else self.aiter_raw(chunk_size)
+        digest = hashlib.sha256()
+        written = 0
+        if hasattr(path, "write"):
+            sink: IO[bytes] = path  # type: ignore[assignment]
+            async for chunk in chunks:
+                sink.write(chunk)
+                digest.update(chunk)
+                written += len(chunk)
+            name = getattr(sink, "name", "<stream>")
+        else:
+            name = os.fspath(path)
+            with open(name, "wb") as file:
+                async for chunk in chunks:
+                    file.write(chunk)
+                    digest.update(chunk)
+                    written += len(chunk)
+        return SavedDownload(
+            path=str(name),
+            bytes_written=written,
+            sha256=digest.hexdigest(),
+            content_type=self.content_type,
+            content_encoding=self.content_encoding,
+            filename=self.filename,
+            decoded=decode,
+        )
+
+    async def aread(self, *, max_bytes: int = DEFAULT_MAX_READ_BYTES) -> bytes:
+        """Return the decoded file, refusing to buffer more than ``max_bytes`` (64 MiB by default)."""
+        parts: list[bytes] = []
+        total = 0
+        async for chunk in self.aiter_bytes():
+            total += len(chunk)
+            if total > max_bytes:
+                await self.aclose()
+                raise DownloadError(
+                    f"download from {self.host} exceeds max_bytes={max_bytes}; use asave() or aiter_bytes()",
+                    reason="too_large",
+                    host=self.host,
+                    status=self.status,
+                )
+            parts.append(chunk)
+        return b"".join(parts)
+
+    async def aclose(self) -> None:
+        """Release the connection. Safe to call more than once."""
+        if not self._closed:
+            self._closed = True
+            await self._response.aclose()
+
+    async def __aenter__(self) -> AsyncDownload:
+        return self
+
+    async def __aexit__(self, *_exc: object) -> None:
+        await self.aclose()
+
+    def __repr__(self) -> str:
+        return (
+            f"AsyncDownload(host={self.host!r}, status={self.status}, content_type={self.content_type!r}, "
             f"content_encoding={self.content_encoding!r}, content_length={self.content_length!r}, "
             f"filename={self.filename!r})"
         )
