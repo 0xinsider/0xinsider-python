@@ -44,7 +44,7 @@ different query than the one the caller asked for.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -373,3 +373,140 @@ def paginate(
             state.items_yielded = delivered
     finally:
         pages.close()
+
+
+async def apaginate_pages(
+    method: Callable[..., Awaitable[Any]],
+    method_name: str,
+    *,
+    filters: Mapping[str, Any],
+    cursor: str | None = None,
+    max_pages: int | None = None,
+    max_items: int | None = None,
+    progress: PaginationProgress | None = None,
+) -> AsyncIterator[Any]:
+    """The async counterpart of ``paginate_pages``: the identical walk, awaiting ``method``.
+
+    ``AsyncClient.paginate_pages`` is the public entry point. Every check --
+    envelope shape, ``has_more``/``next_cursor`` validity, the repeated-cursor
+    guard, ``max_pages``/``max_items`` -- is exactly what ``paginate_pages``
+    applies; see its module docstring.
+    """
+    page_cap = _bound(max_pages, "max_pages")
+    item_cap = _bound(max_items, "max_items")
+    state = progress if progress is not None else PaginationProgress()
+    query = dict(filters)
+    seen: set = set()
+    order: deque = deque()
+
+    while True:
+        if cursor is not None:
+            _remember(seen, order, cursor)
+        state.cursor = cursor
+        try:
+            page = await method(cursor=cursor, **query)
+        except BaseException as error:
+            _record(error, replace(state))
+            raise
+
+        if isinstance(page, Mapping) and page.get("object") == "not_modified":
+            state.next_cursor = None
+            state.stopped_by = STOP_NOT_MODIFIED
+            return
+
+        if not isinstance(page, Mapping) or not isinstance(page.get("has_more"), bool):
+            raise _protocol_error(
+                "invalid_envelope",
+                f"{_context(method_name, state, page)} is not a cursor-paginated list envelope: expected an "
+                f"object with a boolean has_more, got {type(page).__name__}"
+                + (f" with object={page.get('object')!r}" if isinstance(page, Mapping) else ""),
+                method_name=method_name,
+                page=page,
+                state=state,
+            )
+
+        data = page.get("data")
+        if not isinstance(data, list):
+            raise _protocol_error(
+                "invalid_data",
+                f"{_context(method_name, state, page)} carries data of type {type(data).__name__}, not a list; "
+                "that is a malformed page, not an exhausted collection",
+                method_name=method_name,
+                page=page,
+                state=state,
+            )
+
+        has_more = page["has_more"]
+        raw_next = page.get("next_cursor")
+        state.next_cursor = raw_next if isinstance(raw_next, str) and raw_next else None
+
+        if has_more:
+            if state.next_cursor is None:
+                raise _protocol_error(
+                    "missing_cursor",
+                    f"{_context(method_name, state, page)} says has_more but carries no usable next_cursor "
+                    f"({raw_next!r}); the walk cannot continue safely",
+                    method_name=method_name,
+                    page=page,
+                    state=state,
+                )
+            if state.next_cursor in seen:
+                raise _protocol_error(
+                    "repeated_cursor",
+                    f"{_context(method_name, state, page)} offers next_cursor {state.next_cursor!r}, which this "
+                    "walk already requested; stopping before the duplicate request",
+                    method_name=method_name,
+                    page=page,
+                    state=state,
+                )
+
+        state.pages_fetched += 1
+        state.items_yielded += len(data)
+        yield page
+
+        if not has_more:
+            state.stopped_by = STOP_EXHAUSTED
+            return
+        if page_cap is not None and state.pages_fetched >= page_cap:
+            state.stopped_by = STOP_MAX_PAGES
+            return
+        if item_cap is not None and state.items_yielded >= item_cap:
+            state.stopped_by = STOP_MAX_ITEMS
+            return
+        cursor = state.next_cursor
+
+
+async def apaginate(
+    method: Callable[..., Awaitable[Any]],
+    method_name: str,
+    *,
+    filters: Mapping[str, Any],
+    cursor: str | None = None,
+    max_pages: int | None = None,
+    max_items: int | None = None,
+    progress: PaginationProgress | None = None,
+) -> AsyncIterator[Any]:
+    """The async counterpart of ``paginate``. ``AsyncClient.paginate`` is the public entry point."""
+    item_cap = _bound(max_items, "max_items")
+    state = progress if progress is not None else PaginationProgress()
+    pages = apaginate_pages(
+        method,
+        method_name,
+        filters=filters,
+        cursor=cursor,
+        max_pages=max_pages,
+        progress=state,
+    )
+    delivered = 0
+    try:
+        async for page in pages:
+            for item in page["data"]:
+                if item_cap is not None and delivered >= item_cap:
+                    state.items_yielded = delivered
+                    state.stopped_by = STOP_MAX_ITEMS
+                    return
+                yield item
+                delivered += 1
+            state.items_yielded = delivered
+    finally:
+        await pages.aclose()
