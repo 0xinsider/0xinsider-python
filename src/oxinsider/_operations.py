@@ -12,7 +12,8 @@ from ._download import AsyncDownload, Download
 from ._response import ApiResponse
 from .types import (
     AccountIdentity,
-    BatchGetMarketIntelBody,
+    BatchGetMarketFlowBody,
+    BatchGetMarketFlowResponse,
     BatchGetMarketIntelResponse,
     BatchGetTradersBody,
     BatchGetTradersResponse,
@@ -22,38 +23,46 @@ from .types import (
     CreateWebhookResponse,
     ExploreMarketsResponse,
     GetApiDiscoveryResponse,
+    GetCoverageResponse,
     GetEventReplaySinceResponse,
+    GetGameResponse,
     GetHealthResponse,
     GetInsiderRadarFlagResponse,
+    GetLargeTradeResponse,
     GetMarketCandlesResponse,
+    GetMarketFlowResponse,
     GetMarketHoldersResponse,
     GetMarketIntelResponse,
     GetMarketSnapshotResponse,
     GetPickOfTheDayArchiveResponse,
     GetPickOfTheDayLedgerResponse,
     GetPickOfTheDayResponse,
-    GetPlatformsResponse,
     GetPositionTimelineResponse,
     GetReportsResponse,
+    GetSuspiciousTradeResponse,
     GetTraderCategoryRecordsResponse,
     GetTraderContextResponse,
     GetTraderExportSnapshotResponse,
+    GetTraderGradeAtResponse,
     GetTraderPnlResponse,
     GetTraderResponse,
     GetWhaleTradeResponse,
-    ListInsiderRadarResponse,
+    ListGamesResponse,
     ListLargePositionsResponse,
+    ListLargeTradeCounterpartyExecutionsResponse,
+    ListLargeTradeCounterpartyMakersResponse,
+    ListLargeTradeHistoryResponse,
+    ListLargeTradesResponse,
     ListLeaderboardResponse,
     ListPositionsResponse,
+    ListPreGameSideObservationsResponse,
+    ListPreGameSidesResponse,
     ListSmartMoneyFlowsResponse,
-    ListSportsEdgeObservationsResponse,
-    ListSportsEdgeSignalsResponse,
+    ListSuspiciousTradesResponse,
     ListTrendingWalletsResponse,
     ListWebhookDeliveriesResponse,
     ListWebhookEventsResponse,
     ListWebhooksResponse,
-    ListWhaleTradeCounterpartyExecutionsResponse,
-    ListWhaleTradeCounterpartyMakersResponse,
     ListWhaleTradeHistoryResponse,
     ListWhaleTradesResponse,
     NotModifiedResponse,
@@ -85,6 +94,7 @@ OPERATIONS: dict[str, Operation] = {
     "registerAgent": Operation("POST", "/api/v1/agents/register", streaming=False, redirect=False),
     "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False, redirect=False),
     "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False, accept="text/markdown"),
+    "getTraderGradeAt": Operation("GET", "/api/v1/trader/{address}/grade-at", streaming=False, redirect=False),
     "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False, redirect=False),
     "batchGetTraders": Operation("POST", "/api/v1/traders/batch", streaming=False, redirect=False),
     "getPositionTimeline": Operation("GET", "/api/v1/trader/{address}/position-timeline", streaming=False, redirect=False),
@@ -93,10 +103,15 @@ OPERATIONS: dict[str, Operation] = {
     "getPositionTimelineById": Operation("GET", "/api/v1/traders/{trader}/position-timeline", streaming=False, redirect=False),
     "listPositions": Operation("GET", "/api/v1/positions", streaming=False, redirect=False),
     "listLargePositions": Operation("GET", "/api/v1/large-positions", streaming=False, redirect=False),
+    "listLargeTrades": Operation("GET", "/api/v1/large-trades", streaming=False, redirect=False),
     "listWhaleTrades": Operation("GET", "/api/v1/whale-trades", streaming=False, redirect=False),
+    "listLargeTradeHistory": Operation("GET", "/api/v1/large-trades/history", streaming=False, redirect=False),
     "listWhaleTradeHistory": Operation("GET", "/api/v1/whale-trades/history", streaming=False, redirect=False),
+    "getLargeTrade": Operation("GET", "/api/v1/large-trades/{id}", streaming=False, redirect=False),
     "getWhaleTrade": Operation("GET", "/api/v1/whale-trades/{id}", streaming=False, redirect=False),
+    "listLargeTradeCounterpartyExecutions": Operation("GET", "/api/v1/large-trades/{id}/counterparties/executions", streaming=False, redirect=False),
     "listWhaleTradeCounterpartyExecutions": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions", streaming=False, redirect=False),
+    "listLargeTradeCounterpartyMakers": Operation("GET", "/api/v1/large-trades/{id}/counterparties/executions/{execution_id}/makers", streaming=False, redirect=False),
     "listWhaleTradeCounterpartyMakers": Operation("GET", "/api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers", streaming=False, redirect=False),
     "listLeaderboard": Operation("GET", "/api/v1/leaderboard", streaming=False, redirect=False),
     "getPickOfTheDay": Operation("GET", "/api/v1/pick-of-the-day", streaming=False, redirect=False),
@@ -108,14 +123,23 @@ OPERATIONS: dict[str, Operation] = {
     "exploreMarkets": Operation("GET", "/api/v1/markets/explore", streaming=False, redirect=False),
     "listSmartMoneyFlows": Operation("GET", "/api/v1/markets/smart-money-flows", streaming=False, redirect=False),
     "listSharpMoneyFlows": Operation("GET", "/api/v1/markets/sharp-money-flows", streaming=False, redirect=False),
+    "listPreGameSides": Operation("GET", "/api/v1/sports/pre-game-sides", streaming=False, redirect=False),
+    "listPreGameSideObservations": Operation("GET", "/api/v1/sports/pre-game-side-observations", streaming=False, redirect=False),
     "listSportsEdgeSignals": Operation("GET", "/api/v1/sports-edge-signals", streaming=False, redirect=False),
     "listSportsEdgeObservations": Operation("GET", "/api/v1/sports-edge-observations", streaming=False, redirect=False),
+    "getCoverage": Operation("GET", "/api/v1/coverage", streaming=False, redirect=False),
     "getPlatforms": Operation("GET", "/api/v1/platforms", streaming=False, redirect=False),
     "getMarketHolders": Operation("GET", "/api/v1/market/{condition_id}/holders", streaming=False, redirect=False),
+    "getMarketFlow": Operation("GET", "/api/v1/market/{condition_id}/flow", streaming=False, redirect=False),
     "getMarketIntel": Operation("GET", "/api/v1/market/{condition_id}/intel", streaming=False, redirect=False),
+    "batchGetMarketFlow": Operation("POST", "/api/v1/markets/flow/batch", streaming=False, redirect=False),
     "batchGetMarketIntel": Operation("POST", "/api/v1/markets/intel/batch", streaming=False, redirect=False),
     "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False, redirect=False),
     "getMarketCandles": Operation("GET", "/api/v1/market/{condition_id}/candles", streaming=False, redirect=False),
+    "listSuspiciousTrades": Operation("GET", "/api/v1/suspicious-trades", streaming=False, redirect=False),
+    "getSuspiciousTrade": Operation("GET", "/api/v1/suspicious-trades/{id}", streaming=False, redirect=False),
+    "listGames": Operation("GET", "/api/v1/games", streaming=False, redirect=False),
+    "getGame": Operation("GET", "/api/v1/games/{event_slug}", streaming=False, redirect=False),
     "listInsiderRadar": Operation("GET", "/api/v1/insider-radar", streaming=False, redirect=False),
     "getInsiderRadarFlag": Operation("GET", "/api/v1/insider-radar/{id}", streaming=False, redirect=False),
     "getStream": Operation("GET", "/api/v1/stream", streaming=True, redirect=False),
@@ -143,6 +167,7 @@ OPERATIONS: dict[str, Operation] = {
     "getTraderExportSnapshot": Operation("GET", "/api/v1/trader/{address}/export", streaming=False, redirect=False),
     "submitTraderExport": Operation("POST", "/api/v1/trader/{address}/export", streaming=False, redirect=False),
     "getTraderExportStatus": Operation("GET", "/api/v1/trader/{address}/export/status", streaming=False, redirect=False),
+    "cancelTraderExport": Operation("POST", "/api/v1/trader/{address}/export/cancel", streaming=False, redirect=False),
     "downloadTraderExport": Operation("GET", "/api/v1/trader/{address}/export/download", streaming=False, redirect=True),
     "getUsage": Operation("GET", "/api/v1/usage", streaming=False, redirect=False),
     "getMarketContextMarkdown": Operation("GET", "/api/v1/market/{condition_id}/context.md", streaming=False, redirect=False, accept="text/markdown"),
@@ -217,6 +242,7 @@ class OperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> GetTraderResponse: ...
 
@@ -226,6 +252,7 @@ class OperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> GetTraderResponse | NotModifiedResponse: ...
 
@@ -234,9 +261,10 @@ class OperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> GetTraderResponse | NotModifiedResponse:
-        """Get trader intelligence.
+        """Get trader.
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
@@ -250,8 +278,9 @@ class OperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, quant_metrics, trust.
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
         """
-        result: GetTraderResponse | NotModifiedResponse = self._call("getTrader", path_params={"address": address}, query={"expand": expand}, if_none_match=if_none_match)
+        result: GetTraderResponse | NotModifiedResponse = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
 
     def get_trader_context_markdown(
@@ -268,6 +297,49 @@ class OperationsMixin:
         API. Unknown traders still return 200 with a ...
         """
         result: str = self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
+        return result
+
+    @overload
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: None = None,
+    ) -> GetTraderGradeAtResponse: ...
+
+    @overload
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None,
+    ) -> GetTraderGradeAtResponse | NotModifiedResponse: ...
+
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None = None,
+    ) -> GetTraderGradeAtResponse | NotModifiedResponse:
+        """Get a trader grade proven visible at a past instant.
+
+        ``GET /api/v1/trader/{address}/grade-at`` (operationId ``getTraderGradeAt``).
+
+        Reads one trader's recorded grade at as_of from prospective visibility evidence. Before
+        the first recorded observation, after deletion, or during a grade-transition gap, status
+        is unknown and grade is null; a recorded ungraded trader instead has status ungraded.
+        available_from is the first proven ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
+        """
+        result: GetTraderGradeAtResponse | NotModifiedResponse = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -311,14 +383,14 @@ class OperationsMixin:
         self,
         body: BatchGetTradersBody,
     ) -> BatchGetTradersResponse:
-        """Batch trader intelligence.
+        """Batch traders.
 
         ``POST /api/v1/traders/batch`` (operationId ``batchGetTraders``).
 
-        Returns trader intelligence for 1-25 wallet addresses or known usernames. Results
-        preserve request order, duplicate inputs return duplicate rows, and each item is charged
-        one batch item unit before execution. Unknown trader lookups return data with
-        sync_status "unknown" matching the single trader ...
+        Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
+        order, duplicate inputs return duplicate rows, and each item is charged one batch item
+        unit before execution. Unknown trader lookups return data with sync_status "unknown"
+        matching the single trader endpoint.
         """
         result: BatchGetTradersResponse = self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -420,6 +492,10 @@ class OperationsMixin:
     def get_trader_pnl(
         self,
         address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        sections: list[Literal["entries", "stats", "monthly", "year_totals", "drawdown"]] | None = None,
     ) -> GetTraderPnlResponse:
         """Get trader P&L time series.
 
@@ -429,8 +505,13 @@ class OperationsMixin:
         daily_pnl read model: entries (daily cumulative P&L), period stats (all/90d/30d/7d),
         monthly aggregation, per-year totals, and the drawdown series. Reads the refreshed read
         model, not a per-request equity replay. A ...
+
+        Query parameters:
+            from_: Inclusive UTC calendar-date lower bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            to: Inclusive UTC calendar-date upper bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            sections: Which sections of the object to return. Repeatable and comma-separated: entries, stats, monthly, year_totals, drawdown. Omit it, or send it empty, for all ...
         """
-        result: GetTraderPnlResponse = self._call("getTraderPnl", path_params={"address": address}, query={})
+        result: GetTraderPnlResponse = self._call("getTraderPnl", path_params={"address": address}, query={"from": from_, "to": to, "sections": sections})
         return result
 
     @overload
@@ -490,6 +571,7 @@ class OperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -505,6 +587,7 @@ class OperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -519,6 +602,7 @@ class OperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -542,6 +626,7 @@ class OperationsMixin:
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
+            consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
@@ -549,7 +634,7 @@ class OperationsMixin:
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        result: ListPositionsResponse | NotModifiedResponse = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ListPositionsResponse | NotModifiedResponse = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
         return result
 
     def list_large_positions(
@@ -583,6 +668,74 @@ class OperationsMixin:
         return result
 
     @overload
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ListLargeTradesResponse: ...
+
+    @overload
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ListLargeTradesResponse | NotModifiedResponse: ...
+
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListLargeTradesResponse | NotModifiedResponse:
+        """List large trades.
+
+        ``GET /api/v1/large-trades`` (operationId ``listLargeTrades``).
+
+        Returns recent large trades with signal scoring and persisted suspicion facts. Filter by
+        size, category, trader grade, or persisted suspicion. Filters are applied before
+        pagination, and every request uses SQL-backed limit + 1 pagination so has_more and
+        next_cursor reflect the filtered result set. ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of recent large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor.
+            min_size: Minimum trade size in USD.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def list_whale_trades(
         self,
         *,
@@ -592,6 +745,8 @@ class OperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -605,6 +760,8 @@ class OperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -617,6 +774,8 @@ class OperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -638,12 +797,14 @@ class OperationsMixin:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
         return result
 
     @overload
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -657,11 +818,13 @@ class OperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
-    ) -> ListWhaleTradeHistoryResponse: ...
+    ) -> ListLargeTradeHistoryResponse: ...
 
     @overload
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -675,10 +838,12 @@ class OperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
-    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse: ...
+    ) -> ListLargeTradeHistoryResponse | NotModifiedResponse: ...
 
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -692,13 +857,15 @@ class OperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse:
-        """Replay historical whale trades.
+    ) -> ListLargeTradeHistoryResponse | NotModifiedResponse:
+        """Replay historical large trades.
 
-        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+        ``GET /api/v1/large-trades/history`` (operationId ``listLargeTradeHistory``).
 
-        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        Returns historical large trades from local whale_alerts rows, not request-time provider
         fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
         platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
         every request uses SQL-backed limit + 1 ...
@@ -718,8 +885,133 @@ class OperationsMixin:
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
             to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to}, if_none_match=if_none_match)
+        result: ListLargeTradeHistoryResponse | NotModifiedResponse = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ListWhaleTradeHistoryResponse: ...
+
+    @overload
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse: ...
+
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse:
+        """Replay historical whale trades.
+
+        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+
+        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
+        platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
+        every request uses SQL-backed limit + 1 ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of historical large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
+            min_size: Minimum trade size in USD.
+            condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
+            trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            platform: Filter by whale_alerts.platform. all is equivalent to omitted.
+            from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
+            to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetLargeTradeResponse: ...
+
+    @overload
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetLargeTradeResponse | NotModifiedResponse: ...
+
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetLargeTradeResponse | NotModifiedResponse:
+        """Get large trade by ID.
+
+        ``GET /api/v1/large-trades/{id}`` (operationId ``getLargeTrade``).
+
+        Returns one large trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
+        and history responses.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetLargeTradeResponse | NotModifiedResponse = self._call("getLargeTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -749,12 +1041,38 @@ class OperationsMixin:
         ``GET /api/v1/whale-trades/{id}`` (operationId ``getWhaleTrade``).
 
         Returns one whale trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
-        and history responses.
+        and history responses. Deprecated alias of GET /api/v1/large-trades/{id}, kept live and
+        never removed (#16304); every response carries `Deprecation: @1790047200` (RFC 9745,
+        2026-09-22T03:20:00Z) and a `Link` to ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: GetWhaleTradeResponse | NotModifiedResponse = self._call("getWhaleTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    def list_large_trade_counterparty_executions(
+        self,
+        id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ListLargeTradeCounterpartyExecutionsResponse:
+        """Page counterparty executions.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions`` (operationId ``listLargeTradeCounterpartyExecutions``).
+
+        Returns a bounded execution page from the immutable snapshot emitted by large-trade
+        detail. A stale or changed snapshot returns a cursor-expired error so clients restart
+        from detail.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of counterparty execution rows to return.
+        """
+        result: ListLargeTradeCounterpartyExecutionsResponse = self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     def list_whale_trade_counterparty_executions(
@@ -764,21 +1082,46 @@ class OperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ListWhaleTradeCounterpartyExecutionsResponse:
+    ) -> ListLargeTradeCounterpartyExecutionsResponse:
         """Page counterparty executions.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions`` (operationId ``listWhaleTradeCounterpartyExecutions``).
 
         Returns a bounded execution page from the immutable snapshot emitted by whale-trade
         detail. A stale or changed snapshot returns a cursor-expired error so clients restart
-        from detail.
+        from detail. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions, kept live and never removed (#16304); ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of counterparty execution rows to return.
         """
-        result: ListWhaleTradeCounterpartyExecutionsResponse = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ListLargeTradeCounterpartyExecutionsResponse = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        return result
+
+    def list_large_trade_counterparty_makers(
+        self,
+        id: str,
+        execution_id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ListLargeTradeCounterpartyMakersResponse:
+        """Page maker counterparties.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listLargeTradeCounterpartyMakers``).
+
+        Returns a bounded maker-wallet page for one exact execution. Percentages keep the
+        complete execution denominator across pages.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of maker rows to return.
+        """
+        result: ListLargeTradeCounterpartyMakersResponse = self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     def list_whale_trade_counterparty_makers(
@@ -789,20 +1132,22 @@ class OperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ListWhaleTradeCounterpartyMakersResponse:
+    ) -> ListLargeTradeCounterpartyMakersResponse:
         """Page maker counterparties.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listWhaleTradeCounterpartyMakers``).
 
         Returns a bounded maker-wallet page for one exact execution. Percentages keep the
-        complete execution denominator across pages.
+        complete execution denominator across pages. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions/{execution_id}/makers, kept live and never removed
+        (#16304); every response carries ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of maker rows to return.
         """
-        result: ListWhaleTradeCounterpartyMakersResponse = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ListLargeTradeCounterpartyMakersResponse = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     @overload
@@ -1133,13 +1478,13 @@ class OperationsMixin:
         direction: Literal["YES", "NO"] | None = None,
         if_none_match: str | None = None,
     ) -> ListSmartMoneyFlowsResponse | NotModifiedResponse:
-        """List ranked smart-money flows.
+        """List ranked sharp-money flows (deprecated alias).
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
         Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where smart money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/intel. Pagination is anchored by an
+        this discovery endpoint to answer where sharp money is flowing before drilling into a
+        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
         opaque cursor carrying the first-page ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
@@ -1201,10 +1546,10 @@ class OperationsMixin:
 
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
-        Canonical alias of /api/v1/markets/smart-money-flows, which remains live but deprecated.
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with ...
+        Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
+        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
+        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
+        where sharp money is flowing before drilling ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1222,7 +1567,7 @@ class OperationsMixin:
         return result
 
     @overload
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -1231,10 +1576,10 @@ class OperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: None = None,
-    ) -> ListSportsEdgeSignalsResponse: ...
+    ) -> ListPreGameSidesResponse: ...
 
     @overload
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -1243,9 +1588,9 @@ class OperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None,
-    ) -> ListSportsEdgeSignalsResponse | NotModifiedResponse: ...
+    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
 
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -1254,15 +1599,15 @@ class OperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListSportsEdgeSignalsResponse | NotModifiedResponse:
-        """List ranked pre-game sports-edge signals.
+    ) -> ListPreGameSidesResponse | NotModifiedResponse:
+        """List upcoming games ranked by the side profitable wallets hold.
 
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
 
-        Pro-tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where
-        graded (S/A/B) sharp money is piled on one side, each row carrying signal_created_at
-        (the UTC time its immutable snapshot was computed), the piled side, its grade
-        distribution, kickoff, piled-side Polymarket CLOB ...
+        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
+        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
+        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
+        carrying signal_created_at (the UTC time its ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1274,7 +1619,115 @@ class OperationsMixin:
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
         """
-        result: ListSportsEdgeSignalsResponse | NotModifiedResponse = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        result: ListPreGameSidesResponse | NotModifiedResponse = self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListPreGameSideObservationsResponse: ...
+
+    @overload
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
+
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
+        """List observation-only pre-game side cohorts.
+
+        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
+
+        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
+        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
+        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
+        wider_holder measures pre-game holder piles ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
+            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
+            limit: Page size.
+            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
+        """
+        result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: None = None,
+    ) -> ListPreGameSidesResponse: ...
+
+    @overload
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None,
+    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
+
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPreGameSidesResponse | NotModifiedResponse:
+        """List ranked pre-game sports-edge signals.
+
+        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
+        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
+        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
+        (S/A/B) sharp money is piled on one ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
+            limit: Page size.
+            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
+            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
+            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
+        """
+        result: ListPreGameSidesResponse | NotModifiedResponse = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1286,7 +1739,7 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: None = None,
-    ) -> ListSportsEdgeObservationsResponse: ...
+    ) -> ListPreGameSideObservationsResponse: ...
 
     @overload
     def list_sports_edge_observations(
@@ -1297,7 +1750,7 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None,
-    ) -> ListSportsEdgeObservationsResponse | NotModifiedResponse: ...
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
 
     def list_sports_edge_observations(
         self,
@@ -1307,15 +1760,15 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None = None,
-    ) -> ListSportsEdgeObservationsResponse | NotModifiedResponse:
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
         """List observation-only sports-edge cohorts.
 
         ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
 
-        Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts without
-        changing or feeding GET /api/v1/sports-edge-signals: wider_holder measures pre-game
-        holder piles outside the funded route's exact raw signals admission, including recent-
-        flow rows rejected by its event, bucket, ...
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
+        the same body. This path stays live and answers with Deprecation and successor Link
+        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
+        without changing or feeding GET ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1326,20 +1779,36 @@ class OperationsMixin:
             limit: Page size.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
-        result: ListSportsEdgeObservationsResponse | NotModifiedResponse = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    def get_coverage(
+        self,
+    ) -> GetCoverageResponse:
+        """Which reads the API serves for Polymarket.
+
+        ``GET /api/v1/coverage`` (operationId ``getCoverage``).
+
+        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
+        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
+        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        """
+        result: GetCoverageResponse = self._call("getCoverage", path_params={}, query={})
         return result
 
     def get_platforms(
         self,
-    ) -> GetPlatformsResponse:
+    ) -> GetCoverageResponse:
         """Get platform capability matrix.
 
         ``GET /api/v1/platforms`` (operationId ``getPlatforms``).
 
-        Unauthenticated discovery endpoint that declares which V1 intelligence surfaces are
-        supported, partial, or unsupported per provider platform.
+        Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
+        stays live and answers with Deprecation and successor Link headers. Unauthenticated
+        discovery endpoint that declares which V1 data surfaces are supported, partial, or
+        unsupported per provider platform.
         """
-        result: GetPlatformsResponse = self._call("getPlatforms", path_params={}, query={})
+        result: GetCoverageResponse = self._call("getPlatforms", path_params={}, query={})
         return result
 
     @overload
@@ -1398,6 +1867,49 @@ class OperationsMixin:
         return result
 
     @overload
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: None = None,
+    ) -> GetMarketFlowResponse: ...
+
+    @overload
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None,
+    ) -> GetMarketFlowResponse | NotModifiedResponse: ...
+
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None = None,
+    ) -> GetMarketFlowResponse | NotModifiedResponse:
+        """Get a market's flow and top positions.
+
+        ``GET /api/v1/market/{condition_id}/flow`` (operationId ``getMarketFlow``).
+
+        Canonical since #16312; GET /api/v1/market/{condition_id}/intel is its deprecated alias
+        and serves the same body under object market_intel. One market's flow and top positions:
+        the signed flow of every tracked large trade in the window (net_flow_usd and its YES or
+        NO direction), the large-trade ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            timeframe: Lookback window for whale flow aggregation.
+        """
+        result: GetMarketFlowResponse | NotModifiedResponse = self._call("getMarketFlow", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def get_market_intel(
         self,
         condition_id: str,
@@ -1426,8 +1938,10 @@ class OperationsMixin:
 
         ``GET /api/v1/market/{condition_id}/intel`` (operationId ``getMarketIntel``).
 
-        Smart money flow analysis for a specific market — net flow direction, whale trade count,
-        buy/sell volumes, and top graded trader positions.
+        Deprecated since #16312: use GET /api/v1/market/{condition_id}/flow, which serves the
+        same body under object market_flow. This path stays live, keeps object market_intel, and
+        answers with Deprecation and successor Link headers. One market's flow and top
+        positions: the signed flow of every tracked ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1438,18 +1952,34 @@ class OperationsMixin:
         result: GetMarketIntelResponse | NotModifiedResponse = self._call("getMarketIntel", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
         return result
 
+    def batch_get_market_flow(
+        self,
+        body: BatchGetMarketFlowBody,
+    ) -> BatchGetMarketFlowResponse:
+        """Batch market flow.
+
+        ``POST /api/v1/markets/flow/batch`` (operationId ``batchGetMarketFlow``).
+
+        Returns each market's flow and top positions for 1-25 raw provider condition_id values.
+        Results preserve request order, duplicate inputs return duplicate rows, and each item is
+        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
+        market.condition_id from search or ...
+        """
+        result: BatchGetMarketFlowResponse = self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
+        return result
+
     def batch_get_market_intel(
         self,
-        body: BatchGetMarketIntelBody,
+        body: BatchGetMarketFlowBody,
     ) -> BatchGetMarketIntelResponse:
         """Batch market intelligence.
 
         ``POST /api/v1/markets/intel/batch`` (operationId ``batchGetMarketIntel``).
 
-        Returns smart-money market intelligence for 1-25 raw provider condition_id values.
-        Results preserve request order, duplicate inputs return duplicate rows, and each item is
-        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
-        market.condition_id from search or explore.
+        Deprecated since #16312: use POST /api/v1/markets/flow/batch, which returns the same
+        items under object market_flow_batch. This path stays live, keeps object
+        market_intel_batch, and answers with Deprecation and successor Link headers. Returns
+        each market's flow and top positions for 1-25 raw ...
         """
         result: BatchGetMarketIntelResponse = self._call("batchGetMarketIntel", path_params={}, query={}, body=body)
         return result
@@ -1548,6 +2078,199 @@ class OperationsMixin:
         return result
 
     @overload
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: None = None,
+    ) -> ListSuspiciousTradesResponse: ...
+
+    @overload
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None,
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse: ...
+
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse:
+        """Get suspicious trades.
+
+        ``GET /api/v1/suspicious-trades`` (operationId ``listSuspiciousTrades``).
+
+        Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
+        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
+        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
+        generation and returns cursor_expired ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of suspicious trades to return.
+            cursor: Pagination cursor from previous response.
+            min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
+            severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
+            mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
+        """
+        result: ListSuspiciousTradesResponse | NotModifiedResponse = self._call("listSuspiciousTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetSuspiciousTradeResponse: ...
+
+    @overload
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetSuspiciousTradeResponse | NotModifiedResponse: ...
+
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetSuspiciousTradeResponse | NotModifiedResponse:
+        """Get suspicious trade by ID.
+
+        ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
+
+        Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
+        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
+        deprecated alias and keeps answering object: radar_flag.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetSuspiciousTradeResponse | NotModifiedResponse = self._call("getSuspiciousTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListGamesResponse: ...
+
+    @overload
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListGamesResponse | NotModifiedResponse: ...
+
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListGamesResponse | NotModifiedResponse:
+        """List covered games.
+
+        ``GET /api/v1/games`` (operationId ``listGames``).
+
+        One coherent game view per row: both sides with their provider ids and live scores, the
+        UTC kickoff, the provider's own status, the esports series format, and every linked
+        Polymarket market with its condition id and outcome token ids. Built from the same
+        provider-first live and upcoming projections ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            status: Keep only games in this state. A value outside the enum returns an empty page.
+            starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
+            starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
+            limit: Page size.
+            cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
+        """
+        result: ListGamesResponse | NotModifiedResponse = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetGameResponse: ...
+
+    @overload
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetGameResponse | NotModifiedResponse: ...
+
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetGameResponse | NotModifiedResponse:
+        """Get one game.
+
+        ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
+
+        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
+        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
+        game straight from a pulse. A slug outside the published coverage returns 404, including
+        a real Polymarket event in a sport ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetGameResponse | NotModifiedResponse = self._call("getGame", path_params={"event_slug": event_slug}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def list_insider_radar(
         self,
         *,
@@ -1557,7 +2280,7 @@ class OperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: None = None,
-    ) -> ListInsiderRadarResponse: ...
+    ) -> ListSuspiciousTradesResponse: ...
 
     @overload
     def list_insider_radar(
@@ -1569,7 +2292,7 @@ class OperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None,
-    ) -> ListInsiderRadarResponse | NotModifiedResponse: ...
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse: ...
 
     def list_insider_radar(
         self,
@@ -1580,15 +2303,15 @@ class OperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListInsiderRadarResponse | NotModifiedResponse:
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse:
         """Get insider radar flags.
 
         ``GET /api/v1/insider-radar`` (operationId ``listInsiderRadar``).
 
+        Deprecated alias of GET /api/v1/suspicious-trades (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
         Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
-        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
-        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
-        generation and returns cursor_expired ...
+        contains the scorer's stored signals. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1600,7 +2323,7 @@ class OperationsMixin:
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
             mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
         """
-        result: ListInsiderRadarResponse | NotModifiedResponse = self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        result: ListSuspiciousTradesResponse | NotModifiedResponse = self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1629,8 +2352,10 @@ class OperationsMixin:
 
         ``GET /api/v1/insider-radar/{id}`` (operationId ``getInsiderRadarFlag``).
 
-        Returns one suspicious-trading radar flag by raw whale_alerts.id or the rf_-prefixed id
-        emitted by list responses.
+        Deprecated alias of GET /api/v1/suspicious-trades/{id} (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
+        The envelope keeps object: radar_flag, so an integration that branches on it keeps
+        working here. Returns one ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1649,14 +2374,14 @@ class OperationsMixin:
         min_size: float | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
-        """Replay public whale-trade intelligence events.
+        """Replay public large-trade events.
 
         ``GET /api/v1/events/feed/since`` (operationId ``getEventReplaySince``).
 
-        Returns durable public whale-trade intelligence events strictly after an opaque cursor,
-        in commit order: events are ordered by the position at which their write became visible
-        to every reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never
-        reaches past the oldest write ...
+        Returns durable public large-trade events strictly after an opaque cursor, in commit
+        order: events are ordered by the position at which their write became visible to every
+        reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never reaches
+        past the oldest write transaction still ...
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
@@ -1712,8 +2437,8 @@ class OperationsMixin:
 
         Self-describing catalog of every webhook event type: its description, data payload
         shape, and whether it is active (has a firing producer) or dormant (subscribable but not
-        yet delivered). The catalog is identical for every authenticated key and exposes no
-        owner-scoped data. Pro-only event types ...
+        yet delivered; no event type is dormant today). The catalog is identical for every
+        authenticated key and exposes no ...
         """
         result: ListWebhookEventsResponse = self._call("listWebhookEvents", path_params={}, query={})
         return result
@@ -2047,20 +2772,22 @@ class OperationsMixin:
         address: str,
         *,
         format: Literal["json", "ndjson", "csv"] | None = None,
+        fresh: bool | None = None,
     ) -> TraderExportJob:
         """Submit a trader dataset export job.
 
         ``POST /api/v1/trader/{address}/export`` (operationId ``submitTraderExport``).
 
         Queues an async export of the trader's full dataset in the requested format (json
-        default, ndjson, or csv) and returns the job. Poll the status route, then follow the
-        download route once status is 'ready'. Quotas are the per-user daily and per-address
-        hourly export caps, keyed on the API key owner ...
+        default, ndjson, or csv) and returns the job resource. Poll the status route at
+        poll_after_s until terminal is true, then follow the download route while status is
+        'ready' (until expires_at, 24 hours from submit). ...
 
         Query parameters:
             format: Output serialization. json = full envelope document (default); ndjson = full envelope as line 1 then one trade object per line; csv = flat trades rows only.
+            fresh: true: do not reuse a finished, running or reconciling job; only a queued job is reused, so the file is a snapshot read after this submit. Consumes quota when ...
         """
-        result: TraderExportJob = self._call("submitTraderExport", path_params={"address": address}, query={"format": format})
+        result: TraderExportJob = self._call("submitTraderExport", path_params={"address": address}, query={"format": format, "fresh": fresh})
         return result
 
     def get_trader_export_status(
@@ -2073,13 +2800,36 @@ class OperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/status`` (operationId ``getTraderExportStatus``).
 
-        Returns the current state of a submitted export job (queued | running | ready | failed)
-        for the authenticated API key.
+        Returns the job resource for a submitted export: status (queued | running |
+        cancel_requested | reconcile_required | ready | failed | expired | cancelled), terminal,
+        next_action and poll_after_s, the lifecycle timestamps, the retention window
+        (expires_at) and, once the file is written, data_as_of ...
 
         Query parameters:
             job_id: Required. Export job id returned by the submit route.
         """
         result: TraderExportJob = self._call("getTraderExportStatus", path_params={"address": address}, query={"job_id": job_id})
+        return result
+
+    def cancel_trader_export(
+        self,
+        address: str,
+        *,
+        job_id: int | None = None,
+    ) -> TraderExportJob:
+        """Cancel a trader export job.
+
+        ``POST /api/v1/trader/{address}/export/cancel`` (operationId ``cancelTraderExport``).
+
+        Cancels a submitted export and returns the job resource, the same shape the status route
+        returns. A queued job reads cancelled at once and no worker will start it. A running job
+        reads cancel_requested until the worker reaches its next safe point, then cancelled: the
+        worker checks every 5 seconds ...
+
+        Query parameters:
+            job_id: Required. Export job id returned by the submit route.
+        """
+        result: TraderExportJob = self._call("cancelTraderExport", path_params={"address": address}, query={"job_id": job_id})
         return result
 
     def download_trader_export(
@@ -2092,10 +2842,10 @@ class OperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file once the job
-        status is 'ready'. The file is gzip-compressed and served with the format's Content-Type
-        (application/json, application/x-ndjson, or text/csv). Returns 400 while the job is not
-        yet ready (poll the status route ...
+        Redirects (302) to a short-lived presigned URL for the finished export file while the
+        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
+        served with the format's Content-Type (application/json, application/x-ndjson, or
+        text/csv). Returns 400 while the job is ...
 
         Returns a ``Download``: the redirect is followed once, without the credential, and the
         file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
@@ -2146,9 +2896,9 @@ class OperationsMixin:
         ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
 
         Returns caller-owned account and credential IDs, credential validity, paid-data
-        entitlement and approved scopes. Null scopes mean full developer-key access. Valid
-        credentials can use this control-plane diagnostic path after paid access lapses; data
-        routes still require active paid access. OAuth ...
+        entitlement and approved scopes. Null scopes mean full legacy developer-key access.
+        Valid credentials can use this control-plane diagnostic path after paid access lapses;
+        data routes still require active paid access. ...
         """
         result: AccountIdentity = self._call("getAccountIdentity", path_params={}, query={})
         return result
@@ -2221,6 +2971,7 @@ class ResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetTraderResponse]: ...
 
@@ -2230,6 +2981,7 @@ class ResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -2238,9 +2990,10 @@ class ResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]:
-        """Get trader intelligence.
+        """Get trader.
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
@@ -2254,8 +3007,9 @@ class ResponseOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, quant_metrics, trust.
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
         """
-        result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = self._call("getTrader", path_params={"address": address}, query={"expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
 
     def get_trader_context_markdown(
@@ -2272,6 +3026,49 @@ class ResponseOperationsMixin:
         API. Unknown traders still return 200 with a ...
         """
         result: ApiResponse[str] = self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
+        return result
+
+    @overload
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetTraderGradeAtResponse]: ...
+
+    @overload
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a trader grade proven visible at a past instant.
+
+        ``GET /api/v1/trader/{address}/grade-at`` (operationId ``getTraderGradeAt``).
+
+        Reads one trader's recorded grade at as_of from prospective visibility evidence. Before
+        the first recorded observation, after deletion, or during a grade-transition gap, status
+        is unknown and grade is null; a recorded ungraded trader instead has status ungraded.
+        available_from is the first proven ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
+        """
+        result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -2315,14 +3112,14 @@ class ResponseOperationsMixin:
         self,
         body: BatchGetTradersBody,
     ) -> ApiResponse[BatchGetTradersResponse]:
-        """Batch trader intelligence.
+        """Batch traders.
 
         ``POST /api/v1/traders/batch`` (operationId ``batchGetTraders``).
 
-        Returns trader intelligence for 1-25 wallet addresses or known usernames. Results
-        preserve request order, duplicate inputs return duplicate rows, and each item is charged
-        one batch item unit before execution. Unknown trader lookups return data with
-        sync_status "unknown" matching the single trader ...
+        Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
+        order, duplicate inputs return duplicate rows, and each item is charged one batch item
+        unit before execution. Unknown trader lookups return data with sync_status "unknown"
+        matching the single trader endpoint.
         """
         result: ApiResponse[BatchGetTradersResponse] = self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -2424,6 +3221,10 @@ class ResponseOperationsMixin:
     def get_trader_pnl(
         self,
         address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        sections: list[Literal["entries", "stats", "monthly", "year_totals", "drawdown"]] | None = None,
     ) -> ApiResponse[GetTraderPnlResponse]:
         """Get trader P&L time series.
 
@@ -2433,8 +3234,13 @@ class ResponseOperationsMixin:
         daily_pnl read model: entries (daily cumulative P&L), period stats (all/90d/30d/7d),
         monthly aggregation, per-year totals, and the drawdown series. Reads the refreshed read
         model, not a per-request equity replay. A ...
+
+        Query parameters:
+            from_: Inclusive UTC calendar-date lower bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            to: Inclusive UTC calendar-date upper bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            sections: Which sections of the object to return. Repeatable and comma-separated: entries, stats, monthly, year_totals, drawdown. Omit it, or send it empty, for all ...
         """
-        result: ApiResponse[GetTraderPnlResponse] = self._call("getTraderPnl", path_params={"address": address}, query={})
+        result: ApiResponse[GetTraderPnlResponse] = self._call("getTraderPnl", path_params={"address": address}, query={"from": from_, "to": to, "sections": sections})
         return result
 
     @overload
@@ -2494,6 +3300,7 @@ class ResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -2509,6 +3316,7 @@ class ResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -2523,6 +3331,7 @@ class ResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -2546,6 +3355,7 @@ class ResponseOperationsMixin:
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
+            consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
@@ -2553,7 +3363,7 @@ class ResponseOperationsMixin:
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
         return result
 
     def list_large_positions(
@@ -2587,6 +3397,74 @@ class ResponseOperationsMixin:
         return result
 
     @overload
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListLargeTradesResponse]: ...
+
+    @overload
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """List large trades.
+
+        ``GET /api/v1/large-trades`` (operationId ``listLargeTrades``).
+
+        Returns recent large trades with signal scoring and persisted suspicion facts. Filter by
+        size, category, trader grade, or persisted suspicion. Filters are applied before
+        pagination, and every request uses SQL-backed limit + 1 pagination so has_more and
+        next_cursor reflect the filtered result set. ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of recent large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor.
+            min_size: Minimum trade size in USD.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def list_whale_trades(
         self,
         *,
@@ -2596,6 +3474,8 @@ class ResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -2609,6 +3489,8 @@ class ResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -2621,6 +3503,8 @@ class ResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -2642,12 +3526,14 @@ class ResponseOperationsMixin:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
         return result
 
     @overload
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -2661,11 +3547,13 @@ class ResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse]: ...
+    ) -> ApiResponse[ListLargeTradeHistoryResponse]: ...
 
     @overload
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -2679,10 +3567,12 @@ class ResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
 
-    def list_whale_trade_history(
+    def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -2696,13 +3586,15 @@ class ResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
-        """Replay historical whale trades.
+    ) -> ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
+        """Replay historical large trades.
 
-        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+        ``GET /api/v1/large-trades/history`` (operationId ``listLargeTradeHistory``).
 
-        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        Returns historical large trades from local whale_alerts rows, not request-time provider
         fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
         platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
         every request uses SQL-backed limit + 1 ...
@@ -2722,8 +3614,133 @@ class ResponseOperationsMixin:
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
             to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse]: ...
+
+    @overload
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
+        """Replay historical whale trades.
+
+        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+
+        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
+        platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
+        every request uses SQL-backed limit + 1 ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of historical large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
+            min_size: Minimum trade size in USD.
+            condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
+            trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            platform: Filter by whale_alerts.platform. all is equivalent to omitted.
+            from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
+            to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetLargeTradeResponse]: ...
+
+    @overload
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse]:
+        """Get large trade by ID.
+
+        ``GET /api/v1/large-trades/{id}`` (operationId ``getLargeTrade``).
+
+        Returns one large trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
+        and history responses.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse] = self._call("getLargeTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -2753,12 +3770,38 @@ class ResponseOperationsMixin:
         ``GET /api/v1/whale-trades/{id}`` (operationId ``getWhaleTrade``).
 
         Returns one whale trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
-        and history responses.
+        and history responses. Deprecated alias of GET /api/v1/large-trades/{id}, kept live and
+        never removed (#16304); every response carries `Deprecation: @1790047200` (RFC 9745,
+        2026-09-22T03:20:00Z) and a `Link` to ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: ApiResponse[GetWhaleTradeResponse] | ApiResponse[NotModifiedResponse] = self._call("getWhaleTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    def list_large_trade_counterparty_executions(
+        self,
+        id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ApiResponse[ListLargeTradeCounterpartyExecutionsResponse]:
+        """Page counterparty executions.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions`` (operationId ``listLargeTradeCounterpartyExecutions``).
+
+        Returns a bounded execution page from the immutable snapshot emitted by large-trade
+        detail. A stale or changed snapshot returns a cursor-expired error so clients restart
+        from detail.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of counterparty execution rows to return.
+        """
+        result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     def list_whale_trade_counterparty_executions(
@@ -2768,21 +3811,46 @@ class ResponseOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ApiResponse[ListWhaleTradeCounterpartyExecutionsResponse]:
+    ) -> ApiResponse[ListLargeTradeCounterpartyExecutionsResponse]:
         """Page counterparty executions.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions`` (operationId ``listWhaleTradeCounterpartyExecutions``).
 
         Returns a bounded execution page from the immutable snapshot emitted by whale-trade
         detail. A stale or changed snapshot returns a cursor-expired error so clients restart
-        from detail.
+        from detail. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions, kept live and never removed (#16304); ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of counterparty execution rows to return.
         """
-        result: ApiResponse[ListWhaleTradeCounterpartyExecutionsResponse] = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        return result
+
+    def list_large_trade_counterparty_makers(
+        self,
+        id: str,
+        execution_id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ApiResponse[ListLargeTradeCounterpartyMakersResponse]:
+        """Page maker counterparties.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listLargeTradeCounterpartyMakers``).
+
+        Returns a bounded maker-wallet page for one exact execution. Percentages keep the
+        complete execution denominator across pages.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of maker rows to return.
+        """
+        result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     def list_whale_trade_counterparty_makers(
@@ -2793,20 +3861,22 @@ class ResponseOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ApiResponse[ListWhaleTradeCounterpartyMakersResponse]:
+    ) -> ApiResponse[ListLargeTradeCounterpartyMakersResponse]:
         """Page maker counterparties.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listWhaleTradeCounterpartyMakers``).
 
         Returns a bounded maker-wallet page for one exact execution. Percentages keep the
-        complete execution denominator across pages.
+        complete execution denominator across pages. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions/{execution_id}/makers, kept live and never removed
+        (#16304); every response carries ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of maker rows to return.
         """
-        result: ApiResponse[ListWhaleTradeCounterpartyMakersResponse] = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     @overload
@@ -3137,13 +4207,13 @@ class ResponseOperationsMixin:
         direction: Literal["YES", "NO"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListSmartMoneyFlowsResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked smart-money flows.
+        """List ranked sharp-money flows (deprecated alias).
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
         Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where smart money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/intel. Pagination is anchored by an
+        this discovery endpoint to answer where sharp money is flowing before drilling into a
+        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
         opaque cursor carrying the first-page ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
@@ -3205,10 +4275,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
-        Canonical alias of /api/v1/markets/smart-money-flows, which remains live but deprecated.
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with ...
+        Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
+        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
+        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
+        where sharp money is flowing before drilling ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3226,7 +4296,7 @@ class ResponseOperationsMixin:
         return result
 
     @overload
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -3235,10 +4305,10 @@ class ResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse]: ...
+    ) -> ApiResponse[ListPreGameSidesResponse]: ...
 
     @overload
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -3247,9 +4317,9 @@ class ResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
 
-    def list_sports_edge_signals(
+    def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -3258,15 +4328,15 @@ class ResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked pre-game sports-edge signals.
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
+        """List upcoming games ranked by the side profitable wallets hold.
 
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
 
-        Pro-tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where
-        graded (S/A/B) sharp money is piled on one side, each row carrying signal_created_at
-        (the UTC time its immutable snapshot was computed), the piled side, its grade
-        distribution, kickoff, piled-side Polymarket CLOB ...
+        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
+        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
+        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
+        carrying signal_created_at (the UTC time its ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3278,7 +4348,115 @@ class ResponseOperationsMixin:
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
         """
-        result: ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
+
+    @overload
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
+        """List observation-only pre-game side cohorts.
+
+        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
+
+        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
+        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
+        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
+        wider_holder measures pre-game holder piles ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
+            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
+            limit: Page size.
+            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
+        """
+        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPreGameSidesResponse]: ...
+
+    @overload
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
+        """List ranked pre-game sports-edge signals.
+
+        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
+        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
+        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
+        (S/A/B) sharp money is piled on one ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
+            limit: Page size.
+            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
+            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
+            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
+        """
+        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3290,7 +4468,7 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse]: ...
+    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
 
     @overload
     def list_sports_edge_observations(
@@ -3301,7 +4479,7 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
 
     def list_sports_edge_observations(
         self,
@@ -3311,15 +4489,15 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse]:
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
         """List observation-only sports-edge cohorts.
 
         ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
 
-        Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts without
-        changing or feeding GET /api/v1/sports-edge-signals: wider_holder measures pre-game
-        holder piles outside the funded route's exact raw signals admission, including recent-
-        flow rows rejected by its event, bucket, ...
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
+        the same body. This path stays live and answers with Deprecation and successor Link
+        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
+        without changing or feeding GET ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3330,20 +4508,36 @@ class ResponseOperationsMixin:
             limit: Page size.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
-        result: ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    def get_coverage(
+        self,
+    ) -> ApiResponse[GetCoverageResponse]:
+        """Which reads the API serves for Polymarket.
+
+        ``GET /api/v1/coverage`` (operationId ``getCoverage``).
+
+        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
+        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
+        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        """
+        result: ApiResponse[GetCoverageResponse] = self._call("getCoverage", path_params={}, query={})
         return result
 
     def get_platforms(
         self,
-    ) -> ApiResponse[GetPlatformsResponse]:
+    ) -> ApiResponse[GetCoverageResponse]:
         """Get platform capability matrix.
 
         ``GET /api/v1/platforms`` (operationId ``getPlatforms``).
 
-        Unauthenticated discovery endpoint that declares which V1 intelligence surfaces are
-        supported, partial, or unsupported per provider platform.
+        Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
+        stays live and answers with Deprecation and successor Link headers. Unauthenticated
+        discovery endpoint that declares which V1 data surfaces are supported, partial, or
+        unsupported per provider platform.
         """
-        result: ApiResponse[GetPlatformsResponse] = self._call("getPlatforms", path_params={}, query={})
+        result: ApiResponse[GetCoverageResponse] = self._call("getPlatforms", path_params={}, query={})
         return result
 
     @overload
@@ -3402,6 +4596,49 @@ class ResponseOperationsMixin:
         return result
 
     @overload
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetMarketFlowResponse]: ...
+
+    @overload
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a market's flow and top positions.
+
+        ``GET /api/v1/market/{condition_id}/flow`` (operationId ``getMarketFlow``).
+
+        Canonical since #16312; GET /api/v1/market/{condition_id}/intel is its deprecated alias
+        and serves the same body under object market_intel. One market's flow and top positions:
+        the signed flow of every tracked large trade in the window (net_flow_usd and its YES or
+        NO direction), the large-trade ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            timeframe: Lookback window for whale flow aggregation.
+        """
+        result: ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketFlow", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def get_market_intel(
         self,
         condition_id: str,
@@ -3430,8 +4667,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/market/{condition_id}/intel`` (operationId ``getMarketIntel``).
 
-        Smart money flow analysis for a specific market — net flow direction, whale trade count,
-        buy/sell volumes, and top graded trader positions.
+        Deprecated since #16312: use GET /api/v1/market/{condition_id}/flow, which serves the
+        same body under object market_flow. This path stays live, keeps object market_intel, and
+        answers with Deprecation and successor Link headers. One market's flow and top
+        positions: the signed flow of every tracked ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3442,18 +4681,34 @@ class ResponseOperationsMixin:
         result: ApiResponse[GetMarketIntelResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketIntel", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
         return result
 
+    def batch_get_market_flow(
+        self,
+        body: BatchGetMarketFlowBody,
+    ) -> ApiResponse[BatchGetMarketFlowResponse]:
+        """Batch market flow.
+
+        ``POST /api/v1/markets/flow/batch`` (operationId ``batchGetMarketFlow``).
+
+        Returns each market's flow and top positions for 1-25 raw provider condition_id values.
+        Results preserve request order, duplicate inputs return duplicate rows, and each item is
+        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
+        market.condition_id from search or ...
+        """
+        result: ApiResponse[BatchGetMarketFlowResponse] = self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
+        return result
+
     def batch_get_market_intel(
         self,
-        body: BatchGetMarketIntelBody,
+        body: BatchGetMarketFlowBody,
     ) -> ApiResponse[BatchGetMarketIntelResponse]:
         """Batch market intelligence.
 
         ``POST /api/v1/markets/intel/batch`` (operationId ``batchGetMarketIntel``).
 
-        Returns smart-money market intelligence for 1-25 raw provider condition_id values.
-        Results preserve request order, duplicate inputs return duplicate rows, and each item is
-        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
-        market.condition_id from search or explore.
+        Deprecated since #16312: use POST /api/v1/markets/flow/batch, which returns the same
+        items under object market_flow_batch. This path stays live, keeps object
+        market_intel_batch, and answers with Deprecation and successor Link headers. Returns
+        each market's flow and top positions for 1-25 raw ...
         """
         result: ApiResponse[BatchGetMarketIntelResponse] = self._call("batchGetMarketIntel", path_params={}, query={}, body=body)
         return result
@@ -3552,6 +4807,199 @@ class ResponseOperationsMixin:
         return result
 
     @overload
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse]: ...
+
+    @overload
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """Get suspicious trades.
+
+        ``GET /api/v1/suspicious-trades`` (operationId ``listSuspiciousTrades``).
+
+        Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
+        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
+        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
+        generation and returns cursor_expired ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of suspicious trades to return.
+            cursor: Pagination cursor from previous response.
+            min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
+            severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
+            mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
+        """
+        result: ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listSuspiciousTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse]: ...
+
+    @overload
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse]:
+        """Get suspicious trade by ID.
+
+        ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
+
+        Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
+        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
+        deprecated alias and keeps answering object: radar_flag.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse] = self._call("getSuspiciousTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListGamesResponse]: ...
+
+    @overload
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]:
+        """List covered games.
+
+        ``GET /api/v1/games`` (operationId ``listGames``).
+
+        One coherent game view per row: both sides with their provider ids and live scores, the
+        UTC kickoff, the provider's own status, the esports series format, and every linked
+        Polymarket market with its condition id and outcome token ids. Built from the same
+        provider-first live and upcoming projections ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            status: Keep only games in this state. A value outside the enum returns an empty page.
+            starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
+            starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
+            limit: Page size.
+            cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
+        """
+        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetGameResponse]: ...
+
+    @overload
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse]:
+        """Get one game.
+
+        ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
+
+        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
+        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
+        game straight from a pulse. A slug outside the published coverage returns 404, including
+        a real Polymarket event in a sport ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse] = self._call("getGame", path_params={"event_slug": event_slug}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def list_insider_radar(
         self,
         *,
@@ -3561,7 +5009,7 @@ class ResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListInsiderRadarResponse]: ...
+    ) -> ApiResponse[ListSuspiciousTradesResponse]: ...
 
     @overload
     def list_insider_radar(
@@ -3573,7 +5021,7 @@ class ResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
     def list_insider_radar(
         self,
@@ -3584,15 +5032,15 @@ class ResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse]:
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]:
         """Get insider radar flags.
 
         ``GET /api/v1/insider-radar`` (operationId ``listInsiderRadar``).
 
+        Deprecated alias of GET /api/v1/suspicious-trades (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
         Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
-        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
-        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
-        generation and returns cursor_expired ...
+        contains the scorer's stored signals. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3604,7 +5052,7 @@ class ResponseOperationsMixin:
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
             mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
         """
-        result: ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse] = self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        result: ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3633,8 +5081,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/insider-radar/{id}`` (operationId ``getInsiderRadarFlag``).
 
-        Returns one suspicious-trading radar flag by raw whale_alerts.id or the rf_-prefixed id
-        emitted by list responses.
+        Deprecated alias of GET /api/v1/suspicious-trades/{id} (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
+        The envelope keeps object: radar_flag, so an integration that branches on it keeps
+        working here. Returns one ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3653,14 +5103,14 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
-        """Replay public whale-trade intelligence events.
+        """Replay public large-trade events.
 
         ``GET /api/v1/events/feed/since`` (operationId ``getEventReplaySince``).
 
-        Returns durable public whale-trade intelligence events strictly after an opaque cursor,
-        in commit order: events are ordered by the position at which their write became visible
-        to every reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never
-        reaches past the oldest write ...
+        Returns durable public large-trade events strictly after an opaque cursor, in commit
+        order: events are ordered by the position at which their write became visible to every
+        reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never reaches
+        past the oldest write transaction still ...
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
@@ -3716,8 +5166,8 @@ class ResponseOperationsMixin:
 
         Self-describing catalog of every webhook event type: its description, data payload
         shape, and whether it is active (has a firing producer) or dormant (subscribable but not
-        yet delivered). The catalog is identical for every authenticated key and exposes no
-        owner-scoped data. Pro-only event types ...
+        yet delivered; no event type is dormant today). The catalog is identical for every
+        authenticated key and exposes no ...
         """
         result: ApiResponse[ListWebhookEventsResponse] = self._call("listWebhookEvents", path_params={}, query={})
         return result
@@ -4051,20 +5501,22 @@ class ResponseOperationsMixin:
         address: str,
         *,
         format: Literal["json", "ndjson", "csv"] | None = None,
+        fresh: bool | None = None,
     ) -> ApiResponse[TraderExportJob]:
         """Submit a trader dataset export job.
 
         ``POST /api/v1/trader/{address}/export`` (operationId ``submitTraderExport``).
 
         Queues an async export of the trader's full dataset in the requested format (json
-        default, ndjson, or csv) and returns the job. Poll the status route, then follow the
-        download route once status is 'ready'. Quotas are the per-user daily and per-address
-        hourly export caps, keyed on the API key owner ...
+        default, ndjson, or csv) and returns the job resource. Poll the status route at
+        poll_after_s until terminal is true, then follow the download route while status is
+        'ready' (until expires_at, 24 hours from submit). ...
 
         Query parameters:
             format: Output serialization. json = full envelope document (default); ndjson = full envelope as line 1 then one trade object per line; csv = flat trades rows only.
+            fresh: true: do not reuse a finished, running or reconciling job; only a queued job is reused, so the file is a snapshot read after this submit. Consumes quota when ...
         """
-        result: ApiResponse[TraderExportJob] = self._call("submitTraderExport", path_params={"address": address}, query={"format": format})
+        result: ApiResponse[TraderExportJob] = self._call("submitTraderExport", path_params={"address": address}, query={"format": format, "fresh": fresh})
         return result
 
     def get_trader_export_status(
@@ -4077,13 +5529,36 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/status`` (operationId ``getTraderExportStatus``).
 
-        Returns the current state of a submitted export job (queued | running | ready | failed)
-        for the authenticated API key.
+        Returns the job resource for a submitted export: status (queued | running |
+        cancel_requested | reconcile_required | ready | failed | expired | cancelled), terminal,
+        next_action and poll_after_s, the lifecycle timestamps, the retention window
+        (expires_at) and, once the file is written, data_as_of ...
 
         Query parameters:
             job_id: Required. Export job id returned by the submit route.
         """
         result: ApiResponse[TraderExportJob] = self._call("getTraderExportStatus", path_params={"address": address}, query={"job_id": job_id})
+        return result
+
+    def cancel_trader_export(
+        self,
+        address: str,
+        *,
+        job_id: int | None = None,
+    ) -> ApiResponse[TraderExportJob]:
+        """Cancel a trader export job.
+
+        ``POST /api/v1/trader/{address}/export/cancel`` (operationId ``cancelTraderExport``).
+
+        Cancels a submitted export and returns the job resource, the same shape the status route
+        returns. A queued job reads cancelled at once and no worker will start it. A running job
+        reads cancel_requested until the worker reaches its next safe point, then cancelled: the
+        worker checks every 5 seconds ...
+
+        Query parameters:
+            job_id: Required. Export job id returned by the submit route.
+        """
+        result: ApiResponse[TraderExportJob] = self._call("cancelTraderExport", path_params={"address": address}, query={"job_id": job_id})
         return result
 
     def download_trader_export(
@@ -4096,10 +5571,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file once the job
-        status is 'ready'. The file is gzip-compressed and served with the format's Content-Type
-        (application/json, application/x-ndjson, or text/csv). Returns 400 while the job is not
-        yet ready (poll the status route ...
+        Redirects (302) to a short-lived presigned URL for the finished export file while the
+        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
+        served with the format's Content-Type (application/json, application/x-ndjson, or
+        text/csv). Returns 400 while the job is ...
 
         Returns a ``Download``: the redirect is followed once, without the credential, and the
         file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
@@ -4150,9 +5625,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
 
         Returns caller-owned account and credential IDs, credential validity, paid-data
-        entitlement and approved scopes. Null scopes mean full developer-key access. Valid
-        credentials can use this control-plane diagnostic path after paid access lapses; data
-        routes still require active paid access. OAuth ...
+        entitlement and approved scopes. Null scopes mean full legacy developer-key access.
+        Valid credentials can use this control-plane diagnostic path after paid access lapses;
+        data routes still require active paid access. ...
         """
         result: ApiResponse[AccountIdentity] = self._call("getAccountIdentity", path_params={}, query={})
         return result
@@ -4226,6 +5701,7 @@ class AsyncOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> GetTraderResponse: ...
 
@@ -4235,6 +5711,7 @@ class AsyncOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> GetTraderResponse | NotModifiedResponse: ...
 
@@ -4243,9 +5720,10 @@ class AsyncOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> GetTraderResponse | NotModifiedResponse:
-        """Get trader intelligence.
+        """Get trader.
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
@@ -4259,8 +5737,9 @@ class AsyncOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, quant_metrics, trust.
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
         """
-        result: GetTraderResponse | NotModifiedResponse = await self._call("getTrader", path_params={"address": address}, query={"expand": expand}, if_none_match=if_none_match)
+        result: GetTraderResponse | NotModifiedResponse = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
 
     async def get_trader_context_markdown(
@@ -4277,6 +5756,49 @@ class AsyncOperationsMixin:
         API. Unknown traders still return 200 with a ...
         """
         result: str = await self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
+        return result
+
+    @overload
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: None = None,
+    ) -> GetTraderGradeAtResponse: ...
+
+    @overload
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None,
+    ) -> GetTraderGradeAtResponse | NotModifiedResponse: ...
+
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None = None,
+    ) -> GetTraderGradeAtResponse | NotModifiedResponse:
+        """Get a trader grade proven visible at a past instant.
+
+        ``GET /api/v1/trader/{address}/grade-at`` (operationId ``getTraderGradeAt``).
+
+        Reads one trader's recorded grade at as_of from prospective visibility evidence. Before
+        the first recorded observation, after deletion, or during a grade-transition gap, status
+        is unknown and grade is null; a recorded ungraded trader instead has status ungraded.
+        available_from is the first proven ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
+        """
+        result: GetTraderGradeAtResponse | NotModifiedResponse = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4320,14 +5842,14 @@ class AsyncOperationsMixin:
         self,
         body: BatchGetTradersBody,
     ) -> BatchGetTradersResponse:
-        """Batch trader intelligence.
+        """Batch traders.
 
         ``POST /api/v1/traders/batch`` (operationId ``batchGetTraders``).
 
-        Returns trader intelligence for 1-25 wallet addresses or known usernames. Results
-        preserve request order, duplicate inputs return duplicate rows, and each item is charged
-        one batch item unit before execution. Unknown trader lookups return data with
-        sync_status "unknown" matching the single trader ...
+        Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
+        order, duplicate inputs return duplicate rows, and each item is charged one batch item
+        unit before execution. Unknown trader lookups return data with sync_status "unknown"
+        matching the single trader endpoint.
         """
         result: BatchGetTradersResponse = await self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -4429,6 +5951,10 @@ class AsyncOperationsMixin:
     async def get_trader_pnl(
         self,
         address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        sections: list[Literal["entries", "stats", "monthly", "year_totals", "drawdown"]] | None = None,
     ) -> GetTraderPnlResponse:
         """Get trader P&L time series.
 
@@ -4438,8 +5964,13 @@ class AsyncOperationsMixin:
         daily_pnl read model: entries (daily cumulative P&L), period stats (all/90d/30d/7d),
         monthly aggregation, per-year totals, and the drawdown series. Reads the refreshed read
         model, not a per-request equity replay. A ...
+
+        Query parameters:
+            from_: Inclusive UTC calendar-date lower bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            to: Inclusive UTC calendar-date upper bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            sections: Which sections of the object to return. Repeatable and comma-separated: entries, stats, monthly, year_totals, drawdown. Omit it, or send it empty, for all ...
         """
-        result: GetTraderPnlResponse = await self._call("getTraderPnl", path_params={"address": address}, query={})
+        result: GetTraderPnlResponse = await self._call("getTraderPnl", path_params={"address": address}, query={"from": from_, "to": to, "sections": sections})
         return result
 
     @overload
@@ -4499,6 +6030,7 @@ class AsyncOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -4514,6 +6046,7 @@ class AsyncOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -4528,6 +6061,7 @@ class AsyncOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -4551,6 +6085,7 @@ class AsyncOperationsMixin:
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
+            consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
@@ -4558,7 +6093,7 @@ class AsyncOperationsMixin:
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        result: ListPositionsResponse | NotModifiedResponse = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ListPositionsResponse | NotModifiedResponse = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
         return result
 
     async def list_large_positions(
@@ -4592,6 +6127,74 @@ class AsyncOperationsMixin:
         return result
 
     @overload
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ListLargeTradesResponse: ...
+
+    @overload
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ListLargeTradesResponse | NotModifiedResponse: ...
+
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListLargeTradesResponse | NotModifiedResponse:
+        """List large trades.
+
+        ``GET /api/v1/large-trades`` (operationId ``listLargeTrades``).
+
+        Returns recent large trades with signal scoring and persisted suspicion facts. Filter by
+        size, category, trader grade, or persisted suspicion. Filters are applied before
+        pagination, and every request uses SQL-backed limit + 1 pagination so has_more and
+        next_cursor reflect the filtered result set. ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of recent large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor.
+            min_size: Minimum trade size in USD.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def list_whale_trades(
         self,
         *,
@@ -4601,6 +6204,8 @@ class AsyncOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -4614,6 +6219,8 @@ class AsyncOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -4626,6 +6233,8 @@ class AsyncOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -4647,12 +6256,14 @@ class AsyncOperationsMixin:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
         return result
 
     @overload
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -4666,11 +6277,13 @@ class AsyncOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
-    ) -> ListWhaleTradeHistoryResponse: ...
+    ) -> ListLargeTradeHistoryResponse: ...
 
     @overload
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -4684,10 +6297,12 @@ class AsyncOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
-    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse: ...
+    ) -> ListLargeTradeHistoryResponse | NotModifiedResponse: ...
 
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -4701,13 +6316,15 @@ class AsyncOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse:
-        """Replay historical whale trades.
+    ) -> ListLargeTradeHistoryResponse | NotModifiedResponse:
+        """Replay historical large trades.
 
-        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+        ``GET /api/v1/large-trades/history`` (operationId ``listLargeTradeHistory``).
 
-        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        Returns historical large trades from local whale_alerts rows, not request-time provider
         fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
         platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
         every request uses SQL-backed limit + 1 ...
@@ -4727,8 +6344,133 @@ class AsyncOperationsMixin:
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
             to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to}, if_none_match=if_none_match)
+        result: ListLargeTradeHistoryResponse | NotModifiedResponse = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ListWhaleTradeHistoryResponse: ...
+
+    @overload
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse: ...
+
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListWhaleTradeHistoryResponse | NotModifiedResponse:
+        """Replay historical whale trades.
+
+        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+
+        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
+        platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
+        every request uses SQL-backed limit + 1 ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of historical large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
+            min_size: Minimum trade size in USD.
+            condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
+            trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            platform: Filter by whale_alerts.platform. all is equivalent to omitted.
+            from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
+            to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetLargeTradeResponse: ...
+
+    @overload
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetLargeTradeResponse | NotModifiedResponse: ...
+
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetLargeTradeResponse | NotModifiedResponse:
+        """Get large trade by ID.
+
+        ``GET /api/v1/large-trades/{id}`` (operationId ``getLargeTrade``).
+
+        Returns one large trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
+        and history responses.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetLargeTradeResponse | NotModifiedResponse = await self._call("getLargeTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4758,12 +6500,38 @@ class AsyncOperationsMixin:
         ``GET /api/v1/whale-trades/{id}`` (operationId ``getWhaleTrade``).
 
         Returns one whale trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
-        and history responses.
+        and history responses. Deprecated alias of GET /api/v1/large-trades/{id}, kept live and
+        never removed (#16304); every response carries `Deprecation: @1790047200` (RFC 9745,
+        2026-09-22T03:20:00Z) and a `Link` to ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: GetWhaleTradeResponse | NotModifiedResponse = await self._call("getWhaleTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    async def list_large_trade_counterparty_executions(
+        self,
+        id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ListLargeTradeCounterpartyExecutionsResponse:
+        """Page counterparty executions.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions`` (operationId ``listLargeTradeCounterpartyExecutions``).
+
+        Returns a bounded execution page from the immutable snapshot emitted by large-trade
+        detail. A stale or changed snapshot returns a cursor-expired error so clients restart
+        from detail.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of counterparty execution rows to return.
+        """
+        result: ListLargeTradeCounterpartyExecutionsResponse = await self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     async def list_whale_trade_counterparty_executions(
@@ -4773,21 +6541,46 @@ class AsyncOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ListWhaleTradeCounterpartyExecutionsResponse:
+    ) -> ListLargeTradeCounterpartyExecutionsResponse:
         """Page counterparty executions.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions`` (operationId ``listWhaleTradeCounterpartyExecutions``).
 
         Returns a bounded execution page from the immutable snapshot emitted by whale-trade
         detail. A stale or changed snapshot returns a cursor-expired error so clients restart
-        from detail.
+        from detail. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions, kept live and never removed (#16304); ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of counterparty execution rows to return.
         """
-        result: ListWhaleTradeCounterpartyExecutionsResponse = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ListLargeTradeCounterpartyExecutionsResponse = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        return result
+
+    async def list_large_trade_counterparty_makers(
+        self,
+        id: str,
+        execution_id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ListLargeTradeCounterpartyMakersResponse:
+        """Page maker counterparties.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listLargeTradeCounterpartyMakers``).
+
+        Returns a bounded maker-wallet page for one exact execution. Percentages keep the
+        complete execution denominator across pages.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of maker rows to return.
+        """
+        result: ListLargeTradeCounterpartyMakersResponse = await self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     async def list_whale_trade_counterparty_makers(
@@ -4798,20 +6591,22 @@ class AsyncOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ListWhaleTradeCounterpartyMakersResponse:
+    ) -> ListLargeTradeCounterpartyMakersResponse:
         """Page maker counterparties.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listWhaleTradeCounterpartyMakers``).
 
         Returns a bounded maker-wallet page for one exact execution. Percentages keep the
-        complete execution denominator across pages.
+        complete execution denominator across pages. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions/{execution_id}/makers, kept live and never removed
+        (#16304); every response carries ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of maker rows to return.
         """
-        result: ListWhaleTradeCounterpartyMakersResponse = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ListLargeTradeCounterpartyMakersResponse = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     @overload
@@ -5142,13 +6937,13 @@ class AsyncOperationsMixin:
         direction: Literal["YES", "NO"] | None = None,
         if_none_match: str | None = None,
     ) -> ListSmartMoneyFlowsResponse | NotModifiedResponse:
-        """List ranked smart-money flows.
+        """List ranked sharp-money flows (deprecated alias).
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
         Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where smart money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/intel. Pagination is anchored by an
+        this discovery endpoint to answer where sharp money is flowing before drilling into a
+        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
         opaque cursor carrying the first-page ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
@@ -5210,10 +7005,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
-        Canonical alias of /api/v1/markets/smart-money-flows, which remains live but deprecated.
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with ...
+        Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
+        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
+        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
+        where sharp money is flowing before drilling ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5231,7 +7026,7 @@ class AsyncOperationsMixin:
         return result
 
     @overload
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -5240,10 +7035,10 @@ class AsyncOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: None = None,
-    ) -> ListSportsEdgeSignalsResponse: ...
+    ) -> ListPreGameSidesResponse: ...
 
     @overload
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -5252,9 +7047,9 @@ class AsyncOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None,
-    ) -> ListSportsEdgeSignalsResponse | NotModifiedResponse: ...
+    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
 
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -5263,15 +7058,15 @@ class AsyncOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListSportsEdgeSignalsResponse | NotModifiedResponse:
-        """List ranked pre-game sports-edge signals.
+    ) -> ListPreGameSidesResponse | NotModifiedResponse:
+        """List upcoming games ranked by the side profitable wallets hold.
 
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
 
-        Pro-tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where
-        graded (S/A/B) sharp money is piled on one side, each row carrying signal_created_at
-        (the UTC time its immutable snapshot was computed), the piled side, its grade
-        distribution, kickoff, piled-side Polymarket CLOB ...
+        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
+        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
+        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
+        carrying signal_created_at (the UTC time its ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5283,7 +7078,115 @@ class AsyncOperationsMixin:
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
         """
-        result: ListSportsEdgeSignalsResponse | NotModifiedResponse = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        result: ListPreGameSidesResponse | NotModifiedResponse = await self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListPreGameSideObservationsResponse: ...
+
+    @overload
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
+
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
+        """List observation-only pre-game side cohorts.
+
+        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
+
+        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
+        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
+        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
+        wider_holder measures pre-game holder piles ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
+            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
+            limit: Page size.
+            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
+        """
+        result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: None = None,
+    ) -> ListPreGameSidesResponse: ...
+
+    @overload
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None,
+    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
+
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPreGameSidesResponse | NotModifiedResponse:
+        """List ranked pre-game sports-edge signals.
+
+        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
+        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
+        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
+        (S/A/B) sharp money is piled on one ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
+            limit: Page size.
+            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
+            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
+            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
+        """
+        result: ListPreGameSidesResponse | NotModifiedResponse = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5295,7 +7198,7 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: None = None,
-    ) -> ListSportsEdgeObservationsResponse: ...
+    ) -> ListPreGameSideObservationsResponse: ...
 
     @overload
     async def list_sports_edge_observations(
@@ -5306,7 +7209,7 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None,
-    ) -> ListSportsEdgeObservationsResponse | NotModifiedResponse: ...
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
 
     async def list_sports_edge_observations(
         self,
@@ -5316,15 +7219,15 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None = None,
-    ) -> ListSportsEdgeObservationsResponse | NotModifiedResponse:
+    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
         """List observation-only sports-edge cohorts.
 
         ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
 
-        Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts without
-        changing or feeding GET /api/v1/sports-edge-signals: wider_holder measures pre-game
-        holder piles outside the funded route's exact raw signals admission, including recent-
-        flow rows rejected by its event, bucket, ...
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
+        the same body. This path stays live and answers with Deprecation and successor Link
+        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
+        without changing or feeding GET ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5335,20 +7238,36 @@ class AsyncOperationsMixin:
             limit: Page size.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
-        result: ListSportsEdgeObservationsResponse | NotModifiedResponse = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    async def get_coverage(
+        self,
+    ) -> GetCoverageResponse:
+        """Which reads the API serves for Polymarket.
+
+        ``GET /api/v1/coverage`` (operationId ``getCoverage``).
+
+        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
+        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
+        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        """
+        result: GetCoverageResponse = await self._call("getCoverage", path_params={}, query={})
         return result
 
     async def get_platforms(
         self,
-    ) -> GetPlatformsResponse:
+    ) -> GetCoverageResponse:
         """Get platform capability matrix.
 
         ``GET /api/v1/platforms`` (operationId ``getPlatforms``).
 
-        Unauthenticated discovery endpoint that declares which V1 intelligence surfaces are
-        supported, partial, or unsupported per provider platform.
+        Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
+        stays live and answers with Deprecation and successor Link headers. Unauthenticated
+        discovery endpoint that declares which V1 data surfaces are supported, partial, or
+        unsupported per provider platform.
         """
-        result: GetPlatformsResponse = await self._call("getPlatforms", path_params={}, query={})
+        result: GetCoverageResponse = await self._call("getPlatforms", path_params={}, query={})
         return result
 
     @overload
@@ -5407,6 +7326,49 @@ class AsyncOperationsMixin:
         return result
 
     @overload
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: None = None,
+    ) -> GetMarketFlowResponse: ...
+
+    @overload
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None,
+    ) -> GetMarketFlowResponse | NotModifiedResponse: ...
+
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None = None,
+    ) -> GetMarketFlowResponse | NotModifiedResponse:
+        """Get a market's flow and top positions.
+
+        ``GET /api/v1/market/{condition_id}/flow`` (operationId ``getMarketFlow``).
+
+        Canonical since #16312; GET /api/v1/market/{condition_id}/intel is its deprecated alias
+        and serves the same body under object market_intel. One market's flow and top positions:
+        the signed flow of every tracked large trade in the window (net_flow_usd and its YES or
+        NO direction), the large-trade ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            timeframe: Lookback window for whale flow aggregation.
+        """
+        result: GetMarketFlowResponse | NotModifiedResponse = await self._call("getMarketFlow", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def get_market_intel(
         self,
         condition_id: str,
@@ -5435,8 +7397,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/market/{condition_id}/intel`` (operationId ``getMarketIntel``).
 
-        Smart money flow analysis for a specific market — net flow direction, whale trade count,
-        buy/sell volumes, and top graded trader positions.
+        Deprecated since #16312: use GET /api/v1/market/{condition_id}/flow, which serves the
+        same body under object market_flow. This path stays live, keeps object market_intel, and
+        answers with Deprecation and successor Link headers. One market's flow and top
+        positions: the signed flow of every tracked ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5447,18 +7411,34 @@ class AsyncOperationsMixin:
         result: GetMarketIntelResponse | NotModifiedResponse = await self._call("getMarketIntel", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
         return result
 
+    async def batch_get_market_flow(
+        self,
+        body: BatchGetMarketFlowBody,
+    ) -> BatchGetMarketFlowResponse:
+        """Batch market flow.
+
+        ``POST /api/v1/markets/flow/batch`` (operationId ``batchGetMarketFlow``).
+
+        Returns each market's flow and top positions for 1-25 raw provider condition_id values.
+        Results preserve request order, duplicate inputs return duplicate rows, and each item is
+        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
+        market.condition_id from search or ...
+        """
+        result: BatchGetMarketFlowResponse = await self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
+        return result
+
     async def batch_get_market_intel(
         self,
-        body: BatchGetMarketIntelBody,
+        body: BatchGetMarketFlowBody,
     ) -> BatchGetMarketIntelResponse:
         """Batch market intelligence.
 
         ``POST /api/v1/markets/intel/batch`` (operationId ``batchGetMarketIntel``).
 
-        Returns smart-money market intelligence for 1-25 raw provider condition_id values.
-        Results preserve request order, duplicate inputs return duplicate rows, and each item is
-        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
-        market.condition_id from search or explore.
+        Deprecated since #16312: use POST /api/v1/markets/flow/batch, which returns the same
+        items under object market_flow_batch. This path stays live, keeps object
+        market_intel_batch, and answers with Deprecation and successor Link headers. Returns
+        each market's flow and top positions for 1-25 raw ...
         """
         result: BatchGetMarketIntelResponse = await self._call("batchGetMarketIntel", path_params={}, query={}, body=body)
         return result
@@ -5557,6 +7537,199 @@ class AsyncOperationsMixin:
         return result
 
     @overload
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: None = None,
+    ) -> ListSuspiciousTradesResponse: ...
+
+    @overload
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None,
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse: ...
+
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse:
+        """Get suspicious trades.
+
+        ``GET /api/v1/suspicious-trades`` (operationId ``listSuspiciousTrades``).
+
+        Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
+        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
+        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
+        generation and returns cursor_expired ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of suspicious trades to return.
+            cursor: Pagination cursor from previous response.
+            min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
+            severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
+            mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
+        """
+        result: ListSuspiciousTradesResponse | NotModifiedResponse = await self._call("listSuspiciousTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetSuspiciousTradeResponse: ...
+
+    @overload
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetSuspiciousTradeResponse | NotModifiedResponse: ...
+
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetSuspiciousTradeResponse | NotModifiedResponse:
+        """Get suspicious trade by ID.
+
+        ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
+
+        Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
+        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
+        deprecated alias and keeps answering object: radar_flag.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetSuspiciousTradeResponse | NotModifiedResponse = await self._call("getSuspiciousTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListGamesResponse: ...
+
+    @overload
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListGamesResponse | NotModifiedResponse: ...
+
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListGamesResponse | NotModifiedResponse:
+        """List covered games.
+
+        ``GET /api/v1/games`` (operationId ``listGames``).
+
+        One coherent game view per row: both sides with their provider ids and live scores, the
+        UTC kickoff, the provider's own status, the esports series format, and every linked
+        Polymarket market with its condition id and outcome token ids. Built from the same
+        provider-first live and upcoming projections ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            status: Keep only games in this state. A value outside the enum returns an empty page.
+            starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
+            starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
+            limit: Page size.
+            cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
+        """
+        result: ListGamesResponse | NotModifiedResponse = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetGameResponse: ...
+
+    @overload
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetGameResponse | NotModifiedResponse: ...
+
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetGameResponse | NotModifiedResponse:
+        """Get one game.
+
+        ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
+
+        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
+        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
+        game straight from a pulse. A slug outside the published coverage returns 404, including
+        a real Polymarket event in a sport ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetGameResponse | NotModifiedResponse = await self._call("getGame", path_params={"event_slug": event_slug}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def list_insider_radar(
         self,
         *,
@@ -5566,7 +7739,7 @@ class AsyncOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: None = None,
-    ) -> ListInsiderRadarResponse: ...
+    ) -> ListSuspiciousTradesResponse: ...
 
     @overload
     async def list_insider_radar(
@@ -5578,7 +7751,7 @@ class AsyncOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None,
-    ) -> ListInsiderRadarResponse | NotModifiedResponse: ...
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse: ...
 
     async def list_insider_radar(
         self,
@@ -5589,15 +7762,15 @@ class AsyncOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None = None,
-    ) -> ListInsiderRadarResponse | NotModifiedResponse:
+    ) -> ListSuspiciousTradesResponse | NotModifiedResponse:
         """Get insider radar flags.
 
         ``GET /api/v1/insider-radar`` (operationId ``listInsiderRadar``).
 
+        Deprecated alias of GET /api/v1/suspicious-trades (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
         Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
-        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
-        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
-        generation and returns cursor_expired ...
+        contains the scorer's stored signals. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5609,7 +7782,7 @@ class AsyncOperationsMixin:
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
             mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
         """
-        result: ListInsiderRadarResponse | NotModifiedResponse = await self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        result: ListSuspiciousTradesResponse | NotModifiedResponse = await self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5638,8 +7811,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/insider-radar/{id}`` (operationId ``getInsiderRadarFlag``).
 
-        Returns one suspicious-trading radar flag by raw whale_alerts.id or the rf_-prefixed id
-        emitted by list responses.
+        Deprecated alias of GET /api/v1/suspicious-trades/{id} (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
+        The envelope keeps object: radar_flag, so an integration that branches on it keeps
+        working here. Returns one ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5658,14 +7833,14 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
-        """Replay public whale-trade intelligence events.
+        """Replay public large-trade events.
 
         ``GET /api/v1/events/feed/since`` (operationId ``getEventReplaySince``).
 
-        Returns durable public whale-trade intelligence events strictly after an opaque cursor,
-        in commit order: events are ordered by the position at which their write became visible
-        to every reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never
-        reaches past the oldest write ...
+        Returns durable public large-trade events strictly after an opaque cursor, in commit
+        order: events are ordered by the position at which their write became visible to every
+        reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never reaches
+        past the oldest write transaction still ...
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
@@ -5721,8 +7896,8 @@ class AsyncOperationsMixin:
 
         Self-describing catalog of every webhook event type: its description, data payload
         shape, and whether it is active (has a firing producer) or dormant (subscribable but not
-        yet delivered). The catalog is identical for every authenticated key and exposes no
-        owner-scoped data. Pro-only event types ...
+        yet delivered; no event type is dormant today). The catalog is identical for every
+        authenticated key and exposes no ...
         """
         result: ListWebhookEventsResponse = await self._call("listWebhookEvents", path_params={}, query={})
         return result
@@ -6056,20 +8231,22 @@ class AsyncOperationsMixin:
         address: str,
         *,
         format: Literal["json", "ndjson", "csv"] | None = None,
+        fresh: bool | None = None,
     ) -> TraderExportJob:
         """Submit a trader dataset export job.
 
         ``POST /api/v1/trader/{address}/export`` (operationId ``submitTraderExport``).
 
         Queues an async export of the trader's full dataset in the requested format (json
-        default, ndjson, or csv) and returns the job. Poll the status route, then follow the
-        download route once status is 'ready'. Quotas are the per-user daily and per-address
-        hourly export caps, keyed on the API key owner ...
+        default, ndjson, or csv) and returns the job resource. Poll the status route at
+        poll_after_s until terminal is true, then follow the download route while status is
+        'ready' (until expires_at, 24 hours from submit). ...
 
         Query parameters:
             format: Output serialization. json = full envelope document (default); ndjson = full envelope as line 1 then one trade object per line; csv = flat trades rows only.
+            fresh: true: do not reuse a finished, running or reconciling job; only a queued job is reused, so the file is a snapshot read after this submit. Consumes quota when ...
         """
-        result: TraderExportJob = await self._call("submitTraderExport", path_params={"address": address}, query={"format": format})
+        result: TraderExportJob = await self._call("submitTraderExport", path_params={"address": address}, query={"format": format, "fresh": fresh})
         return result
 
     async def get_trader_export_status(
@@ -6082,13 +8259,36 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/status`` (operationId ``getTraderExportStatus``).
 
-        Returns the current state of a submitted export job (queued | running | ready | failed)
-        for the authenticated API key.
+        Returns the job resource for a submitted export: status (queued | running |
+        cancel_requested | reconcile_required | ready | failed | expired | cancelled), terminal,
+        next_action and poll_after_s, the lifecycle timestamps, the retention window
+        (expires_at) and, once the file is written, data_as_of ...
 
         Query parameters:
             job_id: Required. Export job id returned by the submit route.
         """
         result: TraderExportJob = await self._call("getTraderExportStatus", path_params={"address": address}, query={"job_id": job_id})
+        return result
+
+    async def cancel_trader_export(
+        self,
+        address: str,
+        *,
+        job_id: int | None = None,
+    ) -> TraderExportJob:
+        """Cancel a trader export job.
+
+        ``POST /api/v1/trader/{address}/export/cancel`` (operationId ``cancelTraderExport``).
+
+        Cancels a submitted export and returns the job resource, the same shape the status route
+        returns. A queued job reads cancelled at once and no worker will start it. A running job
+        reads cancel_requested until the worker reaches its next safe point, then cancelled: the
+        worker checks every 5 seconds ...
+
+        Query parameters:
+            job_id: Required. Export job id returned by the submit route.
+        """
+        result: TraderExportJob = await self._call("cancelTraderExport", path_params={"address": address}, query={"job_id": job_id})
         return result
 
     async def download_trader_export(
@@ -6101,10 +8301,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file once the job
-        status is 'ready'. The file is gzip-compressed and served with the format's Content-Type
-        (application/json, application/x-ndjson, or text/csv). Returns 400 while the job is not
-        yet ready (poll the status route ...
+        Redirects (302) to a short-lived presigned URL for the finished export file while the
+        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
+        served with the format's Content-Type (application/json, application/x-ndjson, or
+        text/csv). Returns 400 while the job is ...
 
         Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
         the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it
@@ -6155,9 +8355,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
 
         Returns caller-owned account and credential IDs, credential validity, paid-data
-        entitlement and approved scopes. Null scopes mean full developer-key access. Valid
-        credentials can use this control-plane diagnostic path after paid access lapses; data
-        routes still require active paid access. OAuth ...
+        entitlement and approved scopes. Null scopes mean full legacy developer-key access.
+        Valid credentials can use this control-plane diagnostic path after paid access lapses;
+        data routes still require active paid access. ...
         """
         result: AccountIdentity = await self._call("getAccountIdentity", path_params={}, query={})
         return result
@@ -6230,6 +8430,7 @@ class AsyncResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetTraderResponse]: ...
 
@@ -6239,6 +8440,7 @@ class AsyncResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -6247,9 +8449,10 @@ class AsyncResponseOperationsMixin:
         address: str,
         *,
         expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]:
-        """Get trader intelligence.
+        """Get trader.
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
@@ -6263,8 +8466,9 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, quant_metrics, trust.
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
         """
-        result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTrader", path_params={"address": address}, query={"expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
 
     async def get_trader_context_markdown(
@@ -6281,6 +8485,49 @@ class AsyncResponseOperationsMixin:
         API. Unknown traders still return 200 with a ...
         """
         result: ApiResponse[str] = await self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
+        return result
+
+    @overload
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetTraderGradeAtResponse]: ...
+
+    @overload
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_trader_grade_at(
+        self,
+        address: str,
+        *,
+        as_of: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a trader grade proven visible at a past instant.
+
+        ``GET /api/v1/trader/{address}/grade-at`` (operationId ``getTraderGradeAt``).
+
+        Reads one trader's recorded grade at as_of from prospective visibility evidence. Before
+        the first recorded observation, after deletion, or during a grade-transition gap, status
+        is unknown and grade is null; a recorded ungraded trader instead has status ungraded.
+        available_from is the first proven ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
+        """
+        result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -6324,14 +8571,14 @@ class AsyncResponseOperationsMixin:
         self,
         body: BatchGetTradersBody,
     ) -> ApiResponse[BatchGetTradersResponse]:
-        """Batch trader intelligence.
+        """Batch traders.
 
         ``POST /api/v1/traders/batch`` (operationId ``batchGetTraders``).
 
-        Returns trader intelligence for 1-25 wallet addresses or known usernames. Results
-        preserve request order, duplicate inputs return duplicate rows, and each item is charged
-        one batch item unit before execution. Unknown trader lookups return data with
-        sync_status "unknown" matching the single trader ...
+        Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
+        order, duplicate inputs return duplicate rows, and each item is charged one batch item
+        unit before execution. Unknown trader lookups return data with sync_status "unknown"
+        matching the single trader endpoint.
         """
         result: ApiResponse[BatchGetTradersResponse] = await self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -6433,6 +8680,10 @@ class AsyncResponseOperationsMixin:
     async def get_trader_pnl(
         self,
         address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        sections: list[Literal["entries", "stats", "monthly", "year_totals", "drawdown"]] | None = None,
     ) -> ApiResponse[GetTraderPnlResponse]:
         """Get trader P&L time series.
 
@@ -6442,8 +8693,13 @@ class AsyncResponseOperationsMixin:
         daily_pnl read model: entries (daily cumulative P&L), period stats (all/90d/30d/7d),
         monthly aggregation, per-year totals, and the drawdown series. Reads the refreshed read
         model, not a per-request equity replay. A ...
+
+        Query parameters:
+            from_: Inclusive UTC calendar-date lower bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            to: Inclusive UTC calendar-date upper bound in YYYY-MM-DD form for the daily series (entries and drawdown). Omit for the whole stored history. A value that is not ...
+            sections: Which sections of the object to return. Repeatable and comma-separated: entries, stats, monthly, year_totals, drawdown. Omit it, or send it empty, for all ...
         """
-        result: ApiResponse[GetTraderPnlResponse] = await self._call("getTraderPnl", path_params={"address": address}, query={})
+        result: ApiResponse[GetTraderPnlResponse] = await self._call("getTraderPnl", path_params={"address": address}, query={"from": from_, "to": to, "sections": sections})
         return result
 
     @overload
@@ -6503,6 +8759,7 @@ class AsyncResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -6518,6 +8775,7 @@ class AsyncResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -6532,6 +8790,7 @@ class AsyncResponseOperationsMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        consistency: Literal["live", "snapshot"] | None = None,
         min_size: float | None = None,
         category: str | None = None,
         condition_id: str | None = None,
@@ -6555,6 +8814,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             limit: Maximum number of current positions to return.
             cursor: Pagination cursor from previous response's next_cursor.
+            consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
             category: Exact match against provider-backed market_canonical.category.
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
@@ -6562,7 +8822,7 @@ class AsyncResponseOperationsMixin:
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
         """
-        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
         return result
 
     async def list_large_positions(
@@ -6596,6 +8856,74 @@ class AsyncResponseOperationsMixin:
         return result
 
     @overload
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListLargeTradesResponse]: ...
+
+    @overload
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_large_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """List large trades.
+
+        ``GET /api/v1/large-trades`` (operationId ``listLargeTrades``).
+
+        Returns recent large trades with signal scoring and persisted suspicion facts. Filter by
+        size, category, trader grade, or persisted suspicion. Filters are applied before
+        pagination, and every request uses SQL-backed limit + 1 pagination so has_more and
+        next_cursor reflect the filtered result set. ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of recent large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor.
+            min_size: Minimum trade size in USD.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def list_whale_trades(
         self,
         *,
@@ -6605,6 +8933,8 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -6618,6 +8948,8 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -6630,6 +8962,8 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -6651,12 +8985,14 @@ class AsyncResponseOperationsMixin:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
         return result
 
     @overload
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -6670,11 +9006,13 @@ class AsyncResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse]: ...
+    ) -> ApiResponse[ListLargeTradeHistoryResponse]: ...
 
     @overload
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -6688,10 +9026,12 @@ class AsyncResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
 
-    async def list_whale_trade_history(
+    async def list_large_trade_history(
         self,
         *,
         limit: int | None = None,
@@ -6705,13 +9045,15 @@ class AsyncResponseOperationsMixin:
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
         to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
-        """Replay historical whale trades.
+    ) -> ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
+        """Replay historical large trades.
 
-        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+        ``GET /api/v1/large-trades/history`` (operationId ``listLargeTradeHistory``).
 
-        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        Returns historical large trades from local whale_alerts rows, not request-time provider
         fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
         platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
         every request uses SQL-backed limit + 1 ...
@@ -6731,8 +9073,133 @@ class AsyncResponseOperationsMixin:
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
             to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
         """
-        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse]: ...
+
+    @overload
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_whale_trade_history(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_size: float | None = None,
+        condition_id: str | None = None,
+        trader: str | None = None,
+        category: str | None = None,
+        min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        suspicious_only: bool | None = None,
+        platform: Literal["polymarket", "all"] | None = None,
+        from_: str | None = None,
+        to: str | None = None,
+        min_market_volume_share: float | None = None,
+        sort: Literal["recent", "market_volume_share"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse]:
+        """Replay historical whale trades.
+
+        ``GET /api/v1/whale-trades/history`` (operationId ``listWhaleTradeHistory``).
+
+        Returns historical whale trades from local whale_alerts rows, not request-time provider
+        fetches. Filter by condition_id, trader, category, minimum grade, persisted suspicion,
+        platform, and RFC3339 from/to windows. All filters are pushed into SQL before LIMIT,
+        every request uses SQL-backed limit + 1 ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of historical large trades to return.
+            cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
+            min_size: Minimum trade size in USD.
+            condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
+            trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+            min_grade: Minimum trader grade.
+            suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
+            platform: Filter by whale_alerts.platform. all is equivalent to omitted.
+            from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
+            to: Exclusive RFC3339 upper bound on whale_alerts.traded_at. Must be after from when both are present.
+            min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
+            sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+        """
+        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetLargeTradeResponse]: ...
+
+    @overload
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_large_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse]:
+        """Get large trade by ID.
+
+        ``GET /api/v1/large-trades/{id}`` (operationId ``getLargeTrade``).
+
+        Returns one large trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
+        and history responses.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetLargeTradeResponse] | ApiResponse[NotModifiedResponse] = await self._call("getLargeTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -6762,12 +9229,38 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/whale-trades/{id}`` (operationId ``getWhaleTrade``).
 
         Returns one whale trade by raw whale_alerts.id or the wt_-prefixed id emitted by list
-        and history responses.
+        and history responses. Deprecated alias of GET /api/v1/large-trades/{id}, kept live and
+        never removed (#16304); every response carries `Deprecation: @1790047200` (RFC 9745,
+        2026-09-22T03:20:00Z) and a `Link` to ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: ApiResponse[GetWhaleTradeResponse] | ApiResponse[NotModifiedResponse] = await self._call("getWhaleTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    async def list_large_trade_counterparty_executions(
+        self,
+        id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ApiResponse[ListLargeTradeCounterpartyExecutionsResponse]:
+        """Page counterparty executions.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions`` (operationId ``listLargeTradeCounterpartyExecutions``).
+
+        Returns a bounded execution page from the immutable snapshot emitted by large-trade
+        detail. A stale or changed snapshot returns a cursor-expired error so clients restart
+        from detail.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of counterparty execution rows to return.
+        """
+        result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = await self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     async def list_whale_trade_counterparty_executions(
@@ -6777,21 +9270,46 @@ class AsyncResponseOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ApiResponse[ListWhaleTradeCounterpartyExecutionsResponse]:
+    ) -> ApiResponse[ListLargeTradeCounterpartyExecutionsResponse]:
         """Page counterparty executions.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions`` (operationId ``listWhaleTradeCounterpartyExecutions``).
 
         Returns a bounded execution page from the immutable snapshot emitted by whale-trade
         detail. A stale or changed snapshot returns a cursor-expired error so clients restart
-        from detail.
+        from detail. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions, kept live and never removed (#16304); ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of counterparty execution rows to return.
         """
-        result: ApiResponse[ListWhaleTradeCounterpartyExecutionsResponse] = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        return result
+
+    async def list_large_trade_counterparty_makers(
+        self,
+        id: str,
+        execution_id: str,
+        *,
+        snapshot_id: str | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ApiResponse[ListLargeTradeCounterpartyMakersResponse]:
+        """Page maker counterparties.
+
+        ``GET /api/v1/large-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listLargeTradeCounterpartyMakers``).
+
+        Returns a bounded maker-wallet page for one exact execution. Percentages keep the
+        complete execution denominator across pages.
+
+        Query parameters:
+            snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
+            cursor: Opaque cursor from the previous response's next_cursor.
+            limit: Maximum number of maker rows to return.
+        """
+        result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = await self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     async def list_whale_trade_counterparty_makers(
@@ -6802,20 +9320,22 @@ class AsyncResponseOperationsMixin:
         snapshot_id: str | None = None,
         cursor: str | None = None,
         limit: int | None = None,
-    ) -> ApiResponse[ListWhaleTradeCounterpartyMakersResponse]:
+    ) -> ApiResponse[ListLargeTradeCounterpartyMakersResponse]:
         """Page maker counterparties.
 
         ``GET /api/v1/whale-trades/{id}/counterparties/executions/{execution_id}/makers`` (operationId ``listWhaleTradeCounterpartyMakers``).
 
         Returns a bounded maker-wallet page for one exact execution. Percentages keep the
-        complete execution denominator across pages.
+        complete execution denominator across pages. Deprecated alias of GET /api/v1/large-
+        trades/{id}/counterparties/executions/{execution_id}/makers, kept live and never removed
+        (#16304); every response carries ...
 
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
             limit: Maximum number of maker rows to return.
         """
-        result: ApiResponse[ListWhaleTradeCounterpartyMakersResponse] = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
+        result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
 
     @overload
@@ -7146,13 +9666,13 @@ class AsyncResponseOperationsMixin:
         direction: Literal["YES", "NO"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListSmartMoneyFlowsResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked smart-money flows.
+        """List ranked sharp-money flows (deprecated alias).
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
         Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where smart money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/intel. Pagination is anchored by an
+        this discovery endpoint to answer where sharp money is flowing before drilling into a
+        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
         opaque cursor carrying the first-page ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
@@ -7214,10 +9734,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
-        Canonical alias of /api/v1/markets/smart-money-flows, which remains live but deprecated.
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with ...
+        Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
+        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
+        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
+        where sharp money is flowing before drilling ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7235,7 +9755,7 @@ class AsyncResponseOperationsMixin:
         return result
 
     @overload
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -7244,10 +9764,10 @@ class AsyncResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse]: ...
+    ) -> ApiResponse[ListPreGameSidesResponse]: ...
 
     @overload
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -7256,9 +9776,9 @@ class AsyncResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
 
-    async def list_sports_edge_signals(
+    async def list_pre_game_sides(
         self,
         *,
         category: str | None = None,
@@ -7267,15 +9787,15 @@ class AsyncResponseOperationsMixin:
         horizon_hours: int | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked pre-game sports-edge signals.
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
+        """List upcoming games ranked by the side profitable wallets hold.
 
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
 
-        Pro-tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where
-        graded (S/A/B) sharp money is piled on one side, each row carrying signal_created_at
-        (the UTC time its immutable snapshot was computed), the piled side, its grade
-        distribution, kickoff, piled-side Polymarket CLOB ...
+        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
+        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
+        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
+        carrying signal_created_at (the UTC time its ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7287,7 +9807,115 @@ class AsyncResponseOperationsMixin:
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
         """
-        result: ApiResponse[ListSportsEdgeSignalsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
+
+    @overload
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_pre_game_side_observations(
+        self,
+        *,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
+        """List observation-only pre-game side cohorts.
+
+        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
+
+        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
+        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
+        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
+        wider_holder measures pre-game holder piles ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
+            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
+            limit: Page size.
+            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
+        """
+        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPreGameSidesResponse]: ...
+
+    @overload
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_sports_edge_signals(
+        self,
+        *,
+        category: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
+        """List ranked pre-game sports-edge signals.
+
+        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
+
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
+        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
+        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
+        (S/A/B) sharp money is piled on one ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
+            limit: Page size.
+            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
+            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
+            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
+        """
+        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7299,7 +9927,7 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse]: ...
+    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
 
     @overload
     async def list_sports_edge_observations(
@@ -7310,7 +9938,7 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
 
     async def list_sports_edge_observations(
         self,
@@ -7320,15 +9948,15 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse]:
+    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
         """List observation-only sports-edge cohorts.
 
         ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
 
-        Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts without
-        changing or feeding GET /api/v1/sports-edge-signals: wider_holder measures pre-game
-        holder piles outside the funded route's exact raw signals admission, including recent-
-        flow rows rejected by its event, bucket, ...
+        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
+        the same body. This path stays live and answers with Deprecation and successor Link
+        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
+        without changing or feeding GET ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7339,20 +9967,36 @@ class AsyncResponseOperationsMixin:
             limit: Page size.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
-        result: ApiResponse[ListSportsEdgeObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    async def get_coverage(
+        self,
+    ) -> ApiResponse[GetCoverageResponse]:
+        """Which reads the API serves for Polymarket.
+
+        ``GET /api/v1/coverage`` (operationId ``getCoverage``).
+
+        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
+        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
+        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        """
+        result: ApiResponse[GetCoverageResponse] = await self._call("getCoverage", path_params={}, query={})
         return result
 
     async def get_platforms(
         self,
-    ) -> ApiResponse[GetPlatformsResponse]:
+    ) -> ApiResponse[GetCoverageResponse]:
         """Get platform capability matrix.
 
         ``GET /api/v1/platforms`` (operationId ``getPlatforms``).
 
-        Unauthenticated discovery endpoint that declares which V1 intelligence surfaces are
-        supported, partial, or unsupported per provider platform.
+        Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
+        stays live and answers with Deprecation and successor Link headers. Unauthenticated
+        discovery endpoint that declares which V1 data surfaces are supported, partial, or
+        unsupported per provider platform.
         """
-        result: ApiResponse[GetPlatformsResponse] = await self._call("getPlatforms", path_params={}, query={})
+        result: ApiResponse[GetCoverageResponse] = await self._call("getPlatforms", path_params={}, query={})
         return result
 
     @overload
@@ -7411,6 +10055,49 @@ class AsyncResponseOperationsMixin:
         return result
 
     @overload
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetMarketFlowResponse]: ...
+
+    @overload
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_market_flow(
+        self,
+        condition_id: str,
+        *,
+        timeframe: Literal["1h", "4h", "24h", "7d"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a market's flow and top positions.
+
+        ``GET /api/v1/market/{condition_id}/flow`` (operationId ``getMarketFlow``).
+
+        Canonical since #16312; GET /api/v1/market/{condition_id}/intel is its deprecated alias
+        and serves the same body under object market_intel. One market's flow and top positions:
+        the signed flow of every tracked large trade in the window (net_flow_usd and its YES or
+        NO direction), the large-trade ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            timeframe: Lookback window for whale flow aggregation.
+        """
+        result: ApiResponse[GetMarketFlowResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketFlow", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def get_market_intel(
         self,
         condition_id: str,
@@ -7439,8 +10126,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/market/{condition_id}/intel`` (operationId ``getMarketIntel``).
 
-        Smart money flow analysis for a specific market — net flow direction, whale trade count,
-        buy/sell volumes, and top graded trader positions.
+        Deprecated since #16312: use GET /api/v1/market/{condition_id}/flow, which serves the
+        same body under object market_flow. This path stays live, keeps object market_intel, and
+        answers with Deprecation and successor Link headers. One market's flow and top
+        positions: the signed flow of every tracked ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7451,18 +10140,34 @@ class AsyncResponseOperationsMixin:
         result: ApiResponse[GetMarketIntelResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketIntel", path_params={"condition_id": condition_id}, query={"timeframe": timeframe}, if_none_match=if_none_match)
         return result
 
+    async def batch_get_market_flow(
+        self,
+        body: BatchGetMarketFlowBody,
+    ) -> ApiResponse[BatchGetMarketFlowResponse]:
+        """Batch market flow.
+
+        ``POST /api/v1/markets/flow/batch`` (operationId ``batchGetMarketFlow``).
+
+        Returns each market's flow and top positions for 1-25 raw provider condition_id values.
+        Results preserve request order, duplicate inputs return duplicate rows, and each item is
+        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
+        market.condition_id from search or ...
+        """
+        result: ApiResponse[BatchGetMarketFlowResponse] = await self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
+        return result
+
     async def batch_get_market_intel(
         self,
-        body: BatchGetMarketIntelBody,
+        body: BatchGetMarketFlowBody,
     ) -> ApiResponse[BatchGetMarketIntelResponse]:
         """Batch market intelligence.
 
         ``POST /api/v1/markets/intel/batch`` (operationId ``batchGetMarketIntel``).
 
-        Returns smart-money market intelligence for 1-25 raw provider condition_id values.
-        Results preserve request order, duplicate inputs return duplicate rows, and each item is
-        charged one batch item unit before execution. Do not pass prefixed mkt_ IDs; use
-        market.condition_id from search or explore.
+        Deprecated since #16312: use POST /api/v1/markets/flow/batch, which returns the same
+        items under object market_flow_batch. This path stays live, keeps object
+        market_intel_batch, and answers with Deprecation and successor Link headers. Returns
+        each market's flow and top positions for 1-25 raw ...
         """
         result: ApiResponse[BatchGetMarketIntelResponse] = await self._call("batchGetMarketIntel", path_params={}, query={}, body=body)
         return result
@@ -7561,6 +10266,199 @@ class AsyncResponseOperationsMixin:
         return result
 
     @overload
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse]: ...
+
+    @overload
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_suspicious_trades(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        min_suspicion: float | None = None,
+        severity: Literal["flag", "watch"] | None = None,
+        mode: Literal["live", "stable"] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """Get suspicious trades.
+
+        ``GET /api/v1/suspicious-trades`` (operationId ``listSuspiciousTrades``).
+
+        Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
+        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
+        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
+        generation and returns cursor_expired ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            limit: Maximum number of suspicious trades to return.
+            cursor: Pagination cursor from previous response.
+            min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
+            severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
+            mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
+        """
+        result: ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSuspiciousTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse]: ...
+
+    @overload
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_suspicious_trade(
+        self,
+        id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse]:
+        """Get suspicious trade by ID.
+
+        ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
+
+        Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
+        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
+        deprecated alias and keeps answering object: radar_flag.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetSuspiciousTradeResponse] | ApiResponse[NotModifiedResponse] = await self._call("getSuspiciousTrade", path_params={"id": id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListGamesResponse]: ...
+
+    @overload
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_games(
+        self,
+        *,
+        sport: str | None = None,
+        league: str | None = None,
+        status: Literal["scheduled", "live", "paused", "ended", "postponed", "cancelled", "suspended", "delayed", "unknown"] | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]:
+        """List covered games.
+
+        ``GET /api/v1/games`` (operationId ``listGames``).
+
+        One coherent game view per row: both sides with their provider ids and live scores, the
+        UTC kickoff, the provider's own status, the esports series format, and every linked
+        Polymarket market with its condition id and outcome token ids. Built from the same
+        provider-first live and upcoming projections ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            status: Keep only games in this state. A value outside the enum returns an empty page.
+            starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
+            starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
+            limit: Page size.
+            cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
+        """
+        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetGameResponse]: ...
+
+    @overload
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_game(
+        self,
+        event_slug: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse]:
+        """Get one game.
+
+        ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
+
+        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
+        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
+        game straight from a pulse. A slug outside the published coverage returns 404, including
+        a real Polymarket event in a sport ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetGameResponse] | ApiResponse[NotModifiedResponse] = await self._call("getGame", path_params={"event_slug": event_slug}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def list_insider_radar(
         self,
         *,
@@ -7570,7 +10468,7 @@ class AsyncResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: None = None,
-    ) -> ApiResponse[ListInsiderRadarResponse]: ...
+    ) -> ApiResponse[ListSuspiciousTradesResponse]: ...
 
     @overload
     async def list_insider_radar(
@@ -7582,7 +10480,7 @@ class AsyncResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None,
-    ) -> ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse]: ...
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
     async def list_insider_radar(
         self,
@@ -7593,15 +10491,15 @@ class AsyncResponseOperationsMixin:
         severity: Literal["flag", "watch"] | None = None,
         mode: Literal["live", "stable"] | None = None,
         if_none_match: str | None = None,
-    ) -> ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse]:
+    ) -> ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse]:
         """Get insider radar flags.
 
         ``GET /api/v1/insider-radar`` (operationId ``listInsiderRadar``).
 
+        Deprecated alias of GET /api/v1/suspicious-trades (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
         Stored trades whose recorded suspicion score meets the live flag threshold. Evidence
-        contains the scorer's stored signals. Cursor-paginated by suspicion score. mode=live
-        (default) uses fresh cached pages; mode=stable pins pagination to one published scoring
-        generation and returns cursor_expired ...
+        contains the scorer's stored signals. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7613,7 +10511,7 @@ class AsyncResponseOperationsMixin:
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
             mode: Pagination mode. live (default) keeps the 120-second response cache; stable pins the walk to one published scoring generation and binds the cursor to the limit ...
         """
-        result: ApiResponse[ListInsiderRadarResponse] | ApiResponse[NotModifiedResponse] = await self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
+        result: ApiResponse[ListSuspiciousTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listInsiderRadar", path_params={}, query={"limit": limit, "cursor": cursor, "min_suspicion": min_suspicion, "severity": severity, "mode": mode}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7642,8 +10540,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/insider-radar/{id}`` (operationId ``getInsiderRadarFlag``).
 
-        Returns one suspicious-trading radar flag by raw whale_alerts.id or the rf_-prefixed id
-        emitted by list responses.
+        Deprecated alias of GET /api/v1/suspicious-trades/{id} (2026-09-23), kept live with no
+        retirement date; responses carry Deprecation and a Link rel="successor-version" to it.
+        The envelope keeps object: radar_flag, so an integration that branches on it keeps
+        working here. Returns one ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7662,14 +10562,14 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
-        """Replay public whale-trade intelligence events.
+        """Replay public large-trade events.
 
         ``GET /api/v1/events/feed/since`` (operationId ``getEventReplaySince``).
 
-        Returns durable public whale-trade intelligence events strictly after an opaque cursor,
-        in commit order: events are ordered by the position at which their write became visible
-        to every reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never
-        reaches past the oldest write ...
+        Returns durable public large-trade events strictly after an opaque cursor, in commit
+        order: events are ordered by the position at which their write became visible to every
+        reader (whale_alerts.inserted_xid), then by whale_alerts.id, and a page never reaches
+        past the oldest write transaction still ...
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
@@ -7725,8 +10625,8 @@ class AsyncResponseOperationsMixin:
 
         Self-describing catalog of every webhook event type: its description, data payload
         shape, and whether it is active (has a firing producer) or dormant (subscribable but not
-        yet delivered). The catalog is identical for every authenticated key and exposes no
-        owner-scoped data. Pro-only event types ...
+        yet delivered; no event type is dormant today). The catalog is identical for every
+        authenticated key and exposes no ...
         """
         result: ApiResponse[ListWebhookEventsResponse] = await self._call("listWebhookEvents", path_params={}, query={})
         return result
@@ -8060,20 +10960,22 @@ class AsyncResponseOperationsMixin:
         address: str,
         *,
         format: Literal["json", "ndjson", "csv"] | None = None,
+        fresh: bool | None = None,
     ) -> ApiResponse[TraderExportJob]:
         """Submit a trader dataset export job.
 
         ``POST /api/v1/trader/{address}/export`` (operationId ``submitTraderExport``).
 
         Queues an async export of the trader's full dataset in the requested format (json
-        default, ndjson, or csv) and returns the job. Poll the status route, then follow the
-        download route once status is 'ready'. Quotas are the per-user daily and per-address
-        hourly export caps, keyed on the API key owner ...
+        default, ndjson, or csv) and returns the job resource. Poll the status route at
+        poll_after_s until terminal is true, then follow the download route while status is
+        'ready' (until expires_at, 24 hours from submit). ...
 
         Query parameters:
             format: Output serialization. json = full envelope document (default); ndjson = full envelope as line 1 then one trade object per line; csv = flat trades rows only.
+            fresh: true: do not reuse a finished, running or reconciling job; only a queued job is reused, so the file is a snapshot read after this submit. Consumes quota when ...
         """
-        result: ApiResponse[TraderExportJob] = await self._call("submitTraderExport", path_params={"address": address}, query={"format": format})
+        result: ApiResponse[TraderExportJob] = await self._call("submitTraderExport", path_params={"address": address}, query={"format": format, "fresh": fresh})
         return result
 
     async def get_trader_export_status(
@@ -8086,13 +10988,36 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/status`` (operationId ``getTraderExportStatus``).
 
-        Returns the current state of a submitted export job (queued | running | ready | failed)
-        for the authenticated API key.
+        Returns the job resource for a submitted export: status (queued | running |
+        cancel_requested | reconcile_required | ready | failed | expired | cancelled), terminal,
+        next_action and poll_after_s, the lifecycle timestamps, the retention window
+        (expires_at) and, once the file is written, data_as_of ...
 
         Query parameters:
             job_id: Required. Export job id returned by the submit route.
         """
         result: ApiResponse[TraderExportJob] = await self._call("getTraderExportStatus", path_params={"address": address}, query={"job_id": job_id})
+        return result
+
+    async def cancel_trader_export(
+        self,
+        address: str,
+        *,
+        job_id: int | None = None,
+    ) -> ApiResponse[TraderExportJob]:
+        """Cancel a trader export job.
+
+        ``POST /api/v1/trader/{address}/export/cancel`` (operationId ``cancelTraderExport``).
+
+        Cancels a submitted export and returns the job resource, the same shape the status route
+        returns. A queued job reads cancelled at once and no worker will start it. A running job
+        reads cancel_requested until the worker reaches its next safe point, then cancelled: the
+        worker checks every 5 seconds ...
+
+        Query parameters:
+            job_id: Required. Export job id returned by the submit route.
+        """
+        result: ApiResponse[TraderExportJob] = await self._call("cancelTraderExport", path_params={"address": address}, query={"job_id": job_id})
         return result
 
     async def download_trader_export(
@@ -8105,10 +11030,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file once the job
-        status is 'ready'. The file is gzip-compressed and served with the format's Content-Type
-        (application/json, application/x-ndjson, or text/csv). Returns 400 while the job is not
-        yet ready (poll the status route ...
+        Redirects (302) to a short-lived presigned URL for the finished export file while the
+        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
+        served with the format's Content-Type (application/json, application/x-ndjson, or
+        text/csv). Returns 400 while the job is ...
 
         Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
         the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it
@@ -8159,9 +11084,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/me`` (operationId ``getAccountIdentity``).
 
         Returns caller-owned account and credential IDs, credential validity, paid-data
-        entitlement and approved scopes. Null scopes mean full developer-key access. Valid
-        credentials can use this control-plane diagnostic path after paid access lapses; data
-        routes still require active paid access. OAuth ...
+        entitlement and approved scopes. Null scopes mean full legacy developer-key access.
+        Valid credentials can use this control-plane diagnostic path after paid access lapses;
+        data routes still require active paid access. ...
         """
         result: ApiResponse[AccountIdentity] = await self._call("getAccountIdentity", path_params={}, query={})
         return result
