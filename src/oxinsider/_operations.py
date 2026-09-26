@@ -440,7 +440,7 @@ class OperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = self._call("getPositionTimeline", path_params={"address": address}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -559,7 +559,7 @@ class OperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -624,7 +624,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of current positions to return.
+            limit: Maximum number of current positions to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
@@ -657,7 +657,7 @@ class OperationsMixin:
         so a wallet that holds a market without ...
 
         Query parameters:
-            limit: Maximum number of large positions to return.
+            limit: Maximum number of large positions to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from a previous response.
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
@@ -723,7 +723,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -791,7 +791,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -874,7 +874,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -962,7 +962,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD.
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -1070,7 +1070,7 @@ class OperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyExecutionsResponse = self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -1095,7 +1095,7 @@ class OperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyExecutionsResponse = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -1119,7 +1119,7 @@ class OperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyMakersResponse = self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -1145,7 +1145,7 @@ class OperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyMakersResponse = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -1192,7 +1192,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of ranked traders to return.
+            limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
             strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
@@ -1224,7 +1224,7 @@ class OperationsMixin:
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
         Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        six ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
+        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
         (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
         $100 basis), the sharp-money holders, ...
 
@@ -1319,7 +1319,7 @@ class OperationsMixin:
         api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
 
         Query parameters:
-            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50.
+            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
             cursor: Opaque pagination cursor from a previous response, bound to its effective limit, window and ranked-board generation. A changed board or request scope returns ...
             window: Trailing window.
         """
@@ -1345,9 +1345,9 @@ class OperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum number of matching markets to return.
+            limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             category: Filter by category.
         """
         result: SearchMarketsResponse = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
@@ -1369,7 +1369,7 @@ class OperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-256 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum content items to return.
+            limit: Maximum content items to return. Out-of-range values are clamped to 1..50.
         """
         result: SearchContentResponse = self._call("searchContent", path_params={}, query={"q": q, "limit": limit})
         return result
@@ -1381,7 +1381,7 @@ class OperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -1395,7 +1395,7 @@ class OperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -1408,7 +1408,7 @@ class OperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -1428,11 +1428,11 @@ class OperationsMixin:
 
         Query parameters:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             platform: Filter by source platform. Explore is Polymarket-only; polymarket is the only supported value and the parameter is accepted for backward-compatibility but does ...
-            sort: Sort order for the discovery feed.
+            sort: Sort order for the discovery feed. `large_trades` ranks by large-trade activity; `whales` is its deprecated spelling and selects the same order.
             cursor: Opaque pagination cursor from the previous response.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..48.
             q: Keyword search against market titles. At most 64 characters before whitespace trimming.
         """
         result: ExploreMarketsResponse | NotModifiedResponse = self._call("exploreMarkets", path_params={}, query={"category": category, "status": status, "platform": platform, "sort": sort, "cursor": cursor, "limit": limit, "q": q}, if_none_match=if_none_match)
@@ -1492,7 +1492,7 @@ class OperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -1556,7 +1556,7 @@ class OperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -1614,7 +1614,7 @@ class OperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -1668,7 +1668,7 @@ class OperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -1722,7 +1722,7 @@ class OperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -1776,7 +1776,7 @@ class OperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -1860,7 +1860,7 @@ class OperationsMixin:
         Query parameters:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
-            limit: Maximum holders per page.
+            limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
         """
         result: GetMarketHoldersResponse | NotModifiedResponse = self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -2124,7 +2124,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of suspicious trades to return.
+            limit: Maximum number of suspicious trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -2227,7 +2227,7 @@ class OperationsMixin:
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
         """
         result: ListGamesResponse | NotModifiedResponse = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -2317,7 +2317,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of radar flags to return.
+            limit: Maximum number of radar flags to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -2385,7 +2385,7 @@ class OperationsMixin:
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
-            limit: Maximum durable public whale-trade events to return.
+            limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
@@ -2704,7 +2704,7 @@ class OperationsMixin:
         activity volume, not provider lifetime trader volume.
 
         Query parameters:
-            date: Required. UTC report date in YYYY-MM-DD format.
+            date: Required. UTC report date in YYYY-MM-DD format, from 2024-03-01 (the first day report data covers) through tomorrow UTC. Any other date returns 400 bad_request with ...
         """
         result: GetReportsResponse = self._call("getDailyReportSnapshot", path_params={}, query={"date": date})
         return result
@@ -2726,9 +2726,9 @@ class OperationsMixin:
         rolling.
 
         Query parameters:
-            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot.
+            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days. A start ...
+            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days. An end ...
+            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot. A week that ends before 2024-03-01, the first day report ...
         """
         result: GetReportsResponse = self._call("getWeeklyReportSnapshot", path_params={}, query={"from": from_, "to": to, "week": week})
         return result
@@ -2746,7 +2746,7 @@ class OperationsMixin:
         and reconciliation metadata.
 
         Query parameters:
-            month: Required. UTC report month in YYYY-MM format.
+            month: Required. UTC report month in YYYY-MM format. A month that ends before 2024-03-01, the first day report data covers, or starts after tomorrow UTC returns 400 bad_request ...
         """
         result: GetReportsResponse = self._call("getMonthlyReportSnapshot", path_params={}, query={"month": month})
         return result
@@ -3169,7 +3169,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = self._call("getPositionTimeline", path_params={"address": address}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -3288,7 +3288,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -3353,7 +3353,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of current positions to return.
+            limit: Maximum number of current positions to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
@@ -3386,7 +3386,7 @@ class ResponseOperationsMixin:
         so a wallet that holds a market without ...
 
         Query parameters:
-            limit: Maximum number of large positions to return.
+            limit: Maximum number of large positions to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from a previous response.
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
@@ -3452,7 +3452,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -3520,7 +3520,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -3603,7 +3603,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -3691,7 +3691,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD.
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -3799,7 +3799,7 @@ class ResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -3824,7 +3824,7 @@ class ResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -3848,7 +3848,7 @@ class ResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -3874,7 +3874,7 @@ class ResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -3921,7 +3921,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of ranked traders to return.
+            limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
             strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
@@ -3953,7 +3953,7 @@ class ResponseOperationsMixin:
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
         Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        six ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
+        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
         (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
         $100 basis), the sharp-money holders, ...
 
@@ -4048,7 +4048,7 @@ class ResponseOperationsMixin:
         api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
 
         Query parameters:
-            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50.
+            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
             cursor: Opaque pagination cursor from a previous response, bound to its effective limit, window and ranked-board generation. A changed board or request scope returns ...
             window: Trailing window.
         """
@@ -4074,9 +4074,9 @@ class ResponseOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum number of matching markets to return.
+            limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             category: Filter by category.
         """
         result: ApiResponse[SearchMarketsResponse] = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
@@ -4098,7 +4098,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-256 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum content items to return.
+            limit: Maximum content items to return. Out-of-range values are clamped to 1..50.
         """
         result: ApiResponse[SearchContentResponse] = self._call("searchContent", path_params={}, query={"q": q, "limit": limit})
         return result
@@ -4110,7 +4110,7 @@ class ResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -4124,7 +4124,7 @@ class ResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -4137,7 +4137,7 @@ class ResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -4157,11 +4157,11 @@ class ResponseOperationsMixin:
 
         Query parameters:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             platform: Filter by source platform. Explore is Polymarket-only; polymarket is the only supported value and the parameter is accepted for backward-compatibility but does ...
-            sort: Sort order for the discovery feed.
+            sort: Sort order for the discovery feed. `large_trades` ranks by large-trade activity; `whales` is its deprecated spelling and selects the same order.
             cursor: Opaque pagination cursor from the previous response.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..48.
             q: Keyword search against market titles. At most 64 characters before whitespace trimming.
         """
         result: ApiResponse[ExploreMarketsResponse] | ApiResponse[NotModifiedResponse] = self._call("exploreMarkets", path_params={}, query={"category": category, "status": status, "platform": platform, "sort": sort, "cursor": cursor, "limit": limit, "q": q}, if_none_match=if_none_match)
@@ -4221,7 +4221,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -4285,7 +4285,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -4343,7 +4343,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -4397,7 +4397,7 @@ class ResponseOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -4451,7 +4451,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -4505,7 +4505,7 @@ class ResponseOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -4589,7 +4589,7 @@ class ResponseOperationsMixin:
         Query parameters:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
-            limit: Maximum holders per page.
+            limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
         """
         result: ApiResponse[GetMarketHoldersResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -4853,7 +4853,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of suspicious trades to return.
+            limit: Maximum number of suspicious trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -4956,7 +4956,7 @@ class ResponseOperationsMixin:
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
         """
         result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -5046,7 +5046,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of radar flags to return.
+            limit: Maximum number of radar flags to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -5114,7 +5114,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
-            limit: Maximum durable public whale-trade events to return.
+            limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
@@ -5433,7 +5433,7 @@ class ResponseOperationsMixin:
         activity volume, not provider lifetime trader volume.
 
         Query parameters:
-            date: Required. UTC report date in YYYY-MM-DD format.
+            date: Required. UTC report date in YYYY-MM-DD format, from 2024-03-01 (the first day report data covers) through tomorrow UTC. Any other date returns 400 bad_request with ...
         """
         result: ApiResponse[GetReportsResponse] = self._call("getDailyReportSnapshot", path_params={}, query={"date": date})
         return result
@@ -5455,9 +5455,9 @@ class ResponseOperationsMixin:
         rolling.
 
         Query parameters:
-            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot.
+            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days. A start ...
+            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days. An end ...
+            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot. A week that ends before 2024-03-01, the first day report ...
         """
         result: ApiResponse[GetReportsResponse] = self._call("getWeeklyReportSnapshot", path_params={}, query={"from": from_, "to": to, "week": week})
         return result
@@ -5475,7 +5475,7 @@ class ResponseOperationsMixin:
         and reconciliation metadata.
 
         Query parameters:
-            month: Required. UTC report month in YYYY-MM format.
+            month: Required. UTC report month in YYYY-MM format. A month that ends before 2024-03-01, the first day report data covers, or starts after tomorrow UTC returns 400 bad_request ...
         """
         result: ApiResponse[GetReportsResponse] = self._call("getMonthlyReportSnapshot", path_params={}, query={"month": month})
         return result
@@ -5899,7 +5899,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = await self._call("getPositionTimeline", path_params={"address": address}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -6018,7 +6018,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = await self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -6083,7 +6083,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of current positions to return.
+            limit: Maximum number of current positions to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
@@ -6116,7 +6116,7 @@ class AsyncOperationsMixin:
         so a wallet that holds a market without ...
 
         Query parameters:
-            limit: Maximum number of large positions to return.
+            limit: Maximum number of large positions to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from a previous response.
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
@@ -6182,7 +6182,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -6250,7 +6250,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -6333,7 +6333,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -6421,7 +6421,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD.
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -6529,7 +6529,7 @@ class AsyncOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyExecutionsResponse = await self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -6554,7 +6554,7 @@ class AsyncOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyExecutionsResponse = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -6578,7 +6578,7 @@ class AsyncOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyMakersResponse = await self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -6604,7 +6604,7 @@ class AsyncOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ListLargeTradeCounterpartyMakersResponse = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -6651,7 +6651,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of ranked traders to return.
+            limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
             strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
@@ -6683,7 +6683,7 @@ class AsyncOperationsMixin:
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
         Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        six ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
+        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
         (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
         $100 basis), the sharp-money holders, ...
 
@@ -6778,7 +6778,7 @@ class AsyncOperationsMixin:
         api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
 
         Query parameters:
-            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50.
+            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
             cursor: Opaque pagination cursor from a previous response, bound to its effective limit, window and ranked-board generation. A changed board or request scope returns ...
             window: Trailing window.
         """
@@ -6804,9 +6804,9 @@ class AsyncOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum number of matching markets to return.
+            limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             category: Filter by category.
         """
         result: SearchMarketsResponse = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
@@ -6828,7 +6828,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-256 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum content items to return.
+            limit: Maximum content items to return. Out-of-range values are clamped to 1..50.
         """
         result: SearchContentResponse = await self._call("searchContent", path_params={}, query={"q": q, "limit": limit})
         return result
@@ -6840,7 +6840,7 @@ class AsyncOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -6854,7 +6854,7 @@ class AsyncOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -6867,7 +6867,7 @@ class AsyncOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -6887,11 +6887,11 @@ class AsyncOperationsMixin:
 
         Query parameters:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             platform: Filter by source platform. Explore is Polymarket-only; polymarket is the only supported value and the parameter is accepted for backward-compatibility but does ...
-            sort: Sort order for the discovery feed.
+            sort: Sort order for the discovery feed. `large_trades` ranks by large-trade activity; `whales` is its deprecated spelling and selects the same order.
             cursor: Opaque pagination cursor from the previous response.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..48.
             q: Keyword search against market titles. At most 64 characters before whitespace trimming.
         """
         result: ExploreMarketsResponse | NotModifiedResponse = await self._call("exploreMarkets", path_params={}, query={"category": category, "status": status, "platform": platform, "sort": sort, "cursor": cursor, "limit": limit, "q": q}, if_none_match=if_none_match)
@@ -6951,7 +6951,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -7015,7 +7015,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -7073,7 +7073,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -7127,7 +7127,7 @@ class AsyncOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -7181,7 +7181,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -7235,7 +7235,7 @@ class AsyncOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -7319,7 +7319,7 @@ class AsyncOperationsMixin:
         Query parameters:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
-            limit: Maximum holders per page.
+            limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
         """
         result: GetMarketHoldersResponse | NotModifiedResponse = await self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -7583,7 +7583,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of suspicious trades to return.
+            limit: Maximum number of suspicious trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -7686,7 +7686,7 @@ class AsyncOperationsMixin:
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
         """
         result: ListGamesResponse | NotModifiedResponse = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -7776,7 +7776,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of radar flags to return.
+            limit: Maximum number of radar flags to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -7844,7 +7844,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
-            limit: Maximum durable public whale-trade events to return.
+            limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
@@ -8163,7 +8163,7 @@ class AsyncOperationsMixin:
         activity volume, not provider lifetime trader volume.
 
         Query parameters:
-            date: Required. UTC report date in YYYY-MM-DD format.
+            date: Required. UTC report date in YYYY-MM-DD format, from 2024-03-01 (the first day report data covers) through tomorrow UTC. Any other date returns 400 bad_request with ...
         """
         result: GetReportsResponse = await self._call("getDailyReportSnapshot", path_params={}, query={"date": date})
         return result
@@ -8185,9 +8185,9 @@ class AsyncOperationsMixin:
         rolling.
 
         Query parameters:
-            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot.
+            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days. A start ...
+            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days. An end ...
+            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot. A week that ends before 2024-03-01, the first day report ...
         """
         result: GetReportsResponse = await self._call("getWeeklyReportSnapshot", path_params={}, query={"from": from_, "to": to, "week": week})
         return result
@@ -8205,7 +8205,7 @@ class AsyncOperationsMixin:
         and reconciliation metadata.
 
         Query parameters:
-            month: Required. UTC report month in YYYY-MM format.
+            month: Required. UTC report month in YYYY-MM format. A month that ends before 2024-03-01, the first day report data covers, or starts after tomorrow UTC returns 400 bad_request ...
         """
         result: GetReportsResponse = await self._call("getMonthlyReportSnapshot", path_params={}, query={"month": month})
         return result
@@ -8628,7 +8628,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPositionTimeline", path_params={"address": address}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -8747,7 +8747,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             condition_id: Required. Market condition_id. One timeline per (trader, market).
-            limit: Maximum number of timeline events to return.
+            limit: Maximum number of timeline events to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -8812,7 +8812,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of current positions to return.
+            limit: Maximum number of current positions to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
@@ -8845,7 +8845,7 @@ class AsyncResponseOperationsMixin:
         so a wallet that holds a market without ...
 
         Query parameters:
-            limit: Maximum number of large positions to return.
+            limit: Maximum number of large positions to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from a previous response.
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
@@ -8911,7 +8911,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -8979,7 +8979,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of recent large trades to return.
+            limit: Maximum number of recent large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
@@ -9062,7 +9062,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -9150,7 +9150,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of historical large trades to return.
+            limit: Maximum number of historical large trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor. Prefix: wth_. URL-encode when replaying as a query parameter.
             min_size: Minimum trade size in USD.
             condition_id: Exact raw provider condition_id. Unknown markets return an empty list.
@@ -9258,7 +9258,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = await self._call("listLargeTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -9283,7 +9283,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of counterparty execution rows to return.
+            limit: Maximum number of counterparty execution rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyExecutionsResponse] = await self._call("listWhaleTradeCounterpartyExecutions", path_params={"id": id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -9307,7 +9307,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the large trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = await self._call("listLargeTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -9333,7 +9333,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             snapshot_id: Required. Counterparty snapshot ID from the whale trade detail response.
             cursor: Opaque cursor from the previous response's next_cursor.
-            limit: Maximum number of maker rows to return.
+            limit: Maximum number of maker rows to return. Out-of-range values are clamped to 1..100.
         """
         result: ApiResponse[ListLargeTradeCounterpartyMakersResponse] = await self._call("listWhaleTradeCounterpartyMakers", path_params={"id": id, "execution_id": execution_id}, query={"snapshot_id": snapshot_id, "cursor": cursor, "limit": limit})
         return result
@@ -9380,7 +9380,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of ranked traders to return.
+            limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
             strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
@@ -9412,7 +9412,7 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
         Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        six ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
+        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
         (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
         $100 basis), the sharp-money holders, ...
 
@@ -9507,7 +9507,7 @@ class AsyncResponseOperationsMixin:
         api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
 
         Query parameters:
-            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50.
+            limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
             cursor: Opaque pagination cursor from a previous response, bound to its effective limit, window and ranked-board generation. A changed board or request scope returns ...
             window: Trailing window.
         """
@@ -9533,9 +9533,9 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum number of matching markets to return.
+            limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             category: Filter by category.
         """
         result: ApiResponse[SearchMarketsResponse] = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
@@ -9557,7 +9557,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             q: Required. Search query. Must be 1-256 characters before whitespace trimming and non-empty after trimming.
-            limit: Maximum content items to return.
+            limit: Maximum content items to return. Out-of-range values are clamped to 1..50.
         """
         result: ApiResponse[SearchContentResponse] = await self._call("searchContent", path_params={}, query={"q": q, "limit": limit})
         return result
@@ -9569,7 +9569,7 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -9583,7 +9583,7 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -9596,7 +9596,7 @@ class AsyncResponseOperationsMixin:
         category: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
         platform: Literal["polymarket"] | None = None,
-        sort: Literal["trending", "hot", "expiring", "whales", "volume", "newest"] | None = None,
+        sort: Literal["trending", "hot", "expiring", "large_trades", "whales", "volume", "newest"] | None = None,
         cursor: str | None = None,
         limit: int | None = None,
         q: str | None = None,
@@ -9616,11 +9616,11 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            status: Filter by market status.
+            status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
             platform: Filter by source platform. Explore is Polymarket-only; polymarket is the only supported value and the parameter is accepted for backward-compatibility but does ...
-            sort: Sort order for the discovery feed.
+            sort: Sort order for the discovery feed. `large_trades` ranks by large-trade activity; `whales` is its deprecated spelling and selects the same order.
             cursor: Opaque pagination cursor from the previous response.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..48.
             q: Keyword search against market titles. At most 64 characters before whitespace trimming.
         """
         result: ApiResponse[ExploreMarketsResponse] | ApiResponse[NotModifiedResponse] = await self._call("exploreMarkets", path_params={}, query={"category": category, "status": status, "platform": platform, "sort": sort, "cursor": cursor, "limit": limit, "q": q}, if_none_match=if_none_match)
@@ -9680,7 +9680,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -9744,7 +9744,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             timeframe: Lookback window for grade-filtered whale flow aggregation.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from previous response's next_cursor. Encodes the first-page as_of timestamp, normalized effective filters, ranking and aggregate collection ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             platform: Filter by source platform. all is a request-side no-op.
@@ -9802,7 +9802,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -9856,7 +9856,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -9910,7 +9910,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
             horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
             min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
@@ -9964,7 +9964,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
             category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
         """
         result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -10048,7 +10048,7 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
-            limit: Maximum holders per page.
+            limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
             cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
         """
         result: ApiResponse[GetMarketHoldersResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -10312,7 +10312,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of suspicious trades to return.
+            limit: Maximum number of suspicious trades to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -10415,7 +10415,7 @@ class AsyncResponseOperationsMixin:
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
-            limit: Page size.
+            limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
         """
         result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
@@ -10505,7 +10505,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            limit: Maximum number of radar flags to return.
+            limit: Maximum number of radar flags to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response.
             min_suspicion: Minimum suspicion score (0-100). The live flag floor of 60 also applies.
             severity: Compatible filter. flag selects live threshold crossings. watch returns no rows because no live watch policy exists.
@@ -10573,7 +10573,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             cursor: Opaque event replay cursor returned as next_cursor by a prior response. The cursor maps to the global (whale_alerts.inserted_xid, whale_alerts.id) commit-order ...
-            limit: Maximum durable public whale-trade events to return.
+            limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
@@ -10892,7 +10892,7 @@ class AsyncResponseOperationsMixin:
         activity volume, not provider lifetime trader volume.
 
         Query parameters:
-            date: Required. UTC report date in YYYY-MM-DD format.
+            date: Required. UTC report date in YYYY-MM-DD format, from 2024-03-01 (the first day report data covers) through tomorrow UTC. Any other date returns 400 bad_request with ...
         """
         result: ApiResponse[GetReportsResponse] = await self._call("getDailyReportSnapshot", path_params={}, query={"date": date})
         return result
@@ -10914,9 +10914,9 @@ class AsyncResponseOperationsMixin:
         rolling.
 
         Query parameters:
-            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days.
-            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot.
+            from_: UTC source-range start in YYYY-MM-DD format; required with to. Together with to, selects an exact ephemeral range of at most 31 inclusive UTC days. A start ...
+            to: UTC source-range end in YYYY-MM-DD format; required with from. Together with from, selects an exact ephemeral range of at most 31 inclusive UTC days. An end ...
+            week: ISO week selector in YYYY-WW format; alternative to from/to. Selects a durable canonical snapshot. A week that ends before 2024-03-01, the first day report ...
         """
         result: ApiResponse[GetReportsResponse] = await self._call("getWeeklyReportSnapshot", path_params={}, query={"from": from_, "to": to, "week": week})
         return result
@@ -10934,7 +10934,7 @@ class AsyncResponseOperationsMixin:
         and reconciliation metadata.
 
         Query parameters:
-            month: Required. UTC report month in YYYY-MM format.
+            month: Required. UTC report month in YYYY-MM format. A month that ends before 2024-03-01, the first day report data covers, or starts after tomorrow UTC returns 400 bad_request ...
         """
         result: ApiResponse[GetReportsResponse] = await self._call("getMonthlyReportSnapshot", path_params={}, query={"month": month})
         return result

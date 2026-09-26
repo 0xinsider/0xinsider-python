@@ -8,7 +8,7 @@ web/public/api/v1/openapi.json when it could be resolved, else None.
 from __future__ import annotations
 
 OPENAPI_SOURCE = "https://0xinsider.com/api/v1/openapi.json"
-OPENAPI_SHA256 = "52a31681f3c2888cb16ed1d6c7ce854aa9c47302bab1314eede4a5c2f9809417"
+OPENAPI_SHA256 = "c18d77811bc19e97dc1e65c8558d62ca2858b2144c7e2f295da950a53f0341de"
 OPENAPI_VERSION = "1.0.0"
 OPERATION_COUNT = 83
 APP_REPOSITORY = "0xinsider/0xinsider"

@@ -605,7 +605,9 @@ class TraderQuantMetrics(TypedDict):
     # Gross profit divided by gross loss; greater than 1 is profitable. Capped at 1000 when there are effectively
     # no losses. null when insufficient history.
     profit_factor: float | None
-    # Stability of the trader's edge over time, 0-1 (higher is more consistent). null when insufficient history.
+    # Share of the trader's last 30 days with realized P&L that closed positive, 0-1 (higher is more consistent).
+    # A day with no realized P&L is not one of them, so the window can span months. null below 10 such days; null
+    # ...
     edge_consistency: float | None
     # Cross-sectional percentile rank of the trader's Sharpe ratio versus all traders, 0-100. null when
     # insufficient history.
@@ -1691,9 +1693,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # Frozen canonical calibration/report bucket (e.g. "Basketball", "MMA", or "Soccer"). Existing semantics are
     # unchanged; presentation consumers should prefer display_category when present.
     category: str
-    # Frozen public presentation category. For supported Polymarket sports this is the exact verified provider
-    # event identity: an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or
-    # ...
+    # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
+    # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
     display_category: str
     # Provider platform (e.g. "polymarket").
     platform: str
@@ -1706,6 +1707,10 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # True once the backed game's kickoff has passed (kickoff <= now). When true the snapshotted pre-game price is
     # no longer actionable. Absent for a legacy pick with no stored kickoff (treat as not-started).
     game_started: bool
+    # Whether the backed game is over according to the cached live scoreboard, read at serve time. Tells a
+    # finished game from one still in play before `outcome` settles. Omitted when the pick has no event slug or no
+    # ...
+    game_ended: bool
     # Settlement outcome of the backed side; 'pending' until the market resolves.
     outcome: Literal["pending", "win", "loss", "void"] | str
     # Pre-formatted SETTLEMENT STATUS for display: "Win" / "Loss" / "Void" / "Pending" -- the outcome enum above
@@ -1855,6 +1860,10 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     thesis: str
     # Canonical web market URL.
     market_url: str
+    # Where this pick's outbound Polymarket link lands: Polymarket's own redirect answer for
+    # `/event/<event_slug>`, carrying the referral tag. Omitted until that redirect has been resolved; link to the
+    # event page instead when ...
+    polymarket_url: str
     # The canonical /event game-page slug (one neutral page per game); omitted when the game has no neutral event
     # page.
     event_slug: str
@@ -1968,6 +1977,9 @@ class _PickHolderRequired(TypedDict):
     name: str | None
     # All-time trader grade (S, A, B, C, D, F).
     grade: str | None
+    # The wallet's most recent recorded trade time, stamped at serve time from its current trader record rather
+    # than frozen with the pick. Always sent; null when no trade time is recorded. Format: date-time.
+    last_traded_at: str | None
     shares: float
 
 
@@ -1975,6 +1987,10 @@ class PickHolder(_PickHolderRequired, total=False):
     # 0xinsider profile path segment this wallet links to: `@<username>` when that username resolves to this
     # wallet alone, otherwise the lowercase wallet. Percent-encode the part after `@` and append to ...
     profile_segment: str
+    # USD entry value of this wallet's position: `shares` times the pick's frozen `backed_price`. An entry
+    # valuation, never a live balance or the provider's current value. Omitted when the holder snapshot has no
+    # valid price.
+    entry_value_usd: float
     # This wallet's win rate in the pick's canonical category bucket (the pick's `category` field, e.g. Basketball
     # -- label the rate with it, never with the narrower `display_category` league, except when ...
     category_win_rate: float
@@ -2084,6 +2100,9 @@ class _PickSportsTeamRequired(TypedDict):
     # national teams and tennis players). A club with a vendored crest carries it instead, served same-origin as a
     # ...
     logo: str | None
+    # True when the team mark is dark enough to disappear on a dark background, measured from the artwork by the
+    # teams sync. Render a dark mark on a light plate. Always sent; false until the artwork has been measured.
+    logo_mark_dark: bool
     # Team brand color as a hex string (provider-owned).
     color: str | None
     # Win-loss record as a display string (e.g. "12-4").
@@ -2212,9 +2231,12 @@ class _PickOfTheDayArchiveEntryRequired(TypedDict):
 class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # Stable 1-based slot within the product day's ranked picks.
     pick_rank: int
-    # Frozen public presentation category. For supported Polymarket sports this is the exact verified provider
-    # event identity: an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or
-    # ...
+    # When this pick became public (RFC3339 UTC). pick_date above is the America/New_York product day, not an
+    # instant, so read this whenever you need a real time: reading the bare date as UTC midnight places it hours
+    # before ...
+    published_at: str
+    # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
+    # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
     display_category: str
     # Provider (Polymarket Gamma) market thumbnail URL (markets.image); omitted (not null) when the market has no
     # image. Public regardless of the backed-side gate, so present for pending rows too.
@@ -2229,6 +2251,10 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # as a label, from the same formatter the pick payload's outcome_display uses. Convenience only; outcome is
     # the ...
     outcome_display: str
+    # When outcome was LAST written to a settled value (RFC3339 UTC), the same instant the commitment ledger
+    # publishes. It moves with a corrected market re-mapping an already-settled pick. Omitted (not null) for a
+    # pending ...
+    resolved_at: str
     # The flat stake this row was valued at, in USD: 1000 since 2026-09-22 (100 before). Every row of the record
     # is valued at the current stake, including picks published before the change. Present exactly when return_usd
     # is.
@@ -2672,6 +2698,8 @@ class MarketSearchResult(TypedDict):
     slug: str | None
     category: str | None
     platform: str | None
+    # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
+    # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
 
 
@@ -2753,6 +2781,8 @@ class _ExploreMarketRequired(TypedDict):
     icon: str | None
     category: str | None
     platform: str | None
+    # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
+    # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
     volume: float | None
     liquidity: float | None
@@ -2788,6 +2818,9 @@ class _ExploreMarketRequired(TypedDict):
     event_slug: str | None
     smart_score: float | None
     smart_count: int | None
+    # The outcome graded money leans toward RELATIVE TO THE PRICE: named only when the graded money's share of a
+    # side diverges from that side's price-implied share by at least 10 points, with at least $500 on the leaning
+    # side ...
     smart_label: str | None
     # Display label for the YES/outcome_index=0 side, enriched from provider outcome metadata when available.
     outcome_yes_label: str | None
@@ -3051,10 +3084,12 @@ class PreGameSideCategorySkill(TypedDict):
     minimum_holder_event_count: int | None
 
 
-class _ListPreGameSideObservationsResponseRequired(TypedDict):
+class ListPreGameSideObservationsResponse(TypedDict):
     object: Literal["list"]
     data: list[PreGameSideObservation]
     has_more: bool
+    # Pass as cursor for the next page. Always sent; null on the last page.
+    next_cursor: str | None
     # Completion time of the shared observation snapshot pinned by the cursor. Format: date-time.
     snapshot_as_of: str
     # True when an operational failure or unknown provider-board, holder, directional, reconciliation, or internal
@@ -3062,10 +3097,6 @@ class _ListPreGameSideObservationsResponseRequired(TypedDict):
     degraded: bool
     funnel: PreGameSideFunnelReport
     meta: ResponseMeta
-
-
-class ListPreGameSideObservationsResponse(_ListPreGameSideObservationsResponseRequired, total=False):
-    next_cursor: str
 
 
 class PreGameSideObservation(TypedDict):
@@ -3530,6 +3561,8 @@ class MarketSnapshotMarket(TypedDict):
     page_slug: str | None
     event_slug: str | None
     category: str | None
+    # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
+    # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
     description: str | None
     image: str | None
