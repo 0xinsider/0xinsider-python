@@ -294,7 +294,7 @@ class OperationsMixin:
         Returns a single human- and LLM-readable Markdown briefing for one trader: identity,
         grade, P&L, position coverage, and freshness. The path accepts an Ethereum wallet
         address (0x...), a known trader username, or a trd_-prefixed trader ID emitted by this
-        API. Unknown traders still return 200 with a ...
+        API. A wallet address this API does not track ...
         """
         result: str = self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
         return result
@@ -389,8 +389,8 @@ class OperationsMixin:
 
         Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
         order, duplicate inputs return duplicate rows, and each item is charged one batch item
-        unit before execution. Unknown trader lookups return data with sync_status "unknown"
-        matching the single trader endpoint.
+        unit before execution. A wallet address this API does not track yet returns data with
+        sync_status "unknown", matching the ...
         """
         result: BatchGetTradersResponse = self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -662,7 +662,7 @@ class OperationsMixin:
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
             min_grade: Minimum trader grade.
-            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Polymarket-only; an ...
+            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Must be 0x followed by 64 ...
         """
         result: ListLargePositionsResponse = self._call("listLargePositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "condition_id": condition_id})
         return result
@@ -679,6 +679,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ListLargeTradesResponse: ...
 
@@ -694,6 +695,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ListLargeTradesResponse | NotModifiedResponse: ...
 
@@ -708,6 +710,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ListLargeTradesResponse | NotModifiedResponse:
         """List large trades.
@@ -731,8 +734,9 @@ class OperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -747,6 +751,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -762,6 +767,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -776,6 +782,7 @@ class OperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -799,8 +806,9 @@ class OperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1316,7 +1324,7 @@ class OperationsMixin:
         Returns wallets ranked by Polymarket weekly/monthly P&L (Polymarket-only discovery),
         with opaque page-cursor pagination. trending_pnl_usd and the by-PNL row order come from
         Polymarket's canonical leaderboard (data-
-        api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
+        api.polymarket.com/v2/leaderboard?time_period=week|month&sort_by=PNL), not a locally ...
 
         Query parameters:
             limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
@@ -1789,9 +1797,9 @@ class OperationsMixin:
 
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
-        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
-        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
-        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
+        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
+        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
         """
         result: GetCoverageResponse = self._call("getCoverage", path_params={}, query={})
         return result
@@ -1805,8 +1813,8 @@ class OperationsMixin:
 
         Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
         stays live and answers with Deprecation and successor Link headers. Unauthenticated
-        discovery endpoint that declares which V1 data surfaces are supported, partial, or
-        unsupported per provider platform.
+        discovery endpoint that declares which V1 data surfaces the API serves for Polymarket,
+        the one venue it covers. Every ...
         """
         result: GetCoverageResponse = self._call("getPlatforms", path_params={}, query={})
         return result
@@ -3023,7 +3031,7 @@ class ResponseOperationsMixin:
         Returns a single human- and LLM-readable Markdown briefing for one trader: identity,
         grade, P&L, position coverage, and freshness. The path accepts an Ethereum wallet
         address (0x...), a known trader username, or a trd_-prefixed trader ID emitted by this
-        API. Unknown traders still return 200 with a ...
+        API. A wallet address this API does not track ...
         """
         result: ApiResponse[str] = self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
         return result
@@ -3118,8 +3126,8 @@ class ResponseOperationsMixin:
 
         Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
         order, duplicate inputs return duplicate rows, and each item is charged one batch item
-        unit before execution. Unknown trader lookups return data with sync_status "unknown"
-        matching the single trader endpoint.
+        unit before execution. A wallet address this API does not track yet returns data with
+        sync_status "unknown", matching the ...
         """
         result: ApiResponse[BatchGetTradersResponse] = self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -3391,7 +3399,7 @@ class ResponseOperationsMixin:
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
             min_grade: Minimum trader grade.
-            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Polymarket-only; an ...
+            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Must be 0x followed by 64 ...
         """
         result: ApiResponse[ListLargePositionsResponse] = self._call("listLargePositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "condition_id": condition_id})
         return result
@@ -3408,6 +3416,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLargeTradesResponse]: ...
 
@@ -3423,6 +3432,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -3437,6 +3447,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List large trades.
@@ -3460,8 +3471,9 @@ class ResponseOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3476,6 +3488,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -3491,6 +3504,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -3505,6 +3519,7 @@ class ResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -3528,8 +3543,9 @@ class ResponseOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4045,7 +4061,7 @@ class ResponseOperationsMixin:
         Returns wallets ranked by Polymarket weekly/monthly P&L (Polymarket-only discovery),
         with opaque page-cursor pagination. trending_pnl_usd and the by-PNL row order come from
         Polymarket's canonical leaderboard (data-
-        api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
+        api.polymarket.com/v2/leaderboard?time_period=week|month&sort_by=PNL), not a locally ...
 
         Query parameters:
             limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
@@ -4518,9 +4534,9 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
-        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
-        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
-        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
+        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
+        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
         """
         result: ApiResponse[GetCoverageResponse] = self._call("getCoverage", path_params={}, query={})
         return result
@@ -4534,8 +4550,8 @@ class ResponseOperationsMixin:
 
         Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
         stays live and answers with Deprecation and successor Link headers. Unauthenticated
-        discovery endpoint that declares which V1 data surfaces are supported, partial, or
-        unsupported per provider platform.
+        discovery endpoint that declares which V1 data surfaces the API serves for Polymarket,
+        the one venue it covers. Every ...
         """
         result: ApiResponse[GetCoverageResponse] = self._call("getPlatforms", path_params={}, query={})
         return result
@@ -5753,7 +5769,7 @@ class AsyncOperationsMixin:
         Returns a single human- and LLM-readable Markdown briefing for one trader: identity,
         grade, P&L, position coverage, and freshness. The path accepts an Ethereum wallet
         address (0x...), a known trader username, or a trd_-prefixed trader ID emitted by this
-        API. Unknown traders still return 200 with a ...
+        API. A wallet address this API does not track ...
         """
         result: str = await self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
         return result
@@ -5848,8 +5864,8 @@ class AsyncOperationsMixin:
 
         Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
         order, duplicate inputs return duplicate rows, and each item is charged one batch item
-        unit before execution. Unknown trader lookups return data with sync_status "unknown"
-        matching the single trader endpoint.
+        unit before execution. A wallet address this API does not track yet returns data with
+        sync_status "unknown", matching the ...
         """
         result: BatchGetTradersResponse = await self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -6121,7 +6137,7 @@ class AsyncOperationsMixin:
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
             min_grade: Minimum trader grade.
-            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Polymarket-only; an ...
+            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Must be 0x followed by 64 ...
         """
         result: ListLargePositionsResponse = await self._call("listLargePositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "condition_id": condition_id})
         return result
@@ -6138,6 +6154,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ListLargeTradesResponse: ...
 
@@ -6153,6 +6170,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ListLargeTradesResponse | NotModifiedResponse: ...
 
@@ -6167,6 +6185,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ListLargeTradesResponse | NotModifiedResponse:
         """List large trades.
@@ -6190,8 +6209,9 @@ class AsyncOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -6206,6 +6226,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -6221,6 +6242,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -6235,6 +6257,7 @@ class AsyncOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -6258,8 +6281,9 @@ class AsyncOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -6775,7 +6799,7 @@ class AsyncOperationsMixin:
         Returns wallets ranked by Polymarket weekly/monthly P&L (Polymarket-only discovery),
         with opaque page-cursor pagination. trending_pnl_usd and the by-PNL row order come from
         Polymarket's canonical leaderboard (data-
-        api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
+        api.polymarket.com/v2/leaderboard?time_period=week|month&sort_by=PNL), not a locally ...
 
         Query parameters:
             limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
@@ -7248,9 +7272,9 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
-        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
-        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
-        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
+        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
+        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
         """
         result: GetCoverageResponse = await self._call("getCoverage", path_params={}, query={})
         return result
@@ -7264,8 +7288,8 @@ class AsyncOperationsMixin:
 
         Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
         stays live and answers with Deprecation and successor Link headers. Unauthenticated
-        discovery endpoint that declares which V1 data surfaces are supported, partial, or
-        unsupported per provider platform.
+        discovery endpoint that declares which V1 data surfaces the API serves for Polymarket,
+        the one venue it covers. Every ...
         """
         result: GetCoverageResponse = await self._call("getPlatforms", path_params={}, query={})
         return result
@@ -8482,7 +8506,7 @@ class AsyncResponseOperationsMixin:
         Returns a single human- and LLM-readable Markdown briefing for one trader: identity,
         grade, P&L, position coverage, and freshness. The path accepts an Ethereum wallet
         address (0x...), a known trader username, or a trd_-prefixed trader ID emitted by this
-        API. Unknown traders still return 200 with a ...
+        API. A wallet address this API does not track ...
         """
         result: ApiResponse[str] = await self._call("getTraderContextMarkdown", path_params={"address": address}, query={})
         return result
@@ -8577,8 +8601,8 @@ class AsyncResponseOperationsMixin:
 
         Returns traders for 1-25 wallet addresses or known usernames. Results preserve request
         order, duplicate inputs return duplicate rows, and each item is charged one batch item
-        unit before execution. Unknown trader lookups return data with sync_status "unknown"
-        matching the single trader endpoint.
+        unit before execution. A wallet address this API does not track yet returns data with
+        sync_status "unknown", matching the ...
         """
         result: ApiResponse[BatchGetTradersResponse] = await self._call("batchGetTraders", path_params={}, query={}, body=body)
         return result
@@ -8850,7 +8874,7 @@ class AsyncResponseOperationsMixin:
             min_size: Minimum position value in USD. Raises the feed's own floor of 50,000 USD; a smaller value does not lower it.
             category: One RFC 4180 CSV record of exact current provider-backed market_canonical.category values. Legacy unquoted lists such as NBA,WNBA remain valid; values ...
             min_grade: Minimum trader grade.
-            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Polymarket-only; an ...
+            condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id (round-trips a value from a list response). Must be 0x followed by 64 ...
         """
         result: ApiResponse[ListLargePositionsResponse] = await self._call("listLargePositions", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "condition_id": condition_id})
         return result
@@ -8867,6 +8891,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLargeTradesResponse]: ...
 
@@ -8882,6 +8907,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -8896,6 +8922,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List large trades.
@@ -8919,8 +8946,9 @@ class AsyncResponseOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -8935,6 +8963,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -8950,6 +8979,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -8964,6 +8994,7 @@ class AsyncResponseOperationsMixin:
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
+        since: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -8987,8 +9018,9 @@ class AsyncResponseOperationsMixin:
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
+            since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -9504,7 +9536,7 @@ class AsyncResponseOperationsMixin:
         Returns wallets ranked by Polymarket weekly/monthly P&L (Polymarket-only discovery),
         with opaque page-cursor pagination. trending_pnl_usd and the by-PNL row order come from
         Polymarket's canonical leaderboard (data-
-        api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL), not a locally ...
+        api.polymarket.com/v2/leaderboard?time_period=week|month&sort_by=PNL), not a locally ...
 
         Query parameters:
             limit: Polymarket's weekly leaderboard caps the ranked set at 50 wallets; requests above 50 still return at most 50. Out-of-range values are clamped to 1..50.
@@ -9977,9 +10009,9 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
-        Unauthenticated discovery endpoint that declares which V1 data surfaces are supported,
-        partial, or unsupported for Polymarket, the one venue the API covers. Canonical since
-        #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
+        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
+        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
         """
         result: ApiResponse[GetCoverageResponse] = await self._call("getCoverage", path_params={}, query={})
         return result
@@ -9993,8 +10025,8 @@ class AsyncResponseOperationsMixin:
 
         Deprecated since #16315: use GET /api/v1/coverage, which serves the same body. This path
         stays live and answers with Deprecation and successor Link headers. Unauthenticated
-        discovery endpoint that declares which V1 data surfaces are supported, partial, or
-        unsupported per provider platform.
+        discovery endpoint that declares which V1 data surfaces the API serves for Polymarket,
+        the one venue it covers. Every ...
         """
         result: ApiResponse[GetCoverageResponse] = await self._call("getPlatforms", path_params={}, query={})
         return result

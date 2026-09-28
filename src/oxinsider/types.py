@@ -1633,7 +1633,8 @@ class ListLeaderboardResponse(_ListLeaderboardResponseRequired, total=False):
 class _LeaderboardEntryRequired(TypedDict):
     id: str
     address: str
-    platform: str
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
 
 
 class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
@@ -1696,8 +1697,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
     # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
     display_category: str
-    # Provider platform (e.g. "polymarket").
-    platform: str
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
     # The pick's stored release instant. Normally the current provider kickoff minus one hour; an operator may
     # override it. The actual publish instant can trail it because of worker or claim delay. Format: date-time.
     release_at: str
@@ -2549,8 +2550,8 @@ class PickOfTheDayCommitmentPayload(TypedDict):
     pick_outcome_label: str
     # 1-based daily slot.
     pick_rank: int
-    # Provider platform.
-    platform: str
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
 
 
 class PickOfTheDayLedgerUncommittedEntry(TypedDict):
@@ -2607,8 +2608,8 @@ class PickOfTheDayUncommittedPayload(TypedDict):
     pick_outcome_label: str
     # 1-based daily slot.
     pick_rank: int
-    # Provider platform.
-    platform: str
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
 
 
 # One ledger entry. Read `state` to know which shape you have; the three are disjoint.
@@ -2638,7 +2639,7 @@ class _TrendingWalletRequired(TypedDict):
     # Real provider platform; surfaced, never coerced. Polymarket only.
     platform: Literal["polymarket"]
     # Polymarket weekly/monthly P&L for the wallet in USD, taken from Polymarket's canonical leaderboard (data-
-    # api.polymarket.com/v1/leaderboard?timePeriod=week|month&orderBy=PNL). This is the ranking axis and the rows
+    # api.polymarket.com/v2/leaderboard?time_period=week|month&sort_by=PNL). This is the ranking axis and the rows
     # are ...
     trending_pnl_usd: float
     window_markets_traded: int
@@ -2697,7 +2698,8 @@ class MarketSearchResult(TypedDict):
     title: str
     slug: str | None
     category: str | None
-    platform: str | None
+    # Provider platform. Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
     # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
     # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
@@ -2757,7 +2759,8 @@ class ExploreGroup(TypedDict):
     event_slug: str
     parent_title: str
     image: str | None
-    platform: str | None
+    # Provider platform. Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
     category: str | None
     # Markets in the event cluster, ranked by volume with condition_id as the tie-breaker. The selected
     # representative is retained within the 12-market cap.
@@ -2780,7 +2783,8 @@ class _ExploreMarketRequired(TypedDict):
     image: str | None
     icon: str | None
     category: str | None
-    platform: str | None
+    # Provider platform. Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
     # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
     # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
@@ -2914,7 +2918,8 @@ class SmartMoneyFlowMarketMarket(TypedDict):
     title: str | None
     slug: str | None
     category: str | None
-    platform: str | None
+    # Provider platform. Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
 
 
 class _SmartMoneyFlowMarketSharpMoneyRequired(TypedDict):
@@ -3257,7 +3262,9 @@ class PlatformCapabilities(TypedDict):
     market_snapshot: PlatformCapabilityStatus
 
 
-PlatformCapabilityStatus = Union[Literal["supported", "partial", "unsupported"], str]
+# Every capability the API serves reports supported. The field names a per-capability status so a client can
+# branch on coverage; no other value is emitted.
+PlatformCapabilityStatus = Literal["supported"]
 
 
 class _GetMarketHoldersResponseRequired(TypedDict):
@@ -3428,7 +3435,8 @@ class MarketFlowMarket(TypedDict):
     title: str
     slug: str | None
     category: str | None
-    platform: str | None
+    # Provider platform. Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
 
 
 class _MarketFlowSharpMoneyRequired(TypedDict):
@@ -3852,7 +3860,7 @@ class _GameMarketRequired(TypedDict):
     # The raw provider condition id.
     condition_id: str
     # Always polymarket.
-    platform: str
+    platform: Literal["polymarket"]
 
 
 class GameMarket(_GameMarketRequired, total=False):
@@ -4555,8 +4563,8 @@ class ReportPayloadTopLargeTradesItem(TypedDict):
     trade_time: str | None
     # Provider market category.
     market_category: str | None
-    # Venue: polymarket.
-    platform: str | None
+    # Always polymarket, or null when the row carries no stored value.
+    platform: Literal["polymarket"] | None
     # Trader display name, when known.
     name: str | None
     # Trader pseudonym, when no display name is known.
