@@ -70,10 +70,12 @@ from .types import (
     RegisterAgentResponse,
     SearchContentResponse,
     SearchMarketsResponse,
+    SubmitWhaleDatasetBody,
     TraderExportJob,
     UpdateWebhookRequest,
     Usage,
     VerifyWebhookRequest,
+    WhaleDatasetJob,
 )
 
 
@@ -172,6 +174,10 @@ OPERATIONS: dict[str, Operation] = {
     "getUsage": Operation("GET", "/api/v1/usage", streaming=False, redirect=False),
     "getMarketContextMarkdown": Operation("GET", "/api/v1/market/{condition_id}/context.md", streaming=False, redirect=False, accept="text/markdown"),
     "getAccountIdentity": Operation("GET", "/api/v1/me", streaming=False, redirect=False),
+    "submitWhaleDataset": Operation("POST", "/api/v1/datasets/whale-trades", streaming=False, redirect=False),
+    "getWhaleDatasetStatus": Operation("GET", "/api/v1/datasets/whale-trades/{job_id}", streaming=False, redirect=False),
+    "downloadWhaleDataset": Operation("GET", "/api/v1/datasets/whale-trades/{job_id}/download", streaming=False, redirect=True),
+    "cancelWhaleDataset": Operation("POST", "/api/v1/datasets/whale-trades/{job_id}/cancel", streaming=False, redirect=False),
 }
 
 
@@ -2379,7 +2385,7 @@ class OperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
-        min_size: float | None = None,
+        min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
         """Replay public large-trade events.
@@ -2397,7 +2403,7 @@ class OperationsMixin:
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
-            min_size: Only trades of at least this size in USD (compared in cents). Bound to the cursor.
+            min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
         result: GetEventReplaySinceResponse = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
@@ -2909,6 +2915,74 @@ class OperationsMixin:
         data routes still require active paid access. ...
         """
         result: AccountIdentity = self._call("getAccountIdentity", path_params={}, query={})
+        return result
+
+    def submit_whale_dataset(
+        self,
+        body: SubmitWhaleDatasetBody,
+    ) -> WhaleDatasetJob:
+        """Create an immutable whale dataset.
+
+        ``POST /api/v1/datasets/whale-trades`` (operationId ``submitWhaleDataset``).
+
+        Extract at most 1,000,000 rows and 256 MiB uncompressed; exceeding either bound fails
+        the job and publishes no partial file. Window and filters freeze on admission; rows and
+        source facts freeze on one worker database snapshot. NDJSON uses exact decimal strings,
+        with no current grade or market ...
+        """
+        result: WhaleDatasetJob = self._call("submitWhaleDataset", path_params={}, query={}, body=body)
+        return result
+
+    def get_whale_dataset_status(
+        self,
+        job_id: str,
+    ) -> WhaleDatasetJob:
+        """Read a whale dataset job.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}`` (operationId ``getWhaleDatasetStatus``).
+
+        Read queued, running, cancel_requested, ready, failed, reconcile_required, expired or
+        cancelled. Poll only while next_action is poll, after poll_after_s. Ready manifests
+        contain count, content and compressed SHA-256, schema, filters, source, horizon, expiry
+        and replay continuation. Deltas do not ...
+        """
+        result: WhaleDatasetJob = self._call("getWhaleDatasetStatus", path_params={"job_id": job_id}, query={})
+        return result
+
+    def download_whale_dataset(
+        self,
+        job_id: str,
+    ) -> Download:
+        """Download an immutable whale dataset.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}/download`` (operationId ``downloadWhaleDataset``).
+
+        Download only a ready artifact; status handles failure and cancellation. Retired
+        artifacts return 410 at serving time. Paid export scope; jobs are private to the
+        credential owner. Shares the 20/day owner export quota and fair worker admission with
+        trader exports; datasets also have a combined ...
+
+        Returns a ``Download``: the redirect is followed once, without the credential, and the
+        file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
+        (bounded); ``close()`` it when done. A redirect or transfer fault raises
+        ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.
+        """
+        return self._download("downloadWhaleDataset", path_params={"job_id": job_id}, query={})
+
+    def cancel_whale_dataset(
+        self,
+        job_id: str,
+    ) -> WhaleDatasetJob:
+        """Cancel a whale dataset job.
+
+        ``POST /api/v1/datasets/whale-trades/{job_id}/cancel`` (operationId ``cancelWhaleDataset``).
+
+        Cancel queued jobs immediately and request running jobs stop at their next safe point.
+        Repeating cancel converges on the current state; cancellation after the completion fence
+        leaves the artifact ready. Paid export scope; jobs are private to the credential owner.
+        Shares the 20/day owner export ...
+        """
+        result: WhaleDatasetJob = self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
 
@@ -5116,7 +5190,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
-        min_size: float | None = None,
+        min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
         """Replay public large-trade events.
@@ -5134,7 +5208,7 @@ class ResponseOperationsMixin:
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
-            min_size: Only trades of at least this size in USD (compared in cents). Bound to the cursor.
+            min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
         result: ApiResponse[GetEventReplaySinceResponse] = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
@@ -5646,6 +5720,74 @@ class ResponseOperationsMixin:
         data routes still require active paid access. ...
         """
         result: ApiResponse[AccountIdentity] = self._call("getAccountIdentity", path_params={}, query={})
+        return result
+
+    def submit_whale_dataset(
+        self,
+        body: SubmitWhaleDatasetBody,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Create an immutable whale dataset.
+
+        ``POST /api/v1/datasets/whale-trades`` (operationId ``submitWhaleDataset``).
+
+        Extract at most 1,000,000 rows and 256 MiB uncompressed; exceeding either bound fails
+        the job and publishes no partial file. Window and filters freeze on admission; rows and
+        source facts freeze on one worker database snapshot. NDJSON uses exact decimal strings,
+        with no current grade or market ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = self._call("submitWhaleDataset", path_params={}, query={}, body=body)
+        return result
+
+    def get_whale_dataset_status(
+        self,
+        job_id: str,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Read a whale dataset job.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}`` (operationId ``getWhaleDatasetStatus``).
+
+        Read queued, running, cancel_requested, ready, failed, reconcile_required, expired or
+        cancelled. Poll only while next_action is poll, after poll_after_s. Ready manifests
+        contain count, content and compressed SHA-256, schema, filters, source, horizon, expiry
+        and replay continuation. Deltas do not ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = self._call("getWhaleDatasetStatus", path_params={"job_id": job_id}, query={})
+        return result
+
+    def download_whale_dataset(
+        self,
+        job_id: str,
+    ) -> Download:
+        """Download an immutable whale dataset.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}/download`` (operationId ``downloadWhaleDataset``).
+
+        Download only a ready artifact; status handles failure and cancellation. Retired
+        artifacts return 410 at serving time. Paid export scope; jobs are private to the
+        credential owner. Shares the 20/day owner export quota and fair worker admission with
+        trader exports; datasets also have a combined ...
+
+        Returns a ``Download``: the redirect is followed once, without the credential, and the
+        file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
+        (bounded); ``close()`` it when done. A redirect or transfer fault raises
+        ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.
+        """
+        return self._download("downloadWhaleDataset", path_params={"job_id": job_id}, query={})
+
+    def cancel_whale_dataset(
+        self,
+        job_id: str,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Cancel a whale dataset job.
+
+        ``POST /api/v1/datasets/whale-trades/{job_id}/cancel`` (operationId ``cancelWhaleDataset``).
+
+        Cancel queued jobs immediately and request running jobs stop at their next safe point.
+        Repeating cancel converges on the current state; cancellation after the completion fence
+        leaves the artifact ready. Paid export scope; jobs are private to the credential owner.
+        Shares the 20/day owner export ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
 
@@ -7854,7 +7996,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
-        min_size: float | None = None,
+        min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
         """Replay public large-trade events.
@@ -7872,7 +8014,7 @@ class AsyncOperationsMixin:
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
-            min_size: Only trades of at least this size in USD (compared in cents). Bound to the cursor.
+            min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
         result: GetEventReplaySinceResponse = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
@@ -8384,6 +8526,74 @@ class AsyncOperationsMixin:
         data routes still require active paid access. ...
         """
         result: AccountIdentity = await self._call("getAccountIdentity", path_params={}, query={})
+        return result
+
+    async def submit_whale_dataset(
+        self,
+        body: SubmitWhaleDatasetBody,
+    ) -> WhaleDatasetJob:
+        """Create an immutable whale dataset.
+
+        ``POST /api/v1/datasets/whale-trades`` (operationId ``submitWhaleDataset``).
+
+        Extract at most 1,000,000 rows and 256 MiB uncompressed; exceeding either bound fails
+        the job and publishes no partial file. Window and filters freeze on admission; rows and
+        source facts freeze on one worker database snapshot. NDJSON uses exact decimal strings,
+        with no current grade or market ...
+        """
+        result: WhaleDatasetJob = await self._call("submitWhaleDataset", path_params={}, query={}, body=body)
+        return result
+
+    async def get_whale_dataset_status(
+        self,
+        job_id: str,
+    ) -> WhaleDatasetJob:
+        """Read a whale dataset job.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}`` (operationId ``getWhaleDatasetStatus``).
+
+        Read queued, running, cancel_requested, ready, failed, reconcile_required, expired or
+        cancelled. Poll only while next_action is poll, after poll_after_s. Ready manifests
+        contain count, content and compressed SHA-256, schema, filters, source, horizon, expiry
+        and replay continuation. Deltas do not ...
+        """
+        result: WhaleDatasetJob = await self._call("getWhaleDatasetStatus", path_params={"job_id": job_id}, query={})
+        return result
+
+    async def download_whale_dataset(
+        self,
+        job_id: str,
+    ) -> AsyncDownload:
+        """Download an immutable whale dataset.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}/download`` (operationId ``downloadWhaleDataset``).
+
+        Download only a ready artifact; status handles failure and cancellation. Retired
+        artifacts return 410 at serving time. Paid export scope; jobs are private to the
+        credential owner. Shares the 20/day owner export quota and fair worker admission with
+        trader exports; datasets also have a combined ...
+
+        Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
+        the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it
+        (bounded); ``aclose()`` it when done. A redirect or transfer fault raises
+        ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.
+        """
+        return await self._download("downloadWhaleDataset", path_params={"job_id": job_id}, query={})
+
+    async def cancel_whale_dataset(
+        self,
+        job_id: str,
+    ) -> WhaleDatasetJob:
+        """Cancel a whale dataset job.
+
+        ``POST /api/v1/datasets/whale-trades/{job_id}/cancel`` (operationId ``cancelWhaleDataset``).
+
+        Cancel queued jobs immediately and request running jobs stop at their next safe point.
+        Repeating cancel converges on the current state; cancellation after the completion fence
+        leaves the artifact ready. Paid export scope; jobs are private to the credential owner.
+        Shares the 20/day owner export ...
+        """
+        result: WhaleDatasetJob = await self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
 
@@ -10591,7 +10801,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
-        min_size: float | None = None,
+        min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
         """Replay public large-trade events.
@@ -10609,7 +10819,7 @@ class AsyncResponseOperationsMixin:
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
             min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
-            min_size: Only trades of at least this size in USD (compared in cents). Bound to the cursor.
+            min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
         result: ApiResponse[GetEventReplaySinceResponse] = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
@@ -11121,5 +11331,73 @@ class AsyncResponseOperationsMixin:
         data routes still require active paid access. ...
         """
         result: ApiResponse[AccountIdentity] = await self._call("getAccountIdentity", path_params={}, query={})
+        return result
+
+    async def submit_whale_dataset(
+        self,
+        body: SubmitWhaleDatasetBody,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Create an immutable whale dataset.
+
+        ``POST /api/v1/datasets/whale-trades`` (operationId ``submitWhaleDataset``).
+
+        Extract at most 1,000,000 rows and 256 MiB uncompressed; exceeding either bound fails
+        the job and publishes no partial file. Window and filters freeze on admission; rows and
+        source facts freeze on one worker database snapshot. NDJSON uses exact decimal strings,
+        with no current grade or market ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = await self._call("submitWhaleDataset", path_params={}, query={}, body=body)
+        return result
+
+    async def get_whale_dataset_status(
+        self,
+        job_id: str,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Read a whale dataset job.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}`` (operationId ``getWhaleDatasetStatus``).
+
+        Read queued, running, cancel_requested, ready, failed, reconcile_required, expired or
+        cancelled. Poll only while next_action is poll, after poll_after_s. Ready manifests
+        contain count, content and compressed SHA-256, schema, filters, source, horizon, expiry
+        and replay continuation. Deltas do not ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = await self._call("getWhaleDatasetStatus", path_params={"job_id": job_id}, query={})
+        return result
+
+    async def download_whale_dataset(
+        self,
+        job_id: str,
+    ) -> AsyncDownload:
+        """Download an immutable whale dataset.
+
+        ``GET /api/v1/datasets/whale-trades/{job_id}/download`` (operationId ``downloadWhaleDataset``).
+
+        Download only a ready artifact; status handles failure and cancellation. Retired
+        artifacts return 410 at serving time. Paid export scope; jobs are private to the
+        credential owner. Shares the 20/day owner export quota and fair worker admission with
+        trader exports; datasets also have a combined ...
+
+        Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
+        the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it
+        (bounded); ``aclose()`` it when done. A redirect or transfer fault raises
+        ``DownloadError``; the API's own errors raise ``OxinsiderApiError``.
+        """
+        return await self._download("downloadWhaleDataset", path_params={"job_id": job_id}, query={})
+
+    async def cancel_whale_dataset(
+        self,
+        job_id: str,
+    ) -> ApiResponse[WhaleDatasetJob]:
+        """Cancel a whale dataset job.
+
+        ``POST /api/v1/datasets/whale-trades/{job_id}/cancel`` (operationId ``cancelWhaleDataset``).
+
+        Cancel queued jobs immediately and request running jobs stop at their next safe point.
+        Repeating cancel converges on the current state; cancellation after the completion fence
+        leaves the artifact ready. Paid export scope; jobs are private to the credential owner.
+        Shares the 20/day owner export ...
+        """
+        result: ApiResponse[WhaleDatasetJob] = await self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 

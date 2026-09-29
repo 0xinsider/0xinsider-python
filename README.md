@@ -294,6 +294,14 @@ An operation the document lists only to refuse (`GET /api/v1/mcp` answers `405`:
 - Rust SDK: crate `oxinsider` ([0xinsider/0xinsider-rust](https://github.com/0xinsider/0xinsider-rust))
 - Remote MCP server: `https://api.0xinsider.com/api/v1/mcp`
 
+## Immutable whale datasets
+
+`submit_whale_dataset({"from": "2026-09-28T00:00:00Z", "to": "2026-09-29T00:00:00Z"})` creates a bounded NDJSON snapshot. Read `get_whale_dataset_status(job_id)` and follow `next_action` and `poll_after_s`; `cancel_whale_dataset(job_id)` cancels work before its completion fence. These methods also exist on `AsyncClient`.
+
+When the job is ready, `download_whale_dataset(job_id)` returns the credential-safe streaming `Download`. Its `save(path)` decodes gzip and returns the content SHA-256; compare it with the artifact manifest. Use `save(path, decode=False)` to keep the gzip bytes and compare the compressed SHA-256 instead. Close the download when finished.
+
+Resume `get_event_replay_since` with the manifest's continuation cursor and non-null filters. Keep `min_size` as its exact decimal string. The finite snapshot window does not restrict later deltas; deduplicate snapshot and expanded replay rows by their `wt_` trade ID. Coverage is detected whale alerts, not all provider fills or updates and deletions.
+
 ## License
 
 MIT

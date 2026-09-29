@@ -466,28 +466,43 @@ class Types:
             docstring = f'    """{body}"""\n'
         blocks = []
         parent = list(bases)
+
+        def class_lines(class_name, parents, rows, total, documentation=""):
+            # Functional TypedDict preserves wire keys such as `from`; renaming
+            # them would describe a different JSON object. Keep type expressions
+            # deferred just like the ordinary class annotations on Python 3.9.
+            if any(not key.isidentifier() or keyword.iskeyword(key) for key, _, _ in rows):
+                fields_name = f"_{class_name}Fields"
+                lines = [f'{fields_name} = TypedDict({json.dumps(fields_name)}, {{']
+                for key, expr, schema in rows:
+                    lines.extend(self._field_lines(key, expr, schema)[:-1])
+                    lines.append(f"    {json.dumps(key)}: {json.dumps(expr)},")
+                lines.append(f"}}, total={total})")
+                lines.append("")
+                inherited = [*parents, fields_name]
+                lines.append(f"class {class_name}({', '.join(inherited)}):")
+                lines.append(documentation.rstrip("\n") if documentation else "    pass")
+                return lines
+            header = ", ".join(parents) if parents else "TypedDict"
+            if not total:
+                header += ", total=False"
+            lines = [f"class {class_name}({header}):"]
+            if documentation:
+                lines.append(documentation.rstrip("\n"))
+            for key, expr, schema in rows:
+                lines += self._field_lines(key, expr, schema)
+            if not rows and not documentation:
+                lines.append("    pass")
+            return lines
+
         if required and optional:
             base_name = f"_{name}Required"
             self.names[base_name] = f"base:{name}"
-            header = ", ".join(parent) if parent else "TypedDict"
-            lines = [f"class {base_name}({header}):"]
-            for key, expr, schema in required:
-                lines += self._field_lines(key, expr, schema)
+            lines = class_lines(base_name, parent, required, True)
             blocks.append("\n".join(lines))
             parent = [base_name]
         rows = optional if (required and optional) else (required or optional)
-        total = "" if (required and not optional) else ", total=False"
-        if parent:
-            header = ", ".join(parent) + total
-        else:
-            header = "TypedDict" + total
-        lines = [f"class {name}({header}):"]
-        if docstring:
-            lines.append(docstring.rstrip("\n"))
-        for key, expr, schema in rows:
-            lines += self._field_lines(key, expr, schema)
-        if not rows and not docstring:
-            lines.append("    pass")
+        lines = class_lines(name, parent, rows, bool(required and not optional), docstring)
         blocks.append("\n".join(lines))
         return "\n\n\n".join(blocks)
 

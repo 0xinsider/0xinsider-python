@@ -247,6 +247,7 @@ __all__ = [
     "SmartMoneyFlowMarketSmartMoney",
     "SnapshotCompleteness",
     "SnapshotState",
+    "SubmitWhaleDatasetBody",
     "SuspiciousTrade",
     "SuspiciousTradeMarket",
     "SuspiciousTradeScores",
@@ -299,6 +300,13 @@ __all__ = [
     "WebhookSecretRotation",
     "WebhookStatus",
     "WebhookVerification",
+    "WhaleDatasetArtifactManifest",
+    "WhaleDatasetContinuation",
+    "WhaleDatasetFilters",
+    "WhaleDatasetGeneration",
+    "WhaleDatasetJob",
+    "WhaleDatasetJobData",
+    "WhaleDatasetJobDataArtifact",
 ]
 
 
@@ -4890,3 +4898,167 @@ class AccountIdentityDataEntitlement(TypedDict):
     paid_data_access: Literal["active", "lapsed"] | str
     # When paid data access is lapsed, the caller should renew the subscription; otherwise null.
     recovery_action: Literal["renew_subscription"] | None
+
+
+__SubmitWhaleDatasetBodyRequiredFields = TypedDict("__SubmitWhaleDatasetBodyRequiredFields", {
+    # Format: date-time.
+    "from": "str",
+    # Format: date-time.
+    "to": "str",
+}, total=True)
+
+class _SubmitWhaleDatasetBodyRequired(__SubmitWhaleDatasetBodyRequiredFields):
+    pass
+
+
+class SubmitWhaleDatasetBody(_SubmitWhaleDatasetBodyRequired, total=False):
+    # Raw provider condition id or mkt_-prefixed id.
+    condition_id: str
+    # USD minimum, normalized to cents like replay.
+    min_size: float
+
+
+class WhaleDatasetJob(TypedDict):
+    object: Literal["whale_dataset_job"]
+    data: WhaleDatasetJobData
+    meta: ResponseMeta
+
+
+class _WhaleDatasetJobDataRequired(TypedDict):
+    # Format: int64.
+    job_id: int
+    # queued: accepted, not started. running: the worker is streaming rows. reconcile_required: the upload
+    # finished but the storage completion answer was lost; the hourly reconciler reads the object back and moves
+    # the job to ...
+    status: Literal["queued", "running", "ready", "failed", "reconcile_required", "expired", "cancel_requested", "cancelled"] | str
+    format: Literal["ndjson"]
+    # Format: int64.
+    total_trades: int | None
+    # Format: int64.
+    processed_trades: int | None
+    # Format: int64.
+    file_size: int | None
+    error: str | None
+    # True when status never changes again (ready, failed, expired, cancelled). Stop polling.
+    terminal: bool
+    # What to do next: poll the status route after poll_after_s, follow the download route, or submit a new
+    # export. Published beside status so a status value added later does not strand a client.
+    next_action: Literal["poll", "download", "resubmit"] | str
+    # Format: date-time.
+    created_at: str
+    # When the worker last claimed the job; null while queued. Format: date-time.
+    started_at: str | None
+    # When the file became downloadable. null before ready, and on jobs finalized before this field existed.
+    # Format: date-time.
+    ready_at: str | None
+    # Format: date-time.
+    failed_at: str | None
+    # The retention window: 24 hours from submit. A ready file downloads until this instant; a job that has not
+    # reached ready by it fails. A reused job (200 on submit) keeps its original window. Format: date-time.
+    expires_at: str
+    # When the job became expired; null until then. Format: date-time.
+    expired_at: str | None
+    # Snapshot selection clock, null until the artifact is written; not provider completeness. Format: date-time.
+    data_as_of: str | None
+    # When the owner asked to cancel the job; null otherwise. Set on every cancelled job, including one cancelled
+    # while queued. While status is cancel_requested this is the instant the worker was asked to stop. Format: ...
+    cancel_requested_at: str | None
+    # When the job reached cancelled; null until then. Format: date-time.
+    cancelled_at: str | None
+    # Worker claims so far.
+    attempt: int
+    # The job fails when attempt reaches this.
+    max_attempts: int
+    filters: WhaleDatasetFilters
+
+
+class WhaleDatasetJobData(_WhaleDatasetJobDataRequired, total=False):
+    # Seconds to wait before polling again. Absent when terminal. 5 while queued, running or cancel_requested; 300
+    # while reconcile_required, the cadence that state can change at.
+    poll_after_s: int
+    # Present only while status is ready: the stored object's identity, so a client can check the download it
+    # receives.
+    artifact: WhaleDatasetJobDataArtifact
+
+
+class WhaleDatasetJobDataArtifact(TypedDict):
+    """Present only while status is ready: the stored object's identity, so a client can check the download
+    it receives."""
+    # Stable identity for this completed export artifact; unchanged when a temporary download URL is renewed.
+    artifact_id: str
+    # The storage ETag of the object.
+    etag: str | None
+    # Bytes on the wire (gzip); file_size is the decompressed size. Format: int64.
+    compressed_size_bytes: int | None
+    content_type: Literal["application/x-ndjson"]
+    content_encoding: Literal["gzip"]
+    # Immutable source, window, replay handoff, count and hashes of both content and gzip bytes.
+    manifest: WhaleDatasetArtifactManifest | None
+
+
+class WhaleDatasetArtifactManifest(TypedDict):
+    # Version of the artifact manifest contract.
+    manifest_version: str
+    format: Literal["ndjson"]
+    schema_version: Literal["whale_dataset_v1"]
+    coverage: Literal["best_effort_detected_whale_alerts"]
+    generation: WhaleDatasetGeneration
+    # Number of trade rows written. Format: int64.
+    row_count: int
+    # Exact byte count of the decompressed content stream clients receive. Format: int64.
+    content_size_bytes: int
+    # Lowercase SHA-256 of the decompressed content bytes.
+    content_sha256: str
+    # Exact byte count of the gzip-compressed bytes stored by the object provider. Format: int64.
+    compressed_size_bytes: int
+    # Lowercase SHA-256 of the stored gzip bytes; the multipart ETag is not used as this checksum.
+    compressed_sha256: str
+
+
+class WhaleDatasetGeneration(TypedDict):
+    dataset_schema_version: Literal["whale_dataset_v1"]
+    # Format: uuid.
+    id: str
+    # Format: date-time.
+    selected_at: str
+    consistency: Literal["repeatable_read_commit_horizon"]
+    filters: WhaleDatasetFilters
+    # All snapshot rows have a writer xid strictly below this closed visibility horizon. Decimal string preserves
+    # integer precision.
+    commit_horizon_xid: str
+    continuation: WhaleDatasetContinuation
+    source: Literal["whale_alerts"]
+    # Best-effort detected whale alerts only; not all provider fills. No trader or market enrichment.
+    coverage: str
+    # Format: date-time.
+    expires_at: str
+    extraction_elapsed_ms: int
+
+
+_WhaleDatasetFiltersFields = TypedDict("_WhaleDatasetFiltersFields", {
+    # Format: date-time.
+    "from": "str",
+    # Format: date-time.
+    "to": "str",
+    "condition_id": "str | None",
+    "min_size_cents": "int | None",
+}, total=True)
+
+class WhaleDatasetFilters(_WhaleDatasetFiltersFields):
+    """Normalized immutable request; [from, to), maximum 31 days; min_size rounded to cents like durable
+    replay."""
+
+
+class WhaleDatasetContinuation(TypedDict):
+    path: Literal["/api/v1/events/feed/since"]
+    # Opaque commit-safe replay cursor; replay the same condition_id and min_size.
+    cursor: str
+    # Writer floor included by the replay cursor. It can precede the snapshot horizon to include arrivals after
+    # the finite window end.
+    from_commit_xid: str
+    condition_id: str | None
+    # Normalized USD threshold; pass it to the replay query.
+    min_size: str | None
+    deduplication_identity: str
+    time_window_applies_to_deltas: Literal[False]
+    delivery: str

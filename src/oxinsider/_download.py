@@ -5,8 +5,7 @@ short-lived presigned ``Location`` on the artifact host once the job is
 ``ready``; ``GET /api/v1/openapi.json`` answers ``307`` to the web origin.
 The client follows that one hop itself: the bearer credential is sent to the
 API origin only, never to the ``Location`` host, and the bytes are streamed,
-so memory stays bounded whatever the file size. No manifest or checksum is
-published for an export; ``Download.save`` computes a SHA-256 of what it
+so memory stays bounded whatever the file size. ``Download.save`` computes a SHA-256 of what it
 wrote, and the artifact's own headers (``content_type``, ``content_encoding``,
 ``content_length``, ``etag``, ``filename``) are surfaced as received.
 """
