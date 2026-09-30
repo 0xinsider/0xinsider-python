@@ -35,6 +35,7 @@ from .types import (
     GetMarketIntelResponse,
     GetMarketSnapshotResponse,
     GetPickOfTheDayArchiveResponse,
+    GetPickOfTheDayLedgerEntryResponse,
     GetPickOfTheDayLedgerResponse,
     GetPickOfTheDayResponse,
     GetPositionTimelineResponse,
@@ -91,6 +92,7 @@ class Operation(NamedTuple):
 
 
 OPERATIONS: dict[str, Operation] = {
+    "getPickOfTheDayLedgerEntry": Operation("GET", "/api/v1/pick-of-the-day/ledger/{pick_id}", streaming=False, redirect=False),
     "getApiDiscovery": Operation("GET", "/api/v1", streaming=False, redirect=False),
     "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False, redirect=True),
     "registerAgent": Operation("POST", "/api/v1/agents/register", streaming=False, redirect=False),
@@ -195,6 +197,42 @@ class OperationsMixin:
     def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client
         raise NotImplementedError
 
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse: ...
+
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
+
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
     def get_api_discovery(
         self,
     ) -> GetApiDiscoveryResponse:
@@ -274,10 +312,10 @@ class OperationsMixin:
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
-        Returns a trader's grade (S through F; ranked about 95% by realized profit, with
-        calibration, track record, and consistency as a tie-breaker and proven-trader
-        guardrails), P&L, win rate, and optional strategy/category data. The path accepts either
-        an Ethereum wallet address, a known trader ...
+        Returns a trader's grade (S through F), P&L, win rate, and optional strategy/category
+        data. The path accepts either an Ethereum wallet address, a known trader username, or a
+        trd_-prefixed trader ID emitted by this API. A wallet address this API does not track
+        yet returns 200 with sync_status ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1237,10 +1275,10 @@ class OperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
-        (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
-        $100 basis), the sharp-money holders, ...
+        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
+        selections with the selected side, game context, frozen publication price, modeled stake
+        and return, holder positions and grades, and execution permission when available.
+        `publication_order` describes ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1271,10 +1309,10 @@ class OperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, unit score, closing-line value, and the
-        rolling hit rate. Resolved picks are public. A pending pick's backed side appears only
-        for an authenticated Pro key. Each row carries a CLV value or the reason it was not
-        measured. Coverage divides measured rows ...
+        Returns every published pick with its outcome, modeled return, unit score, closing-line
+        value, and the cumulative record. Resolved picks are public. A pending pick's selected
+        side appears only for an authenticated Pro key. Historical picks retain their original
+        IDs, order, and proof bytes. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -2856,10 +2894,10 @@ class OperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file while the
-        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
-        served with the format's Content-Type (application/json, application/x-ndjson, or
-        text/csv). Returns 400 while the job is ...
+        Redirects (302) to a presigned URL lasting at most one hour and no later than the job's
+        expires_at for the finished export file while the job status is 'ready' and expires_at
+        has not passed. The file is gzip-compressed and served with the format's Content-Type
+        (application/json, ...
 
         Returns a ``Download``: the redirect is followed once, without the credential, and the
         file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
@@ -3000,6 +3038,42 @@ class ResponseOperationsMixin:
     def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client
         raise NotImplementedError
 
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
+
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
     def get_api_discovery(
         self,
     ) -> ApiResponse[GetApiDiscoveryResponse]:
@@ -3079,10 +3153,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
-        Returns a trader's grade (S through F; ranked about 95% by realized profit, with
-        calibration, track record, and consistency as a tie-breaker and proven-trader
-        guardrails), P&L, win rate, and optional strategy/category data. The path accepts either
-        an Ethereum wallet address, a known trader ...
+        Returns a trader's grade (S through F), P&L, win rate, and optional strategy/category
+        data. The path accepts either an Ethereum wallet address, a known trader username, or a
+        trd_-prefixed trader ID emitted by this API. A wallet address this API does not track
+        yet returns 200 with sync_status ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4042,10 +4116,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
-        (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
-        $100 basis), the sharp-money holders, ...
+        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
+        selections with the selected side, game context, frozen publication price, modeled stake
+        and return, holder positions and grades, and execution permission when available.
+        `publication_order` describes ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4076,10 +4150,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, unit score, closing-line value, and the
-        rolling hit rate. Resolved picks are public. A pending pick's backed side appears only
-        for an authenticated Pro key. Each row carries a CLV value or the reason it was not
-        measured. Coverage divides measured rows ...
+        Returns every published pick with its outcome, modeled return, unit score, closing-line
+        value, and the cumulative record. Resolved picks are public. A pending pick's selected
+        side appears only for an authenticated Pro key. Historical picks retain their original
+        IDs, order, and proof bytes. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5661,10 +5735,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file while the
-        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
-        served with the format's Content-Type (application/json, application/x-ndjson, or
-        text/csv). Returns 400 while the job is ...
+        Redirects (302) to a presigned URL lasting at most one hour and no later than the job's
+        expires_at for the finished export file while the job status is 'ready' and expires_at
+        has not passed. The file is gzip-compressed and served with the format's Content-Type
+        (application/json, ...
 
         Returns a ``Download``: the redirect is followed once, without the credential, and the
         file is streamed. Iterate it, ``save(path)`` it for its SHA-256, or ``read()`` it
@@ -5806,6 +5880,42 @@ class AsyncOperationsMixin:
     ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient
         raise NotImplementedError
 
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse: ...
+
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
+
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
     async def get_api_discovery(
         self,
     ) -> GetApiDiscoveryResponse:
@@ -5885,10 +5995,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
-        Returns a trader's grade (S through F; ranked about 95% by realized profit, with
-        calibration, track record, and consistency as a tie-breaker and proven-trader
-        guardrails), P&L, win rate, and optional strategy/category data. The path accepts either
-        an Ethereum wallet address, a known trader ...
+        Returns a trader's grade (S through F), P&L, win rate, and optional strategy/category
+        data. The path accepts either an Ethereum wallet address, a known trader username, or a
+        trd_-prefixed trader ID emitted by this API. A wallet address this API does not track
+        yet returns 200 with sync_status ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -6848,10 +6958,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
-        (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
-        $100 basis), the sharp-money holders, ...
+        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
+        selections with the selected side, game context, frozen publication price, modeled stake
+        and return, holder positions and grades, and execution permission when available.
+        `publication_order` describes ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -6882,10 +6992,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, unit score, closing-line value, and the
-        rolling hit rate. Resolved picks are public. A pending pick's backed side appears only
-        for an authenticated Pro key. Each row carries a CLV value or the reason it was not
-        measured. Coverage divides measured rows ...
+        Returns every published pick with its outcome, modeled return, unit score, closing-line
+        value, and the cumulative record. Resolved picks are public. A pending pick's selected
+        side appears only for an authenticated Pro key. Historical picks retain their original
+        IDs, order, and proof bytes. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8467,10 +8577,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file while the
-        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
-        served with the format's Content-Type (application/json, application/x-ndjson, or
-        text/csv). Returns 400 while the job is ...
+        Redirects (302) to a presigned URL lasting at most one hour and no later than the job's
+        expires_at for the finished export file while the job status is 'ready' and expires_at
+        has not passed. The file is gzip-compressed and served with the format's Content-Type
+        (application/json, ...
 
         Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
         the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it
@@ -8611,6 +8721,42 @@ class AsyncResponseOperationsMixin:
     ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient
         raise NotImplementedError
 
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
+
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
     async def get_api_discovery(
         self,
     ) -> ApiResponse[GetApiDiscoveryResponse]:
@@ -8690,10 +8836,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}`` (operationId ``getTrader``).
 
-        Returns a trader's grade (S through F; ranked about 95% by realized profit, with
-        calibration, track record, and consistency as a tie-breaker and proven-trader
-        guardrails), P&L, win rate, and optional strategy/category data. The path accepts either
-        an Ethereum wallet address, a known trader ...
+        Returns a trader's grade (S through F), P&L, win rate, and optional strategy/category
+        data. The path accepts either an Ethereum wallet address, a known trader username, or a
+        trd_-prefixed trader ID emitted by this API. A wallet address this API does not track
+        yet returns 200 with sync_status ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9653,10 +9799,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns the published picks for the current product day. Pro tier. `picks` holds up to
-        ten ranked picks. Each pick carries the backed side, the pre-game price, the flat stake
-        (`stake_usd`, 1000) and its return (`return_usd`; `return_per_100` keeps the literal
-        $100 basis), the sharp-money holders, ...
+        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
+        selections with the selected side, game context, frozen publication price, modeled stake
+        and return, holder positions and grades, and execution permission when available.
+        `publication_order` describes ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9687,10 +9833,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, unit score, closing-line value, and the
-        rolling hit rate. Resolved picks are public. A pending pick's backed side appears only
-        for an authenticated Pro key. Each row carries a CLV value or the reason it was not
-        measured. Coverage divides measured rows ...
+        Returns every published pick with its outcome, modeled return, unit score, closing-line
+        value, and the cumulative record. Resolved picks are public. A pending pick's selected
+        side appears only for an authenticated Pro key. Historical picks retain their original
+        IDs, order, and proof bytes. ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11272,10 +11418,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/export/download`` (operationId ``downloadTraderExport``).
 
-        Redirects (302) to a short-lived presigned URL for the finished export file while the
-        job status is 'ready' and expires_at has not passed. The file is gzip-compressed and
-        served with the format's Content-Type (application/json, application/x-ndjson, or
-        text/csv). Returns 400 while the job is ...
+        Redirects (302) to a presigned URL lasting at most one hour and no later than the job's
+        expires_at for the finished export file while the job status is 'ready' and expires_at
+        has not passed. The file is gzip-compressed and served with the format's Content-Type
+        (application/json, ...
 
         Returns an ``AsyncDownload``: the redirect is followed once, without the credential, and
         the file is streamed. Iterate it, ``asave(path)`` it for its SHA-256, or ``aread()`` it

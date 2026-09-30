@@ -122,6 +122,7 @@ __all__ = [
     "GetMarketIntelResponse",
     "GetMarketSnapshotResponse",
     "GetPickOfTheDayArchiveResponse",
+    "GetPickOfTheDayLedgerEntryResponse",
     "GetPickOfTheDayLedgerResponse",
     "GetPickOfTheDayResponse",
     "GetPositionTimelineResponse",
@@ -199,6 +200,8 @@ __all__ = [
     "PickOfTheDayArchiveDay",
     "PickOfTheDayArchiveEntry",
     "PickOfTheDayCommitmentPayload",
+    "PickOfTheDayCommitmentPayloadV1",
+    "PickOfTheDayCommitmentPayloadV2",
     "PickOfTheDayHitRate",
     "PickOfTheDayHitRateSeriesItem",
     "PickOfTheDayLedger",
@@ -210,7 +213,6 @@ __all__ = [
     "PickOfTheDayUncommittedPayload",
     "PickSportsContext",
     "PickSportsTeam",
-    "PickTrust",
     "PlatformCapabilities",
     "PlatformCapabilityStatus",
     "Platforms",
@@ -327,30 +329,228 @@ class NotModifiedResponse(_NotModifiedResponseRequired, total=False):
     etag: str | None
 
 
-class GetApiDiscoveryResponse(TypedDict):
-    object: Literal["api_discovery"]
-    data: ApiDiscovery
+class GetPickOfTheDayLedgerEntryResponse(TypedDict):
+    object: Literal["pick_of_the_day_ledger_entry"]
+    data: PickOfTheDayLedgerEntry
     meta: ResponseMeta
 
 
-class ApiDiscovery(TypedDict):
-    # Canonical API origin for public V1 requests. Format: uri.
-    api_base_url: str
-    # Full agent-readable API reference. Format: uri.
-    docs_url: str
-    # Canonical web-origin OpenAPI JSON document. Format: uri.
-    openapi_url: str
-    # Unauthenticated API health endpoint. Format: uri.
-    health_url: str
-    authentication: Literal["Bearer API key required for data endpoints; discovery (/api/v1), health, coverage (/api/v1/coverage, and its deprecated alias /api/v1/platforms), the Pick of the Day commitment ledger (/api/v1/pick-of-the-day/ledger), and the MCP handshake (initialize, ping, tools/list on /api/v1/mcp) are public. A 401 carries WWW-Authenticate with the resource_metadata URL."]
-    # RFC 9728 protected-resource metadata for the API origin: the document every V1 401 names in its WWW-
-    # Authenticate challenge (resource, bearer_methods_supported, resource_documentation). The remote MCP server
-    # has its own ...
-    protected_resource_metadata_url: str
-    # The complete authenticated route index: one entry per authenticated route this spec documents, in "<METHOD>
-    # <path>" form, not a representative subset. GET /api/v1 is the unauthenticated entrypoint an agent hits
-    # first, ...
-    authenticated_routes: list[str]
+class PickOfTheDayLedgerSealedEntry(TypedDict):
+    """A published pick that has not settled. Carries the commitment and nothing that states a side or a
+    price: no nonce, no payload, no outcome. Publishable the instant the pick releases."""
+    state: Literal["sealed"]
+    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
+    pick_rank: int
+    # sha256(canonical_json(payload) || nonce), lowercase hex, no 0x prefix. Publishable the moment the pick
+    # releases: without the nonce it is not invertible.
+    commitment_hash: str
+    # The construction the hash was taken with, stated in the response so a verifier never has to guess the
+    # serialization.
+    commitment_algo: Literal["sha256(canonical_json(payload)||nonce)"]
+    # When the hash was frozen. Always strictly before kickoff: a pick that reaches kickoff unsealed stays
+    # unsealed forever, because a seal written after the game started would be a backdated proof. Format: date-
+    # time.
+    sealed_at: str
+    # The frozen provider kickoff in the canonical payload form: whole seconds, UTC, literal Z. This exact string
+    # reappears inside payload.kickoff when the pick opens. Format: date-time.
+    kickoff: str
+    # The pick's public page. Format: uri.
+    permalink: str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
+    # Explicit proof provenance: 1 retains historic eight-field canonical JSON; 2 binds stable pick_id and version
+    # without pick_rank.
+    commitment_version: Literal[1, 2] | int
+
+
+class PickOfTheDayLedgerOpenedEntry(TypedDict):
+    """A settled pick whose commitment is open: the nonce plus the exact payload the hash was taken over.
+    Concatenate the payload bytes as received with the decoded nonce and sha256 them to reproduce
+    commitment_hash."""
+    state: Literal["opened"]
+    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
+    pick_rank: int
+    # sha256(canonical_json(payload) || nonce), lowercase hex, no 0x prefix. Publishable the moment the pick
+    # releases: without the nonce it is not invertible.
+    commitment_hash: str
+    # The 32-byte nonce the hash was taken over, lowercase hex, no 0x prefix. Secret while the pick is live: a
+    # pick payload is low entropy, so a published nonce on a live pick would hand out the backed side.
+    commitment_nonce: str
+    # The construction the hash was taken with, stated in the response so a verifier never has to guess the
+    # serialization.
+    commitment_algo: Literal["sha256(canonical_json(payload)||nonce)"]
+    # When the hash was frozen. Always strictly before kickoff: a pick that reaches kickoff unsealed stays
+    # unsealed forever, because a seal written after the game started would be a backdated proof. Format: date-
+    # time.
+    sealed_at: str
+    # When outcome was LAST written to a settled value, or null when that instant is unknown. It moves with a
+    # corrected market re-mapping an already-settled pick, while commitment_hash stays untouched -- which is how a
+    # mirror ...
+    resolved_at: str | None
+    # The frozen provider kickoff in the canonical payload form: whole seconds, UTC, literal Z. This exact string
+    # reappears inside payload.kickoff when the pick opens. Format: date-time.
+    kickoff: str
+    payload: PickOfTheDayCommitmentPayload
+    # How the pick settled. Never pending: a pending pick is a sealed entry.
+    outcome: Literal["win", "loss", "void"] | str
+    # Frozen matchup, for a reader.
+    matchup: str
+    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
+    # identity; the archive owns that.
+    category: str
+    # The pick's public page. Format: uri.
+    permalink: str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
+    # Explicit proof provenance: 1 retains historic eight-field canonical JSON; 2 binds stable pick_id and version
+    # without pick_rank.
+    commitment_version: Literal[1, 2] | int
+
+
+class PickOfTheDayCommitmentPayloadV1(TypedDict):
+    """The frozen identity of the pick, exactly as the hash was taken over it. Served byte for byte as it
+    was hashed -- keys sorted by UTF-8 byte value, no insignificant whitespace -- so a verifier
+    concatenates and hashes with nothing to reconstruct. Property order below is the wire order. The
+    outcome is deliberately NOT part of it: surviving a corrected outcome unchanged is the case the
+    commitment exists for. Worked example: ..."""
+    # Frozen pre-game price of the backed side, 0..1, as the plain decimal text of the stored NUMERIC at full
+    # stored precision, trailing zeros included. A string, never a number: a float round-trip would change the
+    # bytes and ...
+    backed_price: str
+    # Provider condition id of the backed market.
+    condition_id: str
+    # Frozen provider kickoff, whole seconds, UTC, literal Z. Fixed precision, never a shortest-lossless
+    # rendering. Format: date-time.
+    kickoff: str
+    # ET product day (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Index of the backed outcome within the market.
+    pick_outcome_index: Literal[0, 1] | int
+    # Frozen display label of the backed outcome.
+    pick_outcome_label: str
+    # 1-based daily slot.
+    pick_rank: int
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
+
+
+class PickOfTheDayCommitmentPayloadV2(TypedDict):
+    """Version 2 rank-free canonical payload: sorted nine keys, unchanged string escaping, exact decimal
+    text and whole-second UTC kickoff. pick_id is decimal text; version is JSON integer 2."""
+    # Frozen pre-game price of the backed side, 0..1, as the plain decimal text of the stored NUMERIC at full
+    # stored precision, trailing zeros included. A string, never a number: a float round-trip would change the
+    # bytes and ...
+    backed_price: str
+    # Provider condition id of the backed market.
+    condition_id: str
+    # Frozen provider kickoff, whole seconds, UTC, literal Z. Fixed precision, never a shortest-lossless
+    # rendering. Format: date-time.
+    kickoff: str
+    # ET product day (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Index of the backed outcome within the market.
+    pick_outcome_index: Literal[0, 1] | int
+    # Frozen display label of the backed outcome.
+    pick_outcome_label: str
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    version: Literal[2]
+
+
+# Select using the entry commitment_version, never implicit payload shape. All historic v1 hashes remain
+# unchanged.
+PickOfTheDayCommitmentPayload = Union[PickOfTheDayCommitmentPayloadV1, PickOfTheDayCommitmentPayloadV2]
+
+
+class PickOfTheDayLedgerUncommittedEntry(TypedDict):
+    """A published pick with no commitment: it predates the scheme, or it reached kickoff unsealed. Nothing
+    here is evidence of WHEN the pick was made. It is emitted rather than skipped, because a ledger with
+    holes where the unprovable picks were would silently flatter the record. Once the pick settles,
+    payload names its market, side and price, so the outcome can still be checked against the market's
+    own resolution."""
+    state: Literal["uncommitted"]
+    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
+    pick_rank: int
+    # Always true: this pick has no commitment and never will.
+    pre_commitment: Literal[True]
+    # How the pick settled, or pending.
+    outcome: Literal["pending", "win", "loss", "void"] | str
+    # Frozen matchup, for a reader.
+    matchup: str
+    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
+    # identity; the archive owns that.
+    category: str
+    # When outcome was LAST written to a settled value, or null when that instant is unknown. It moves with a
+    # corrected market re-mapping an already-settled pick, while commitment_hash stays untouched -- which is how a
+    # mirror ...
+    resolved_at: str | None
+    # The pick's market, side and price once it has settled; null while it is pending, and null for a settled pick
+    # whose stored row lacks one of these columns. Not hashed: nothing was committed over these values, which is
+    # ...
+    payload: PickOfTheDayUncommittedPayload | None
+    # The pick's public page. Format: uri.
+    permalink: str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
+
+
+class PickOfTheDayUncommittedPayload(TypedDict):
+    """A settled uncommitted pick's market, side and price. The same eight fields as
+    PickOfTheDayCommitmentPayload, in the same key order, so a settled pick's side and price sit under
+    payload whatever the entry's state. It is NOT a commitment: no hash was taken over it before the
+    game, and it proves nothing about when the pick was made."""
+    # Frozen pre-game price of the backed side, 0..1, as the plain decimal text of the stored NUMERIC at full
+    # stored precision, trailing zeros included -- rendered exactly as the commitment payload renders it.
+    backed_price: str
+    # Provider condition id of the backed market.
+    condition_id: str
+    # Frozen provider kickoff, UTC, literal Z; null when no kickoff was frozen. Whole seconds render exactly as
+    # the commitment payload does; a sub-second instant keeps its fraction rather than being truncated, since
+    # nothing ...
+    kickoff: str | None
+    # ET product day (YYYY-MM-DD). Format: date.
+    pick_date: str
+    # Index of the backed outcome within the market.
+    pick_outcome_index: Literal[0, 1] | int
+    # Frozen display label of the backed outcome.
+    pick_outcome_label: str
+    # 1-based daily slot.
+    pick_rank: int
+    # Provider platform. Always polymarket.
+    platform: Literal["polymarket"]
+
+
+# One ledger entry. Read `state` to know which shape you have; the three are disjoint.
+PickOfTheDayLedgerEntry = Union[PickOfTheDayLedgerSealedEntry, PickOfTheDayLedgerOpenedEntry, PickOfTheDayLedgerUncommittedEntry]
 
 
 class _ResponseMetaRequired(TypedDict):
@@ -410,6 +610,32 @@ class ResponseMetaCategorySkillStatusCounts(TypedDict):
     stale: int
     unknown: int
     degraded: int
+
+
+class GetApiDiscoveryResponse(TypedDict):
+    object: Literal["api_discovery"]
+    data: ApiDiscovery
+    meta: ResponseMeta
+
+
+class ApiDiscovery(TypedDict):
+    # Canonical API origin for public V1 requests. Format: uri.
+    api_base_url: str
+    # Full agent-readable API reference. Format: uri.
+    docs_url: str
+    # Canonical web-origin OpenAPI JSON document. Format: uri.
+    openapi_url: str
+    # Unauthenticated API health endpoint. Format: uri.
+    health_url: str
+    authentication: Literal["Bearer API key required for data endpoints; discovery (/api/v1), health, coverage (/api/v1/coverage, and its deprecated alias /api/v1/platforms), the Pick of the Day commitment ledger (/api/v1/pick-of-the-day/ledger), and the MCP handshake (initialize, ping, tools/list on /api/v1/mcp) are public. A 401 carries WWW-Authenticate with the resource_metadata URL."]
+    # RFC 9728 protected-resource metadata for the API origin: the document every V1 401 names in its WWW-
+    # Authenticate challenge (resource, bearer_methods_supported, resource_documentation). The remote MCP server
+    # has its own ...
+    protected_resource_metadata_url: str
+    # The complete authenticated route index: one entry per authenticated route this spec documents, in "<METHOD>
+    # <path>" form, not a representative subset. GET /api/v1 is the unauthenticated entrypoint an agent hits
+    # first, ...
+    authenticated_routes: list[str]
 
 
 class RegisterAgentResponse(TypedDict):
@@ -491,17 +717,15 @@ class Trader(_TraderRequired, total=False):
     # when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
     score: float
-    # Capital-normalized forecasting score: the cohort percentile (0-100) of the EB-shrunk calibration edge.
-    # Omitted when the forecasting signal is unavailable; never replaced with zero.
+    # Optional forecast score on the documented display scale. Null when unavailable.
     forecast_score: float
-    # Share of forecast_score supported by the trader's own resolved-market record rather than the cohort prior: n
-    # / (n + 30). Omitted when forecast_score is unavailable.
+    # Optional measured forecast context. Missing values remain unavailable rather than being inferred.
     forecast_evidence: float
     rank: int
     strategy: TraderStrategy
-    # Per-category performance breakdown (expand=categories or expand[]=categories). Omitted unless expanded.
-    # Object keyed by category name; each value is the precomputed trader_rankings.category_ranks payload (rank,
-    # ...
+    # Per-category rank context when expand=categories is requested. Values include available rank, category
+    # totals, performance and record counts; scaled_total_pnl is a legacy alias of total_pnl. Its measurement
+    # basis and ...
     category_strengths: dict[str, Any]
     # Curated advanced risk/performance metrics (expand=quant_metrics or expand[]=quant_metrics). Omitted unless
     # expanded and backed by a computed row strictly under six hours old; a missing row, NULL computed_at, or age
@@ -596,9 +820,7 @@ class TraderQuantMetrics(TypedDict):
     intentionally lag inside the bounded six-hour window. When present, all listed fields are present
     (each is a number or null); null means insufficient trade history and must not be treated as 0. The
     fixed field shape is unchanged."""
-    # Composite skill score, 0-100. smart_score = clamp(0, 100, 30*sharpe_percentile_fraction +
-    # 20*profit_factor_percentile_fraction + 20*edge_consistency_percentile_fraction + 10*min(1,
-    # return_on_capital/2) + ...
+    # Trader smart score on a 0..100 display scale; higher is stronger. Null when unavailable.
     smart_score: float | None
     # Copyability score, 0-100. Same base as smart_score minus penalties for traits that make a strategy hard to
     # replicate: -20 if fewer than 50 markets traded, -15 if positions are highly concentrated, -15 if position
@@ -1378,13 +1600,10 @@ class _LargeTradeRequired(TypedDict):
     # the traded ...
     token_id: str | None
     price: float
-    # Current 0.0–1.0 review score, computed at request time from the trade's size, the trader's win rate today, a
-    # bonus when a trader with a win rate above 55% trades at a price below 30¢, and the trade's age now. A higher
-    # ...
+    # Current trade review score on a 0..1 scale; higher values indicate a stronger review signal. This is the
+    # current response value and can differ from the recorded score. Missing measurements remain unavailable.
     review_score: float
-    # Current 0.0–1.0 review score, computed at request time from the trader's win rate today and the trade's age
-    # now. Deprecated (#16311): `review_score` is the canonical spelling and carries the same value; this key
-    # stays ...
+    # Deprecated alias of review_score with the same current value and 0..1 scale.
     signal_score: float
     # 0.0–1.0 review score written once when the trade row is inserted, from the trader's statistics at that
     # moment. Populated from 2026-08-03T11:59Z; older rows return null and are never backfilled, because a
@@ -1681,15 +1900,16 @@ class GetPickOfTheDayResponse(TypedDict):
 class _PickOfTheDayRequired(TypedDict):
     # Always 'full' for an authenticated Pro key.
     state: Literal["full"]
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
 
 
 class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # The pick's local publication date (YYYY-MM-DD). Format: date.
     pick_date: str
-    # Stable 1-based slot within the product day's ranked picks.
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
-    # The complete ranked picks for this product day, ordered by pick_rank. Thin days contain fewer items; the
-    # selector never fabricates rows.
+    # Published picks for this product day in the returned display order. Use pick_id for identity.
     picks: list[PickOfTheDay]
     # Number of items in `picks`: the proof-readable picks. Picks held in `proof_pending_picks` are not counted.
     pick_count: int
@@ -1699,8 +1919,7 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     scheduled_picks: list[ScheduledPickSlot]
     # Human-readable matchup (e.g. "Portugal vs. Uzbekistan").
     matchup: str
-    # Frozen canonical calibration/report bucket (e.g. "Basketball", "MMA", or "Soccer"). Existing semantics are
-    # unchanged; presentation consumers should prefer display_category when present.
+    # Recorded canonical sport category. Prefer display_category for the public competition label.
     category: str
     # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
     # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
@@ -1738,31 +1957,15 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # published pick whose required holder proof is not safely readable is listed in `proof_pending_picks` instead
     # of ...
     side_summary: str
-    # Public V1 compatibility count of S/A sharp-money wallets on the backed side. The first-party/internal
-    # current policy counts S/A/B; historical rows retain their frozen policy's count. Required on every item in
-    # `picks`: a ...
+    # S/A wallet count on the backed side in the public V1 compatibility projection.
     sharp_wallet_count: int
-    # Deprecated spelling of sharp_wallet_count, emitted beside it with the same value and never removed. Public
-    # V1 compatibility count of S/A sharp-money wallets on the backed side. The first-party/internal current
-    # policy ...
+    # Deprecated spelling of sharp_wallet_count with the same value.
     smart_wallet_count: int
-    # Best public V1-compatible S/A sharp-money grade on the backed side. The first-party/internal current policy
-    # can select B, but a current B-only grade is omitted by the stable V1 adapter. Historical rows retain their
-    # ...
+    # Best recorded S/A grade in the public V1 compatibility projection.
     top_grade: str
-    # Deprecated (#7170): no longer populated for picks selected on/after the calibration-edge change; omitted
-    # (absent) for new picks (the field uses skip_serializing_if, so a null value is dropped from the JSON rather
-    # than ...
-    category_edge_pct: float
-    # Deprecated (#7170): no longer populated for picks selected on/after the calibration-edge change; omitted
-    # (absent) for new picks (the field uses skip_serializing_if, so a null value is dropped from the JSON rather
-    # than ...
-    category_edge_sample: int
-    # Recency-weighted graded-flow magnitude in USD; omitted when <= 0. Canonical key since #16308; smart_usd is
-    # its deprecated spelling, emitted beside it with the same value.
+    # Recorded sharp-money magnitude in USD when available.
     sharp_usd: float
-    # Deprecated spelling of sharp_usd, emitted beside it with the same value and never removed. Recency-weighted
-    # graded-flow magnitude in USD; omitted when <= 0.
+    # Deprecated spelling of sharp_usd with the same value.
     smart_usd: float
     # Frozen pre-game probability (0..1) for the backed side, written once at publication. It is the Polymarket
     # CLOB order book midpoint at release, not an executed fill: a buyer lifts the ask, so a subscriber's own
@@ -1815,51 +2018,22 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     unit_score: float
     # Backend-formatted signed unit score, present exactly when unit_score is present.
     unit_score_display: str
-    # First-party/internal backed-side sharp-money dollar consensus as a fraction 0..1: the share of current-
-    # policy sharp dollars on the backed side. Omitted on current public V1 rows when the B-inclusive value has no
-    # ...
+    # Recorded sharp-money share as a 0..1 fraction when available. This is not a winning probability.
     sharp_pct: float
-    # Market-implied probability of the backed side as a fraction 0..1 (equals backed_price), re-exposed alongside
-    # sharp_pct for the WHY breakdown.
+    # Recorded market-implied probability as a 0..1 fraction when available.
     market_pct: float
-    # First-party/internal consensus edge = sharp_pct - market_pct, the conviction-vs-price gap (how much more of
-    # the current-policy sharp money sits on this side than the price implies). Omitted on current public V1 rows
-    # ...
-    consensus_edge_pct: float
-    # First-party/internal team-directional commitment read at selection time: the fraction (0..1) of the backed
-    # side's current-policy graded sharp-money DOLLARS held by wallets read one-way rather than hedged: no
-    # opposite ...
-    directional_confidence: float
-    # Graded backed-side holders read as one-way-committed on this game.
-    one_way_holder_count: int
-    # Graded backed-side holders read as HEDGED across the game's markets.
-    hedged_holder_count: int
-    # The one-way holders' share of the backed-side graded dollars (the confidence's numerator).
-    one_way_graded_usd: float
-    # Backed-side graded dollars the confidence is measured against (its denominator).
-    total_graded_usd: float
-    # The qualifying category expert whose sport-specific record and real position earned this pick its top
-    # selection tier. The first-party/internal current policy admits S/A/B; public V1 exposes a compatible S/A
-    # expert and ...
+    # Optional recorded specialist facts. These describe the trader and do not disclose selection decisions.
+    # Present only on a full response when available.
     qualifying_expert: PickOfTheDayQualifyingExpert
-    trust: PickTrust
-    # Public V1 S/A compatibility count on the backed side (equals the adapted sharp_wallet_count). The first-
-    # party/internal current policy counts S/A/B. Historical rows retain their frozen policy's count.
+    # Public V1 S/A wallet count on the backed side, equal to sharp_wallet_count.
     traders: int
-    # Raw backed-side sharp-money USD frozen at generation. This is the Sharp USD value, not the recency-weighted
-    # sharp_usd which decays. Omitted on current public V1 rows when the B-inclusive value has no reconstructible
-    # S/A ...
+    # Recorded backed-side sharp-money value in USD when available.
     backed_sharp_usd: float
-    # Bounded S/A compatibility projection of the frozen sharp-money holders on the backed side. Current full
-    # payloads expose the complete S/A/B roster in display_holders; historical rows can retain their earlier
-    # frozen shape.
+    # Bounded S/A holder display projection. Historical rows retain their recorded display shape.
     holders: list[PickHolder]
-    # Full-only complete provider-confirmed S/A/B holder roster for the current Pick of the Day backing policy.
-    # Omitted for teaser, no-pick, and historical rows whose frozen holder proof predates this policy. Each entry
-    # may ...
+    # Optional complete holder display roster. Each entry carries ordinary trader and recorded position facts.
     display_holders: list[PickHolder]
-    # Exact S/A sharp-money proof count on the backed side. The current display_holders roster can be longer
-    # because it also carries B-grade sharp-money holders.
+    # S/A holder count for the public V1 compatibility projection. display_holders can include additional grades.
     holder_count: int
     # Optional editorial note attached to the pick.
     editorial_note: str
@@ -1876,9 +2050,9 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # The canonical /event game-page slug (one neutral page per game); omitted when the game has no neutral event
     # page.
     event_slug: str
-    # Backend-resolved /event destination slug for this pick's source market; its absence is an authoritative no-
-    # link decision.
-    event_link_slug: str
+    # Backend-resolved /event destination slug for the source market. Omitted outside full responses; null is an
+    # authoritative no-link decision.
+    event_link_slug: str | None
     # Provider-first sports context for the pick's market (team logos, league branding, live score). Full-state
     # only; omitted when the pick is not a team-sports market.
     sports_context: PickSportsContext
@@ -1888,97 +2062,68 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # optional: present only while at least one such pick exists. While present, `picks` carries only the proof-
     # readable ...
     proof_pending_picks: list[ProofPendingPickSlot]
-    # Frozen admission classification, full payload only. The specialist lane exempts two probability rejects and
-    # adds no rank bonus. Historical rows remain standard.
-    selection_lane: Literal["standard", "longshot_specialist"] | str
-    # Optional full-only authorization for newly issued policy-7 picks; omitted for legacy or unissued picks and
-    # teasers. It remains historical after expiry.
+    # Optional full-response entry authorization. Missing or expired authorization cannot authorize an automated
+    # entry.
     entry_authorization: PotdEntryAuthorization
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
 
 
 class ScheduledPickSlot(TypedDict):
     """One same-day pick that is selected but not yet released: its stable slot rank plus the backend-owned
     release and kickoff instants. Deliberately minimal -- no matchup, category, platform, side, price,
     or holder fields exist on this shape before release."""
-    # Stable 1-based slot within the product day's ranked picks. The slot keeps this rank when it releases.
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
     # The slot's scheduled release instant, normally the current provider kickoff minus one hour. The actual
     # publish can trail it by bounded worker delay. Format: date-time.
     release_at: str
     # The backed game's current kickoff instant. Format: date-time.
     kickoff: str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
 
 
 class _PickOfTheDayQualifyingExpertRequired(TypedDict):
-    # Wallet address of the qualifying expert.
+    # Trader wallet address.
     address: str
     # Provider display name, or null for an unnamed wallet.
     name: str | None
-    # 0xinsider grade letter. The first-party/internal current Pick of the Day policy counts S, A, and B; public
-    # V1 exposes only the compatible S/A expert.
+    # Recorded trader grade. Public V1 preserves its S/A compatibility projection.
     grade: str | None
     # The canonical sport bucket the win rate was measured over (for example Basketball). Can be BROADER than the
     # pick's display_category, which names an exact league such as NBA — label the rate with this field, never
     # with ...
     canonical_category: str
-    # Share of this wallet's resolved markets in canonical_category whose realized P&L came out positive, as a
-    # 0..1 fraction. Above 0.60 by construction for a source=v1 expert; null for an expert who qualified on the
-    # ...
+    # Share of the trader’s resolved markets in canonical_category with positive realized P&L, as a 0..1 fraction.
+    # Null when not measured. This is a trader statistic, not the pick’s probability of winning.
     win_rate: float | None
-    # Resolved markets in canonical_category behind win_rate. At least 10 by construction for a source=v1 expert;
-    # null with win_rate.
+    # Number of resolved markets behind win_rate; null when not measured.
     n_resolved: int | None
-    # Polymarket's own currentValue for this wallet on the backed outcome, in USD, as of selection. At least 1000
-    # by construction through gate policy v7; the standard floor is 500 from v8. From gate policy v5 the floor is
-    # ...
+    # Recorded Polymarket position value on the backed outcome, in USD. It can change after this snapshot.
     position_usd: float
-    # When the skill read model behind the evidence was last rebuilt: trader_category_stats.computed_at for a
-    # source=v1 expert, category_skill_v2_current.as_of for a source=v2 expert. Format: date-time.
+    # Timestamp of the recorded trader statistics. Format: date-time.
     stats_computed_at: str
 
 
 class PickOfTheDayQualifyingExpert(_PickOfTheDayQualifyingExpertRequired, total=False):
-    """The qualifying category expert whose sport-specific record and real position earned this pick its
-    top selection tier. The first-party/internal current policy admits S/A/B; public V1 exposes a
-    compatible S/A expert and omits a current-policy B-grade expert: a candidate backed by one outranks
-    every candidate without one. Present only on the full payload. Omitted when no wallet qualified on
-    the backed side, on picks generated before the field existed, and on the first-party web teaser,
-    which withholds all backed-side evidence. Frozen at SELECTION time — the wallet's position can move
-    before the ..."""
-    # Current expert policy 10 does not require a category-skill v2 specialist in any sport; in every sport a
-    # specialist raises the candidate's rank tier rather than gating it. Standard specialists need a positive ...
-    source: Literal["v1", "v2"] | str
-    # 95% lower bound of the wallet's mean calibration edge over the market price in canonical_category, in
-    # probability units (0.08 is 8 points). Positive by construction for a v2 expert; present on a v1 expert only
-    # when the ...
-    edge_lower_95: float
-    # Point estimate behind edge_lower_95.
-    edge_mean: float
-    # Independent canonical events behind the edge. At least 10 by construction for a v2 expert.
-    independent_event_count: int
-    # The same wallet's currentValue on the OTHER outcome of this market, in USD, as of selection. Present from
-    # gate policy v5, when the floor moved to net exposure; a wallet long both sides does not qualify. Absent on
-    # picks ...
+    """Optional recorded specialist facts. These describe the trader and do not disclose selection
+    decisions. Present only on a full response when available."""
+    # Recorded position value on the other outcome of this market, in USD. Omitted when not recorded; zero is a
+    # measured value.
     opposite_position_usd: float
-    # Present from expert policy 6. Current expert policy 10 retains the longshot requirement of live v2 only,
-    # with a positive lower bound over a large sample, large net backed value and no meaningful opposite value.
-    # ...
-    lane: Literal["standard", "longshot_specialist"] | str
-    # Answered, spread-gated, index-scoped backed probability frozen only on a specialist exception.
-    lane_probability: float
-    # Canonical provider probability pair branch; absent on standard experts.
-    lane_probability_source: Literal["p"]
-
-
-class PickTrust(TypedDict):
-    """Field-level trust metadata for the full Pick of the Day payload. Present on the full shape only
-    (omitted on the teaser and the no-pick state, because whether a specialist backs the pick is itself
-    backed-side evidence). Unlike TraderTrust it is not gated behind expand=trust: it carries one member
-    on an endpoint that returns a single object per day."""
-    # Provenance of the frozen qualifying category expert. source.kind=database with
-    # reconciliation.status=db_mirror means the evidence deserialized, still satisfies every frozen selection
-    # gate, and is being served. On that ...
-    qualifying_expert: TrustMetadata
 
 
 class _PickHolderRequired(TypedDict):
@@ -2035,7 +2180,6 @@ class PickHolder(_PickHolderRequired, total=False):
     # `@`. Link it as `https://x.com/<handle>`. Stamped at serve time from the wallet's current trader record,
     # never ...
     x_username: str | None
-    category_evidence: HolderCategoryEvidence
 
 
 class PickHolderCategoryWinRecord(TypedDict):
@@ -2049,17 +2193,6 @@ class PickHolderCategoryWinRecord(TypedDict):
     # Resolved markets in the category that this wallet closed with a profit or a loss. A market resolved at zero
     # realized P&L is in neither count.
     decided: int
-
-
-class _HolderCategoryEvidenceRequired(TypedDict):
-    status: Literal["live", "insufficient", "stale", "unknown", "degraded"] | str
-
-
-class HolderCategoryEvidence(_HolderCategoryEvidenceRequired, total=False):
-    """Current category evidence, independent of the global grade. Pick of the Day stamps only the served
-    display roster; frozen entry snapshots remain unchanged."""
-    canonical_category: str
-    skill: CategorySkillV2
 
 
 class _PickSportsContextRequired(TypedDict):
@@ -2161,8 +2294,7 @@ ScoreFormat = Union[Literal["two_side", "multi_set", "esports_series"], str]
 
 
 class _ProofPendingPickSlotRequired(TypedDict):
-    # Stable 1-based slot within the product day's ranked picks. The pick keeps this rank once its proof is
-    # readable and it moves into `picks`.
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
     # The pick's stored release instant. Format: date-time.
     release_at: str
@@ -2170,6 +2302,15 @@ class _ProofPendingPickSlotRequired(TypedDict):
     # pending legacy row that only settlement can make readable. Schedule against it instead of polling. Format:
     # ...
     retry_at: str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
 
 
 class ProofPendingPickSlot(_ProofPendingPickSlotRequired, total=False):
@@ -2182,10 +2323,9 @@ class ProofPendingPickSlot(_ProofPendingPickSlotRequired, total=False):
 
 
 class PotdEntryAuthorization(TypedDict):
-    """Policy-7 issuance binds one condition, selected token, outcome, canonical event and sport. Reuse the
-    same authorization across public/private discovery and retries. Require a new account-size
-    executable book and current market eligibility; this frozen reference does not prove current
-    liquidity or positive expected value. Absence or expiry cannot authorize a new automated entry."""
+    """Returned entry permission bound to the named market, token and outcome. Honor max_entry_price and
+    expires_at, and check a current executable order book for the actual stake. This snapshot does not
+    guarantee current liquidity, execution or positive expected value."""
     version: Literal[1]
     # Format: uuid.
     authorization_id: str
@@ -2197,8 +2337,8 @@ class PotdEntryAuthorization(TypedDict):
     category: str
     # Exact provider parent event ID, or provider event ID when no parent exists.
     canonical_event_id: str
-    # Immutable decimal limit: first fresh selected-token ask plus 0.02, floored to the provider tick below 1.
-    # Fees excluded. Never a calibrated fair probability.
+    # Returned maximum entry price as an exact decimal string. Honor this bound; fees are excluded. This is not a
+    # fair probability.
     max_entry_price: str
     reference_best_ask: str
     reference_book_hash: str
@@ -2206,7 +2346,7 @@ class PotdEntryAuthorization(TypedDict):
     reference_book_at: str
     # Format: date-time.
     issued_at: str
-    # Original provider kickoff ceiling. Never extended on retry. Format: date-time.
+    # Authorization expiry. An expired authorization cannot authorize a new automated entry. Format: date-time.
     expires_at: str
 
 
@@ -2235,10 +2375,19 @@ class _PickOfTheDayArchiveEntryRequired(TypedDict):
     category: str
     # Settlement outcome of the backed side; 'pending' until the market resolves.
     outcome: Literal["pending", "win", "loss", "void"] | str
+    # Stable pick row identity as decimal text. Never use a quality rank as identity.
+    pick_id: str
+    # Compatibility release slot. No quality claim; historic scheduling order is retained.
+    publication_order: int
+    # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
+    # original free slot.
+    is_free_selection: bool
+    # Replacement predecessor stable id; null when no lineage is recorded.
+    supersedes_pick_id: str | None
 
 
 class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
-    # Stable 1-based slot within the product day's ranked picks.
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
     # When this pick became public (RFC3339 UTC). pick_date above is the America/New_York product day, not an
     # instant, so read this whenever you need a real time: reading the bare date as UTC midnight places it hours
@@ -2467,161 +2616,6 @@ class PickOfTheDayLedger(TypedDict):
     # Entries carrying no commitment, so provable by nothing: the honest size of the unprovable part of the
     # record. It only stops growing; no pick is ever retro-sealed.
     uncommitted_count: int
-
-
-class PickOfTheDayLedgerSealedEntry(TypedDict):
-    """A published pick that has not settled. Carries the commitment and nothing that states a side or a
-    price: no nonce, no payload, no outcome. Publishable the instant the pick releases."""
-    state: Literal["sealed"]
-    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
-    pick_date: str
-    # 1-based daily slot within the product day.
-    pick_rank: int
-    # sha256(canonical_json(payload) || nonce), lowercase hex, no 0x prefix. Publishable the moment the pick
-    # releases: without the nonce it is not invertible.
-    commitment_hash: str
-    # The construction the hash was taken with, stated in the response so a verifier never has to guess the
-    # serialization.
-    commitment_algo: Literal["sha256(canonical_json(payload)||nonce)"]
-    # When the hash was frozen. Always strictly before kickoff: a pick that reaches kickoff unsealed stays
-    # unsealed forever, because a seal written after the game started would be a backdated proof. Format: date-
-    # time.
-    sealed_at: str
-    # The frozen provider kickoff in the canonical payload form: whole seconds, UTC, literal Z. This exact string
-    # reappears inside payload.kickoff when the pick opens. Format: date-time.
-    kickoff: str
-    # The pick's public page. Format: uri.
-    permalink: str
-
-
-class PickOfTheDayLedgerOpenedEntry(TypedDict):
-    """A settled pick whose commitment is open: the nonce plus the exact payload the hash was taken over.
-    Concatenate the payload bytes as received with the decoded nonce and sha256 them to reproduce
-    commitment_hash."""
-    state: Literal["opened"]
-    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
-    pick_date: str
-    # 1-based daily slot within the product day.
-    pick_rank: int
-    # sha256(canonical_json(payload) || nonce), lowercase hex, no 0x prefix. Publishable the moment the pick
-    # releases: without the nonce it is not invertible.
-    commitment_hash: str
-    # The 32-byte nonce the hash was taken over, lowercase hex, no 0x prefix. Secret while the pick is live: a
-    # pick payload is low entropy, so a published nonce on a live pick would hand out the backed side.
-    commitment_nonce: str
-    # The construction the hash was taken with, stated in the response so a verifier never has to guess the
-    # serialization.
-    commitment_algo: Literal["sha256(canonical_json(payload)||nonce)"]
-    # When the hash was frozen. Always strictly before kickoff: a pick that reaches kickoff unsealed stays
-    # unsealed forever, because a seal written after the game started would be a backdated proof. Format: date-
-    # time.
-    sealed_at: str
-    # When outcome was LAST written to a settled value, or null when that instant is unknown. It moves with a
-    # corrected market re-mapping an already-settled pick, while commitment_hash stays untouched -- which is how a
-    # mirror ...
-    resolved_at: str | None
-    # The frozen provider kickoff in the canonical payload form: whole seconds, UTC, literal Z. This exact string
-    # reappears inside payload.kickoff when the pick opens. Format: date-time.
-    kickoff: str
-    payload: PickOfTheDayCommitmentPayload
-    # How the pick settled. Never pending: a pending pick is a sealed entry.
-    outcome: Literal["win", "loss", "void"] | str
-    # Frozen matchup, for a reader.
-    matchup: str
-    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
-    # identity; the archive owns that.
-    category: str
-    # The pick's public page. Format: uri.
-    permalink: str
-
-
-class PickOfTheDayCommitmentPayload(TypedDict):
-    """The frozen identity of the pick, exactly as the hash was taken over it. Served byte for byte as it
-    was hashed -- keys sorted by UTF-8 byte value, no insignificant whitespace -- so a verifier
-    concatenates and hashes with nothing to reconstruct. Property order below is the wire order. The
-    outcome is deliberately NOT part of it: surviving a corrected outcome unchanged is the case the
-    commitment exists for. Worked example: ..."""
-    # Frozen pre-game price of the backed side, 0..1, as the plain decimal text of the stored NUMERIC at full
-    # stored precision, trailing zeros included. A string, never a number: a float round-trip would change the
-    # bytes and ...
-    backed_price: str
-    # Provider condition id of the backed market.
-    condition_id: str
-    # Frozen provider kickoff, whole seconds, UTC, literal Z. Fixed precision, never a shortest-lossless
-    # rendering. Format: date-time.
-    kickoff: str
-    # ET product day (YYYY-MM-DD). Format: date.
-    pick_date: str
-    # Index of the backed outcome within the market.
-    pick_outcome_index: Literal[0, 1] | int
-    # Frozen display label of the backed outcome.
-    pick_outcome_label: str
-    # 1-based daily slot.
-    pick_rank: int
-    # Provider platform. Always polymarket.
-    platform: Literal["polymarket"]
-
-
-class PickOfTheDayLedgerUncommittedEntry(TypedDict):
-    """A published pick with no commitment: it predates the scheme, or it reached kickoff unsealed. Nothing
-    here is evidence of WHEN the pick was made. It is emitted rather than skipped, because a ledger with
-    holes where the unprovable picks were would silently flatter the record. Once the pick settles,
-    payload names its market, side and price, so the outcome can still be checked against the market's
-    own resolution."""
-    state: Literal["uncommitted"]
-    # ET product day the pick belongs to (YYYY-MM-DD). Format: date.
-    pick_date: str
-    # 1-based daily slot within the product day.
-    pick_rank: int
-    # Always true: this pick has no commitment and never will.
-    pre_commitment: Literal[True]
-    # How the pick settled, or pending.
-    outcome: Literal["pending", "win", "loss", "void"] | str
-    # Frozen matchup, for a reader.
-    matchup: str
-    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
-    # identity; the archive owns that.
-    category: str
-    # When outcome was LAST written to a settled value, or null when that instant is unknown. It moves with a
-    # corrected market re-mapping an already-settled pick, while commitment_hash stays untouched -- which is how a
-    # mirror ...
-    resolved_at: str | None
-    # The pick's market, side and price once it has settled; null while it is pending, and null for a settled pick
-    # whose stored row lacks one of these columns. Not hashed: nothing was committed over these values, which is
-    # ...
-    payload: PickOfTheDayUncommittedPayload | None
-    # The pick's public page. Format: uri.
-    permalink: str
-
-
-class PickOfTheDayUncommittedPayload(TypedDict):
-    """A settled uncommitted pick's market, side and price. The same eight fields as
-    PickOfTheDayCommitmentPayload, in the same key order, so a settled pick's side and price sit under
-    payload whatever the entry's state. It is NOT a commitment: no hash was taken over it before the
-    game, and it proves nothing about when the pick was made."""
-    # Frozen pre-game price of the backed side, 0..1, as the plain decimal text of the stored NUMERIC at full
-    # stored precision, trailing zeros included -- rendered exactly as the commitment payload renders it.
-    backed_price: str
-    # Provider condition id of the backed market.
-    condition_id: str
-    # Frozen provider kickoff, UTC, literal Z; null when no kickoff was frozen. Whole seconds render exactly as
-    # the commitment payload does; a sub-second instant keeps its fraction rather than being truncated, since
-    # nothing ...
-    kickoff: str | None
-    # ET product day (YYYY-MM-DD). Format: date.
-    pick_date: str
-    # Index of the backed outcome within the market.
-    pick_outcome_index: Literal[0, 1] | int
-    # Frozen display label of the backed outcome.
-    pick_outcome_label: str
-    # 1-based daily slot.
-    pick_rank: int
-    # Provider platform. Always polymarket.
-    platform: Literal["polymarket"]
-
-
-# One ledger entry. Read `state` to know which shape you have; the three are disjoint.
-PickOfTheDayLedgerEntry = Union[PickOfTheDayLedgerSealedEntry, PickOfTheDayLedgerOpenedEntry, PickOfTheDayLedgerUncommittedEntry]
 
 
 class _ListTrendingWalletsResponseRequired(TypedDict):
@@ -2989,8 +2983,7 @@ class PreGameSide(TypedDict):
     # UTC time at which the snapshot that ranked this row was computed. Canonical spelling of signal_created_at
     # (#16310), same value. Format: date-time.
     ranked_at: str
-    # Grade-weighted holders times the share of their money on the side: (5*s + 4*a + 3*b) * sharp_pct. Canonical
-    # spelling of conviction_score (#16310), same value.
+    # Recorded side backing score; higher values indicate stronger backing.
     backing_score: float
     # Signed share of graded money on the side, (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (side-yes
     # positive, side-no negative). Canonical spelling of smart_score (#16309, #16310), same value.
@@ -3036,16 +3029,14 @@ class PreGameSide(TypedDict):
     # Best grade present on the piled side; null when none.
     top_grade: Literal["S", "A", "B"] | str | None
     # Canonical sharp-money score (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (piled-yes positive, piled-no
-    # negative); a lower-order ranking tiebreak (after directional_rank_score and conviction_score). Deprecated
+    # negative). Deprecated (#16310): `side_share` is the canonical spelling and carries the same value; this key
     # ...
     smart_score: float | None
     # Market volume (USD).
     volume: float | None
     # Aggregate recent flow direction on the market; null when unavailable.
     net_side: Literal["BUY", "SELL"] | str | None
-    # Grade-weighted pile score (5*s + 4*a + 3*b) * sharp_pct; the raw conviction input to the ranking (see
-    # directional_rank_score). Deprecated (#16310): `backing_score` is the canonical spelling and carries the same
-    # value; ...
+    # Recorded conviction score; higher values indicate stronger conviction.
     conviction_score: float
     # Piled-side graded holders read one-way: their fresh open legs across the signal game's markets (cross-market
     # within the one game; moneyline+spread family only) all back the same team, or, when the market's holder scan
@@ -3062,8 +3053,7 @@ class PreGameSide(TypedDict):
     # unknown, hedged, and two-sided dollars dilute it toward zero (conservative). Null when the directional read
     # was not ...
     directional_confidence: float | None
-    # The ranking key, descending: conviction_score * (1 + 0.25 * directional_confidence). Equals conviction_score
-    # when the directional read is null/zero, so signals without the read rank exactly as before.
+    # Recorded side ordering score; higher values sort first.
     directional_rank_score: float
     category_skill: PreGameSideCategorySkill
     # 1-based rank within the (min_grade-filtered) ranked result.
@@ -3119,8 +3109,7 @@ class PreGameSideObservation(TypedDict):
     # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
     # do not ...
     side: str | None
-    # Grade-weighted holder-pile score before directional enrichment. Canonical spelling of conviction_score
-    # (#16310), same value.
+    # Recorded side backing score; higher values indicate stronger backing.
     backing_score: float
     # Signed share of graded money on the side, in [-1, 1]. Canonical spelling of smart_score (#16309, #16310),
     # same value.
@@ -3175,8 +3164,7 @@ class PreGameSideObservation(TypedDict):
     # Strictly positive stored market volume in USD. Missing, zero, or non-finite volume terminates as
     # invalid_market and is never emitted as an observation.
     volume: float
-    # Grade-weighted holder-pile score before directional enrichment. Deprecated (#16310): `backing_score` is the
-    # canonical spelling and carries the same value; this key stays on the wire.
+    # Recorded conviction score; higher values indicate stronger conviction.
     conviction_score: float
     # Whether the provider holder page came from the shared cache or a live provider read.
     provider_read_source: Literal["cached", "live"] | str
@@ -3195,8 +3183,7 @@ class PreGameSideObservation(TypedDict):
     hedged_holder_count: int | None
     one_way_graded_usd: float | None
     directional_confidence: float | None
-    # Default cohort ordering key: conviction_score * (1 + 0.25 * directional_confidence), or conviction_score
-    # when confidence is null.
+    # Recorded side ordering score; higher values sort first.
     directional_rank_score: float
     # 1-based rank within this observation cohort and snapshot.
     rank: int
@@ -3360,6 +3347,17 @@ class MarketHolderCategoryWinRecord(TypedDict):
     # Resolved markets in the category that this wallet closed with a profit or a loss. A market resolved at zero
     # realized P&L is in neither count.
     decided: int
+
+
+class _HolderCategoryEvidenceRequired(TypedDict):
+    status: Literal["live", "insufficient", "stale", "unknown", "degraded"] | str
+
+
+class HolderCategoryEvidence(_HolderCategoryEvidenceRequired, total=False):
+    """Current category evidence, independent of the global grade. Pick of the Day stamps only the served
+    display roster; frozen entry snapshots remain unchanged."""
+    canonical_category: str
+    skill: CategorySkillV2
 
 
 class _MarketHoldersMarketRequired(TypedDict):
