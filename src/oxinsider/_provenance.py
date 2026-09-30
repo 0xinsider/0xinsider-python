@@ -13,4 +13,4 @@ OPENAPI_VERSION = "1.0.0"
 OPERATION_COUNT = 88
 APP_REPOSITORY = "0xinsider/0xinsider"
 APP_SPEC_PATH = "web/public/api/v1/openapi.json"
-APP_COMMIT: str | None = "f651cbfa3e9e8b9c9e86be68f299a6c4f72e207f"
+APP_COMMIT: str | None = "e0e77bbf198862553e626ed93e21dcef73df3b64"
