@@ -21,6 +21,8 @@ from .types import (
     CreateMcpJsonRpcResponseResponse,
     CreateWebhookRequest,
     CreateWebhookResponse,
+    CreateWebhookVerificationAttemptRequest,
+    CreateWebhookVerificationAttemptResponse,
     ExploreMarketsResponse,
     GetApiDiscoveryResponse,
     GetCoverageResponse,
@@ -92,7 +94,6 @@ class Operation(NamedTuple):
 
 
 OPERATIONS: dict[str, Operation] = {
-    "getPickOfTheDayLedgerEntry": Operation("GET", "/api/v1/pick-of-the-day/ledger/{pick_id}", streaming=False, redirect=False),
     "getApiDiscovery": Operation("GET", "/api/v1", streaming=False, redirect=False),
     "redirectApiOpenapiSpec": Operation("GET", "/api/v1/openapi.json", streaming=False, redirect=True),
     "registerAgent": Operation("POST", "/api/v1/agents/register", streaming=False, redirect=False),
@@ -180,6 +181,9 @@ OPERATIONS: dict[str, Operation] = {
     "getWhaleDatasetStatus": Operation("GET", "/api/v1/datasets/whale-trades/{job_id}", streaming=False, redirect=False),
     "downloadWhaleDataset": Operation("GET", "/api/v1/datasets/whale-trades/{job_id}/download", streaming=False, redirect=True),
     "cancelWhaleDataset": Operation("POST", "/api/v1/datasets/whale-trades/{job_id}/cancel", streaming=False, redirect=False),
+    "getPickOfTheDayLedgerEntry": Operation("GET", "/api/v1/pick-of-the-day/ledger/{pick_id}", streaming=False, redirect=False),
+    "createWebhookVerificationAttempt": Operation("POST", "/api/v1/webhooks/{id}/verification-attempts", streaming=False, redirect=False),
+    "getWebhookVerificationAttempt": Operation("GET", "/api/v1/webhooks/{id}/verification-attempts/{attempt_id}", streaming=False, redirect=False),
 }
 
 
@@ -196,42 +200,6 @@ class OperationsMixin:
 
     def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client
         raise NotImplementedError
-
-    @overload
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: None = None,
-    ) -> GetPickOfTheDayLedgerEntryResponse: ...
-
-    @overload
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None,
-    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
-
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None = None,
-    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
-        """Read a pick proof by stable id.
-
-        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
-
-        Public read of one published pick by its stable decimal-string pick_id. Same proof
-        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-        """
-        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
-        return result
 
     def get_api_discovery(
         self,
@@ -1209,7 +1177,7 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: None = None,
     ) -> ListLeaderboardResponse: ...
 
@@ -1220,7 +1188,7 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None,
     ) -> ListLeaderboardResponse | NotModifiedResponse: ...
 
@@ -1230,7 +1198,7 @@ class OperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None = None,
     ) -> ListLeaderboardResponse | NotModifiedResponse:
         """Get trader leaderboard.
@@ -1247,7 +1215,7 @@ class OperationsMixin:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
         """
         result: ListLeaderboardResponse | NotModifiedResponse = self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -1275,10 +1243,10 @@ class OperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
-        selections with the selected side, game context, frozen publication price, modeled stake
-        and return, holder positions and grades, and execution permission when available.
-        `publication_order` describes ...
+        Returns entitled published picks for the current product day. Pro includes five
+        selections in total: the designated free selection and the first four non-free
+        selections in publication order. Max opens every available selection, up to fifteen. A
+        day may contain up to two verified compatible ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1310,9 +1278,9 @@ class OperationsMixin:
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
         Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and the cumulative record. Resolved picks are public. A pending pick's selected
-        side appears only for an authenticated Pro key. Historical picks retain their original
-        IDs, order, and proof bytes. ...
+        value, and cumulative record. Resolved game details and results are public. For
+        unauthorized unresolved selections, game identity, category, image, publication time,
+        and backed facts are omitted; `required_tier` ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1913,7 +1881,7 @@ class OperationsMixin:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
             limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
-            cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
+            cursor: Opaque pagination cursor from the previous response's next_cursor. New cursors carry an absolute next offset bound to normalized condition_id, outcome and ...
         """
         result: GetMarketHoldersResponse | NotModifiedResponse = self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
@@ -3023,6 +2991,78 @@ class OperationsMixin:
         result: WhaleDatasetJob = self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse: ...
+
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
+
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    def create_webhook_verification_attempt(
+        self,
+        id: str,
+        body: CreateWebhookVerificationAttemptRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> CreateWebhookVerificationAttemptResponse:
+        """Admit asynchronous webhook verification.
+
+        ``POST /api/v1/webhooks/{id}/verification-attempts`` (operationId ``createWebhookVerificationAttempt``).
+
+        Additive asynchronous consent flow; the legacy POST /verify keeps its synchronous
+        200/422 behavior and retry policy. Commits one durable attempt and returns 202 without
+        awaiting DNS or the receiver. Send the original verification_token. Optional
+        Idempotency-Key replays the original admission ...
+        """
+        result: CreateWebhookVerificationAttemptResponse = self._call("createWebhookVerificationAttempt", path_params={"id": id}, query={}, body=body, idempotency_key=idempotency_key)
+        return result
+
+    def get_webhook_verification_attempt(
+        self,
+        id: str,
+        attempt_id: str,
+    ) -> CreateWebhookVerificationAttemptResponse:
+        """Read webhook verification attempt status.
+
+        ``GET /api/v1/webhooks/{id}/verification-attempts/{attempt_id}`` (operationId ``getWebhookVerificationAttempt``).
+
+        Fresh primary-database status for one attempt owned by the authenticated account and
+        webhook. queued/running means consent is pending; only verified activates the unchanged
+        endpoint after receiver 2xx. failed/cancelled/expired are terminal. Polling never issues
+        a challenge or restarts work. At ...
+        """
+        result: CreateWebhookVerificationAttemptResponse = self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
 
 
 class ResponseOperationsMixin:
@@ -3037,42 +3077,6 @@ class ResponseOperationsMixin:
 
     def _download(self, operation_id: str, **kwargs: Any) -> Download:  # pragma: no cover - provided by Client
         raise NotImplementedError
-
-    @overload
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: None = None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
-
-    @overload
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
-        """Read a pick proof by stable id.
-
-        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
-
-        Public read of one published pick by its stable decimal-string pick_id. Same proof
-        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-        """
-        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
-        return result
 
     def get_api_discovery(
         self,
@@ -4050,7 +4054,7 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLeaderboardResponse]: ...
 
@@ -4061,7 +4065,7 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -4071,7 +4075,7 @@ class ResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse]:
         """Get trader leaderboard.
@@ -4088,7 +4092,7 @@ class ResponseOperationsMixin:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
         """
         result: ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse] = self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -4116,10 +4120,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
-        selections with the selected side, game context, frozen publication price, modeled stake
-        and return, holder positions and grades, and execution permission when available.
-        `publication_order` describes ...
+        Returns entitled published picks for the current product day. Pro includes five
+        selections in total: the designated free selection and the first four non-free
+        selections in publication order. Max opens every available selection, up to fifteen. A
+        day may contain up to two verified compatible ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4151,9 +4155,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
         Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and the cumulative record. Resolved picks are public. A pending pick's selected
-        side appears only for an authenticated Pro key. Historical picks retain their original
-        IDs, order, and proof bytes. ...
+        value, and cumulative record. Resolved game details and results are public. For
+        unauthorized unresolved selections, game identity, category, image, publication time,
+        and backed facts are omitted; `required_tier` ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4754,7 +4758,7 @@ class ResponseOperationsMixin:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
             limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
-            cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
+            cursor: Opaque pagination cursor from the previous response's next_cursor. New cursors carry an absolute next offset bound to normalized condition_id, outcome and ...
         """
         result: ApiResponse[GetMarketHoldersResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
@@ -5864,6 +5868,78 @@ class ResponseOperationsMixin:
         result: ApiResponse[WhaleDatasetJob] = self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
+
+    @overload
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    def create_webhook_verification_attempt(
+        self,
+        id: str,
+        body: CreateWebhookVerificationAttemptRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> ApiResponse[CreateWebhookVerificationAttemptResponse]:
+        """Admit asynchronous webhook verification.
+
+        ``POST /api/v1/webhooks/{id}/verification-attempts`` (operationId ``createWebhookVerificationAttempt``).
+
+        Additive asynchronous consent flow; the legacy POST /verify keeps its synchronous
+        200/422 behavior and retry policy. Commits one durable attempt and returns 202 without
+        awaiting DNS or the receiver. Send the original verification_token. Optional
+        Idempotency-Key replays the original admission ...
+        """
+        result: ApiResponse[CreateWebhookVerificationAttemptResponse] = self._call("createWebhookVerificationAttempt", path_params={"id": id}, query={}, body=body, idempotency_key=idempotency_key)
+        return result
+
+    def get_webhook_verification_attempt(
+        self,
+        id: str,
+        attempt_id: str,
+    ) -> ApiResponse[CreateWebhookVerificationAttemptResponse]:
+        """Read webhook verification attempt status.
+
+        ``GET /api/v1/webhooks/{id}/verification-attempts/{attempt_id}`` (operationId ``getWebhookVerificationAttempt``).
+
+        Fresh primary-database status for one attempt owned by the authenticated account and
+        webhook. queued/running means consent is pending; only verified activates the unchanged
+        endpoint after receiver 2xx. failed/cancelled/expired are terminal. Polling never issues
+        a challenge or restarts work. At ...
+        """
+        result: ApiResponse[CreateWebhookVerificationAttemptResponse] = self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
 
 
 class AsyncOperationsMixin:
@@ -5879,42 +5955,6 @@ class AsyncOperationsMixin:
         self, operation_id: str, **kwargs: Any
     ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient
         raise NotImplementedError
-
-    @overload
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: None = None,
-    ) -> GetPickOfTheDayLedgerEntryResponse: ...
-
-    @overload
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None,
-    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
-
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None = None,
-    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
-        """Read a pick proof by stable id.
-
-        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
-
-        Public read of one published pick by its stable decimal-string pick_id. Same proof
-        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-        """
-        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
-        return result
 
     async def get_api_discovery(
         self,
@@ -6892,7 +6932,7 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: None = None,
     ) -> ListLeaderboardResponse: ...
 
@@ -6903,7 +6943,7 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None,
     ) -> ListLeaderboardResponse | NotModifiedResponse: ...
 
@@ -6913,7 +6953,7 @@ class AsyncOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None = None,
     ) -> ListLeaderboardResponse | NotModifiedResponse:
         """Get trader leaderboard.
@@ -6930,7 +6970,7 @@ class AsyncOperationsMixin:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
         """
         result: ListLeaderboardResponse | NotModifiedResponse = await self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -6958,10 +6998,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
-        selections with the selected side, game context, frozen publication price, modeled stake
-        and return, holder positions and grades, and execution permission when available.
-        `publication_order` describes ...
+        Returns entitled published picks for the current product day. Pro includes five
+        selections in total: the designated free selection and the first four non-free
+        selections in publication order. Max opens every available selection, up to fifteen. A
+        day may contain up to two verified compatible ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -6993,9 +7033,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
         Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and the cumulative record. Resolved picks are public. A pending pick's selected
-        side appears only for an authenticated Pro key. Historical picks retain their original
-        IDs, order, and proof bytes. ...
+        value, and cumulative record. Resolved game details and results are public. For
+        unauthorized unresolved selections, game identity, category, image, publication time,
+        and backed facts are omitted; `required_tier` ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7596,7 +7636,7 @@ class AsyncOperationsMixin:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
             limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
-            cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
+            cursor: Opaque pagination cursor from the previous response's next_cursor. New cursors carry an absolute next offset bound to normalized condition_id, outcome and ...
         """
         result: GetMarketHoldersResponse | NotModifiedResponse = await self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
@@ -8706,6 +8746,78 @@ class AsyncOperationsMixin:
         result: WhaleDatasetJob = await self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
         return result
 
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse: ...
+
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse: ...
+
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetPickOfTheDayLedgerEntryResponse | NotModifiedResponse = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    async def create_webhook_verification_attempt(
+        self,
+        id: str,
+        body: CreateWebhookVerificationAttemptRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> CreateWebhookVerificationAttemptResponse:
+        """Admit asynchronous webhook verification.
+
+        ``POST /api/v1/webhooks/{id}/verification-attempts`` (operationId ``createWebhookVerificationAttempt``).
+
+        Additive asynchronous consent flow; the legacy POST /verify keeps its synchronous
+        200/422 behavior and retry policy. Commits one durable attempt and returns 202 without
+        awaiting DNS or the receiver. Send the original verification_token. Optional
+        Idempotency-Key replays the original admission ...
+        """
+        result: CreateWebhookVerificationAttemptResponse = await self._call("createWebhookVerificationAttempt", path_params={"id": id}, query={}, body=body, idempotency_key=idempotency_key)
+        return result
+
+    async def get_webhook_verification_attempt(
+        self,
+        id: str,
+        attempt_id: str,
+    ) -> CreateWebhookVerificationAttemptResponse:
+        """Read webhook verification attempt status.
+
+        ``GET /api/v1/webhooks/{id}/verification-attempts/{attempt_id}`` (operationId ``getWebhookVerificationAttempt``).
+
+        Fresh primary-database status for one attempt owned by the authenticated account and
+        webhook. queued/running means consent is pending; only verified activates the unchanged
+        endpoint after receiver 2xx. failed/cancelled/expired are terminal. Polling never issues
+        a challenge or restarts work. At ...
+        """
+        result: CreateWebhookVerificationAttemptResponse = await self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
 
 
 class AsyncResponseOperationsMixin:
@@ -8720,42 +8832,6 @@ class AsyncResponseOperationsMixin:
         self, operation_id: str, **kwargs: Any
     ) -> AsyncDownload:  # pragma: no cover - provided by AsyncClient
         raise NotImplementedError
-
-    @overload
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: None = None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
-
-    @overload
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    async def get_pick_of_the_day_ledger_entry(
-        self,
-        pick_id: str,
-        *,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
-        """Read a pick proof by stable id.
-
-        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
-
-        Public read of one published pick by its stable decimal-string pick_id. Same proof
-        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-        """
-        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
-        return result
 
     async def get_api_discovery(
         self,
@@ -9733,7 +9809,7 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLeaderboardResponse]: ...
 
@@ -9744,7 +9820,7 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -9754,7 +9830,7 @@ class AsyncResponseOperationsMixin:
         limit: int | None = None,
         cursor: str | None = None,
         category: str | None = None,
-        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "directional", "event_driven", "market_maker", "momentum", "scalper", "speculator", "swing_trader"] | None = None,
+        strategy: Literal["accumulator", "algo_trader", "arbitrageur", "category_focused", "directional", "diversified", "event_driven", "high_activity", "market_maker", "mixed", "momentum", "scalper", "speculator", "swing_trader", "two_sided", "unclassified"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse]:
         """Get trader leaderboard.
@@ -9771,7 +9847,7 @@ class AsyncResponseOperationsMixin:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
             category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by ML-detected strategy type. Values come from backend/crates/analytics/src/trader_analysis/classification/decision_tree.rs and are matched exactly ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
         """
         result: ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -9799,10 +9875,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day`` (operationId ``getPickOfTheDay``).
 
-        Returns published picks for the current product day. Pro tier. `picks` holds up to ten
-        selections with the selected side, game context, frozen publication price, modeled stake
-        and return, holder positions and grades, and execution permission when available.
-        `publication_order` describes ...
+        Returns entitled published picks for the current product day. Pro includes five
+        selections in total: the designated free selection and the first four non-free
+        selections in publication order. Max opens every available selection, up to fifteen. A
+        day may contain up to two verified compatible ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9834,9 +9910,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
         Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and the cumulative record. Resolved picks are public. A pending pick's selected
-        side appears only for an authenticated Pro key. Historical picks retain their original
-        IDs, order, and proof bytes. ...
+        value, and cumulative record. Resolved game details and results are public. For
+        unauthorized unresolved selections, game identity, category, image, publication time,
+        and backed facts are omitted; `required_tier` ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -10437,7 +10513,7 @@ class AsyncResponseOperationsMixin:
             outcome: Keep holders netting one side. `all` (default) lists both.
             min_grade: Narrow within the graded cohort: `S` keeps S, `A` keeps S and A, `B` (default) keeps S, A and B. `C`, `D` and `F` are rejected with 400: the route lists the ...
             limit: Maximum holders per page. Out-of-range values are clamped to 1..100.
-            cursor: Opaque pagination cursor from the previous response's next_cursor. It encodes a page of one shared roster, so it stays valid across the roster's refresh, but a ...
+            cursor: Opaque pagination cursor from the previous response's next_cursor. New cursors carry an absolute next offset bound to normalized condition_id, outcome and ...
         """
         result: ApiResponse[GetMarketHoldersResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketHolders", path_params={"condition_id": condition_id}, query={"outcome": outcome, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
@@ -11545,5 +11621,77 @@ class AsyncResponseOperationsMixin:
         Shares the 20/day owner export ...
         """
         result: ApiResponse[WhaleDatasetJob] = await self._call("cancelWhaleDataset", path_params={"job_id": job_id}, query={})
+        return result
+
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse]: ...
+
+    @overload
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_pick_of_the_day_ledger_entry(
+        self,
+        pick_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse]:
+        """Read a pick proof by stable id.
+
+        ``GET /api/v1/pick-of-the-day/ledger/{pick_id}`` (operationId ``getPickOfTheDayLedgerEntry``).
+
+        Public read of one published pick by its stable decimal-string pick_id. Same proof
+        gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
+        400; absent or unpublished picks return 404.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetPickOfTheDayLedgerEntryResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayLedgerEntry", path_params={"pick_id": pick_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    async def create_webhook_verification_attempt(
+        self,
+        id: str,
+        body: CreateWebhookVerificationAttemptRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> ApiResponse[CreateWebhookVerificationAttemptResponse]:
+        """Admit asynchronous webhook verification.
+
+        ``POST /api/v1/webhooks/{id}/verification-attempts`` (operationId ``createWebhookVerificationAttempt``).
+
+        Additive asynchronous consent flow; the legacy POST /verify keeps its synchronous
+        200/422 behavior and retry policy. Commits one durable attempt and returns 202 without
+        awaiting DNS or the receiver. Send the original verification_token. Optional
+        Idempotency-Key replays the original admission ...
+        """
+        result: ApiResponse[CreateWebhookVerificationAttemptResponse] = await self._call("createWebhookVerificationAttempt", path_params={"id": id}, query={}, body=body, idempotency_key=idempotency_key)
+        return result
+
+    async def get_webhook_verification_attempt(
+        self,
+        id: str,
+        attempt_id: str,
+    ) -> ApiResponse[CreateWebhookVerificationAttemptResponse]:
+        """Read webhook verification attempt status.
+
+        ``GET /api/v1/webhooks/{id}/verification-attempts/{attempt_id}`` (operationId ``getWebhookVerificationAttempt``).
+
+        Fresh primary-database status for one attempt owned by the authenticated account and
+        webhook. queued/running means consent is pending; only verified activates the unchanged
+        endpoint after receiver 2xx. failed/cancelled/expired are terminal. Polling never issues
+        a challenge or restarts work. At ...
+        """
+        result: ApiResponse[CreateWebhookVerificationAttemptResponse] = await self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
         return result
 

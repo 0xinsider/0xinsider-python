@@ -7,10 +7,10 @@ web/public/api/v1/openapi.json when it could be resolved, else None.
 
 from __future__ import annotations
 
-OPENAPI_SOURCE = "0xinsider/0xinsider:web/public/api/v1/openapi.json"
-OPENAPI_SHA256 = "c6427f7e37e72014a7a9c1b53b4447137ecddc1f74bbe35ec4653fd2f8bd902f"
+OPENAPI_SOURCE = "https://0xinsider.com/api/v1/openapi.json"
+OPENAPI_SHA256 = "1f8cc82fd918c25300c70a5c5c14f4f104f645ab72ac03ffe7d336733bd958ba"
 OPENAPI_VERSION = "1.0.0"
-OPERATION_COUNT = 88
+OPERATION_COUNT = 90
 APP_REPOSITORY = "0xinsider/0xinsider"
 APP_SPEC_PATH = "web/public/api/v1/openapi.json"
-APP_COMMIT: str | None = "e0e77bbf198862553e626ed93e21dcef73df3b64"
+APP_COMMIT: str | None = None
