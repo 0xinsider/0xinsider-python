@@ -55,6 +55,21 @@ __all__ = [
     "Candle",
     "CategorySkillModelReadiness",
     "CategorySkillV2",
+    "Combo",
+    "ComboCoverage",
+    "ComboCoverageCursor",
+    "ComboDetail",
+    "ComboFill",
+    "ComboFillsResponse",
+    "ComboLeg",
+    "ComboLegMarket",
+    "ComboLifecycleStats",
+    "ComboLiveCount",
+    "ComboResponse",
+    "ComboTotals",
+    "ComboWindowStats",
+    "CombosSummary",
+    "CombosSummaryResponse",
     "ContentSearchResult",
     "CounterpartyAnalysis",
     "CounterpartyExecution",
@@ -70,6 +85,24 @@ __all__ = [
     "CreateWebhookVerificationAttemptResponse",
     "DataQuality",
     "DataQualityGroup",
+    "EdgeHunterBoard",
+    "EdgeHunterBoardResponse",
+    "EdgeHunterCategorySkill",
+    "EdgeHunterFunnelReport",
+    "EdgeHunterMarketContext",
+    "EdgeHunterObservation",
+    "EdgeHunterObservationCoverage",
+    "EdgeHunterObservationDegradationReason",
+    "EdgeHunterObservationsResponse",
+    "EdgeHunterOutcome",
+    "EdgeHunterParticipant",
+    "EdgeHunterPrice",
+    "EdgeHunterRankedSignal",
+    "EdgeHunterRow",
+    "EdgeHunterSelection",
+    "EdgeHunterSignal",
+    "EdgeHunterSignalsResponse",
+    "EdgeHunterSportFunnelReport",
     "EventReplayEvent",
     "EventReplayEventPayload",
     "EventReplayFreshness",
@@ -162,8 +195,6 @@ __all__ = [
     "ListLeaderboardResponse",
     "ListPositionsResponse",
     "ListPositionsResponseSnapshot",
-    "ListPreGameSideObservationsResponse",
-    "ListPreGameSidesResponse",
     "ListSmartMoneyFlowsResponse",
     "ListSuspiciousTradesResponse",
     "ListTrendingWalletsResponse",
@@ -229,11 +260,6 @@ __all__ = [
     "PositionTimelineEvent",
     "PositionTrader",
     "PotdEntryAuthorization",
-    "PreGameSide",
-    "PreGameSideCategorySkill",
-    "PreGameSideFunnelReport",
-    "PreGameSideObservation",
-    "PreGameSideSportFunnelReport",
     "ProofPendingPickSlot",
     "RedeliverWebhookDeliveryResponse",
     "RegisterAgentResponse",
@@ -385,13 +411,11 @@ class ResponseMeta(_ResponseMetaRequired, total=False):
     # Authoritative RFC3339 timestamp from cache_generations.updated_at for ranking_generation. It is read in the
     # same repeatable-read snapshot as the leaderboard rows and is not request time, cache write time, or row ...
     ranking_as_of: str
-    # Which path produced the team-directional read on this response. Only present on endpoints that compute one
-    # (today: GET /api/v1/sports-edge-signals). "live" means the read RAN. "degraded" means it FAILED, so nothing
-    # was ...
+    # Directional evidence provenance for Edge Hunter signals collections. The default board carries this
+    # provenance in data.directional_source and omits this optional meta field.
     directional_source: Literal["live", "degraded"] | str
-    # Which ranking-data path produced this response. Only present on endpoints that can degrade a ranking (today:
-    # GET /api/v1/sports-edge-signals). "live" is the normal path (the current holder pile from the provider
-    # batch); ...
+    # Ranking evidence provenance for Edge Hunter signals collections. The default board carries this
+    # clock/provenance in data.ranking_source and omits this optional meta field.
     ranking_source: Literal["live", "db_only"] | str
     # Whole filtered snapshot category-evidence status before pagination. Operational live always remains partial
     # source coverage.
@@ -404,14 +428,16 @@ class ResponseMeta(_ResponseMetaRequired, total=False):
     # Format: date-time.
     category_skill_observation_started_at: str
     # Whole-model operational readiness captured with the category model snapshot. Present on category-enriched
-    # responses even when the filtered signal list is empty. When true, category_skill_source is degraded and ...
+    # responses even when the filtered signal list is empty. When true, category_skill_source is degraded and Edge
+    # ...
     category_skill_model_operationally_degraded: bool
     category_skill_status_counts: ResponseMetaCategorySkillStatusCounts
     # SHA-256 of the funded signal membership/order/rank/cursor vector immediately before category-skill
-    # enrichment. Sports-edge-signals only.
+    # enrichment. Edge Hunter signals view only.
     category_skill_base_payload_hash: str
     # Independent SHA-256 recomputation over the same base fields immediately after category-skill enrichment.
-    # Equality with category_skill_base_payload_hash proves shadow enrichment did not change funded inputs. ...
+    # Equality with category_skill_base_payload_hash proves category-skill enrichment did not change funded
+    # inputs. Edge ...
     category_skill_enriched_base_payload_hash: str
 
 
@@ -489,9 +515,9 @@ class _TraderRequired(TypedDict):
     address: str
     pnl: TraderPnl
     stats: TraderStats
-    # Data age and coverage for this trader body. Always present. Its five groups are sync (traders.last_synced,
-    # covering pnl.total, pnl.realized, stats.markets_traded, stats.win_rate, stats.daily_win_rate, last_active,
-    # ...
+    # Data age and coverage for this trader body. Always present. Its six groups are sync (traders.last_synced,
+    # covering pnl.net_total, pnl.realized, stats.markets_traded, stats.win_rate, stats.daily_win_rate,
+    # last_active, ...
     data_quality: DataQuality
 
 
@@ -532,7 +558,14 @@ class Trader(_TraderRequired, total=False):
 
 
 class TraderPnl(TypedDict, total=False):
+    # Polymarket's all-time leaderboard P&L in USD, from Polymarket's latest observation of this wallet on its
+    # all-time leaderboard (dated by the leaderboard_pnl data_quality group). Omitted when that leaderboard has no
+    # ...
     total: float
+    # The profile's Total P&L in USD: native Polymarket position P&L, with fees already included, plus credited
+    # maker and taker rebates (trader_trading_pnl.net_total_pnl). The same figure the 0xinsider profile, search,
+    # live ...
+    net_total: float
     # For pnl.realized, expand=trust marks a matching native accounting snapshot as computed: native Polymarket
     # realized P&L plus credited maker and taker rebates, with fees already included. The exact numeric value is
     # ...
@@ -588,7 +621,8 @@ class TraderStats(TypedDict, total=False):
 class TraderStatsExact(TypedDict):
     """Lossless counterparts for trader statistics. The object is omitted when the verified provider
     observation is unavailable."""
-    # Full-history both-sides Polymarket user-volume atom from the verified `trader_usd_volume` observation.
+    # stats.total_volume as an exact decimal: full-history both-sides cash volume in USD, Polymarket user-volume
+    # `volume_usdc`, from the verified `trader_usd_volume` observation. Never Polymarket's share count.
     total_volume: ExactDecimal
 
 
@@ -684,6 +718,7 @@ class TraderTrust(TypedDict):
     """Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust."""
     total_pnl: TrustMetadata
     realized_pnl: TrustMetadata
+    net_total_pnl: TrustMetadata
     unrealized_pnl: TrustMetadata
     markets_traded: TrustMetadata
     win_rate: TrustMetadata
@@ -818,7 +853,7 @@ class TraderGradeAt(TypedDict):
     # graded has a proven grade; ungraded is a proven null grade; unknown has no valid historical observation.
     status: Literal["graded", "ungraded", "unknown"] | str
     # Grade only when status is graded; null otherwise.
-    grade: Literal["S", "A", "B", "C", "D", "F"] | str | None
+    grade: Literal["S", "A", "B", "C", "D", "F", None] | str | None
     # First proven visibility instant for this trader. Null when no observation exists. Earlier times remain
     # unknown. Format: date-time.
     available_from: str | None
@@ -838,7 +873,7 @@ class TraderGradeAtObservation(TypedDict):
     # Upper bound: a later snapshot confirmed the observation was committed. This is not an exact commit
     # timestamp. Format: date-time.
     published_by: str
-    # Writer-proven model family, such as grading-v4. Null when unknown.
+    # Writer-proven model family, such as grading. Null when unknown.
     model_version: str | None
     # Exact writer build SHA when recorded. Null on old and non-model observations.
     model_build_sha: str | None
@@ -948,7 +983,7 @@ class _ApiErrorBodyRequired(TypedDict):
     # FROZEN: an existing value never changes meaning. request_timeout (408, #16146) was added the way
     # insufficient_scope was: the handler did not answer inside the server's 30-second timeout. Retry-After and
     # retry_at ride on ...
-    code: Literal["bad_request", "invalid_api_key", "subscription_required", "forbidden", "insufficient_scope", "not_found", "account_locked", "rate_limited", "rate_limit_unavailable", "internal_error", "request_timeout"] | str
+    code: Literal["bad_request", "invalid_api_key", "subscription_required", "forbidden", "insufficient_scope", "not_found", "account_locked", "rate_limited", "rate_limit_unavailable", "internal_error", "request_timeout", "endpoint_retired"] | str
     message: str
 
 
@@ -962,7 +997,7 @@ class ApiErrorBody(_ApiErrorBodyRequired, total=False):
     # ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the
     # code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on
     # ...
-    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "export_expired", "freshness_ceiling_unsatisfied"] | str
+    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
 
 
 class _FreshnessFailureRequired(TypedDict):
@@ -1019,7 +1054,7 @@ class PositionTimelineEvent(TypedDict):
     id: str
     # ISO 8601 timestamp of the on-chain fill. Format: date-time.
     event_timestamp: str
-    # From the taker's perspective.
+    # The wallet's own side of this fill: buy or sell.
     action: Literal["buy", "sell"] | str
     outcome_side: Literal["yes", "no"] | str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for this outcome; null when unavailable
@@ -1205,8 +1240,12 @@ class _PositionTraderRequired(TypedDict):
 class PositionTrader(_PositionTraderRequired, total=False):
     username: str
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
-    # Percentage 0-100.
+    # Win rate as a ratio from 0 to 1 (0.62 means 62%), the same scale as stats.win_rate on GET
+    # /api/v1/trader/{address}. Absent when unknown.
     win_rate: float
+    # The wallet's Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position P&L across
+    # all markets, fees included, plus credited maker and taker rebates (trader_trading_pnl.net_total_pnl). Not
+    # the ...
     pnl: float
     markets: int
     wallet_age_days: float
@@ -1338,7 +1377,8 @@ class LargePositionTrader(_LargePositionTraderRequired, total=False):
     username: str
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     win_rate: float
-    # Trader lifetime realized P&L across all markets.
+    # The wallet's Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position P&L across
+    # all markets, fees included, plus credited maker and taker rebates. Distinct from this position's ...
     pnl: float
     markets_traded: int
 
@@ -1404,15 +1444,15 @@ class _LargeTradeRequired(TypedDict):
     # Persisted live suspicion score from the scorer. Null when the row has no persisted score.
     suspicion_score: int | None
     # Persisted scorer track. Null when a legacy row has no stored track label.
-    suspicion_track: Literal["whale", "fresh_conviction", "sliced_position"] | str | None
+    suspicion_track: Literal["whale", "fresh_conviction", "sliced_position", None] | str | None
     trader: LargeTradeTrader
     market: LargeTradeMarket
 
 
 class LargeTrade(_LargeTradeRequired, total=False):
-    # This fill's size relative to its market: size_usd divided by a market volume figure recorded at or after the
-    # trade, so the value always falls between 0 and 1 inclusive. A $10,000 fill is 0.00005 of a $200M market and
-    # ...
+    # This fill's size relative to its market: its share count (size_usd / price) divided by the shares the market
+    # has traded, Polymarket's recorded volume, which counts shares rather than dollars, as observed at or after
+    # the ...
     market_volume_share: float
 
 
@@ -1421,7 +1461,7 @@ class _LargeTradeTraderRequired(TypedDict):
     address: str
     # The grade the trader held when the trade happened, from recorded grade history (recorded from
     # 2026-09-19T23:00Z). Null unless grade_at_trade_status is graded. Never today's grade projected backward.
-    grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | str | None
+    grade_at_trade: Literal["S", "A", "B", "C", "D", "F", None] | str | None
     # graded: grade_at_trade holds the recorded grade. ungraded: the trader was recorded without a grade at that
     # moment. unknown: no record covers the moment, which is every trade before 2026-09-19T23:00Z and a trade that
     # ...
@@ -1659,12 +1699,13 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
     score: float
-    # All-time P&L in USD (total_pnl), including unrealized open positions. Kept for back-compat; prefer
-    # realized_pnl for the banked figure.
+    # Polymarket's all-time leaderboard P&L in USD, from Polymarket's latest observation of this wallet on its
+    # all-time leaderboard (dated by the leaderboard_pnl data_quality group). Omitted when that leaderboard has no
+    # ...
     pnl: float
     # Native realized P&L plus credited maker and taker rebates in USD, with fees already included. The exact
-    # numeric value is truncated toward zero to cents before JSON conversion. Wallets without a native snapshot
-    # retain ...
+    # numeric value is truncated toward zero to cents before JSON conversion. Omitted when the wallet has no
+    # native ...
     realized_pnl: float
     # Full-history both-sides USD cash volume from a verified Polymarket user-volume observation. Omitted without
     # coverage.
@@ -1711,8 +1752,9 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     matchup: str
     # Recorded canonical sport category. Prefer display_category for the public competition label.
     category: str
-    # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
-    # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
+    # Frozen public presentation category. Tennis uses the provider-verified ATP or WTA tour, including Wimbledon
+    # and doubles; unknown tours retain Tennis. Every men's and women's cricket competition uses Cricket. Other
+    # ...
     display_category: str
     # Provider platform. Always polymarket.
     platform: Literal["polymarket"]
@@ -1830,8 +1872,6 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     display_holders: list[PickHolder]
     # S/A holder count for the public V1 compatibility projection. display_holders can include additional grades.
     holder_count: int
-    # Optional editorial note attached to the pick.
-    editorial_note: str
     # Required truthful thesis. With at least one profitable-wallet holder: Profitable wallets hold
     # {pick_outcome_label}[, led by a grade-{top_grade} trader]. Without holder backing: 0xInsider's Pick of the
     # Day is ...
@@ -2280,10 +2320,11 @@ class GetPickOfTheDayArchiveResponse(TypedDict):
 
 
 class PickOfTheDayArchive(TypedDict):
-    # Every published Pick of the Day, newest first by pick_date and then pick_rank within each product day.
+    # Published Pick of the Day selections that have not been withdrawn, newest first by pick_date and then
+    # pick_rank within each product day. Withdrawn rows stay excluded after settlement.
     picks: list[PickOfTheDayArchiveEntry]
-    # One entry per product day that has a published pick, newest first, in the same order as picks. Each carries
-    # that day's net units, accumulated in the same backend pass and behind the same visibility gate as ...
+    # One entry per product day that has a published pick included in the archive, newest first, in the same order
+    # as picks. Each carries that day's net units, accumulated in the same backend pass and behind the same ...
     days: list[PickOfTheDayArchiveDay]
     hit_rate: PickOfTheDayHitRate
 
@@ -2308,16 +2349,17 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
     # When this selection was published, as RFC3339 UTC. Use this instant for publication feeds and timelines;
-    # pick_date is the America/New_York product day, not a publication timestamp. Automatic qualification can
-    # begin at ...
+    # pick_date is the America/New_York product day, not a publication timestamp. Automatic picks publish from
+    # 03:00 ...
     published_at: str
     # Human-readable matchup (e.g. "Portugal vs. Uzbekistan").
     matchup: str
     # Frozen canonical calibration/report bucket (e.g. "Basketball", "MMA", or "Soccer"). Existing semantics are
     # unchanged; presentation consumers should prefer display_category when present.
     category: str
-    # Frozen public presentation category: the competition the Polymarket event belongs to. A curated label comes
-    # first -- an official league (e.g. "WNBA" or "UFC"), the esports title (e.g. "CS2", "LoL", "Dota 2" or ...
+    # Frozen public presentation category. Tennis uses the provider-verified ATP or WTA tour, including Wimbledon
+    # and doubles; unknown tours retain Tennis. Every men's and women's cricket competition uses Cricket. Other
+    # ...
     display_category: str
     # Provider (Polymarket Gamma) market thumbnail URL (markets.image); omitted (not null) when the market has no
     # image. Public regardless of the backed-side gate, so present for pending rows too.
@@ -2813,6 +2855,9 @@ class TrendingWallet(_TrendingWalletRequired, total=False):
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     # Hot-streak tier (trailing-7d cross-sectional percentile). Omitted when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
+    # The wallet's all-time Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position
+    # P&L across all markets, fees included, plus credited maker and taker rebates
+    # (trader_trading_pnl.net_total_pnl). ...
     all_time_pnl_usd: float
     all_time_score: float
     # Format: date-time.
@@ -2845,7 +2890,7 @@ class MarketSearchResult(TypedDict):
     slug: str | None
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
     # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
     # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
@@ -2906,11 +2951,13 @@ class ExploreGroup(TypedDict):
     parent_title: str
     image: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
     category: str | None
     # Markets in the event cluster, ranked by volume with condition_id as the tie-breaker. The selected
     # representative is retained within the 12-market cap.
     markets: list[ExploreMarket]
+    # The volume of the group's highest-volume market, which is markets[0]: the same figure as that market's
+    # volume, Polymarket's cumulative taker volume in shares rather than cash. Null when unavailable.
     rep_volume: float | None
     # Canonical key since #16304; rep_whales is its deprecated spelling, emitted beside it with the same value.
     rep_large_trades: int | None
@@ -2930,10 +2977,13 @@ class _ExploreMarketRequired(TypedDict):
     icon: str | None
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
     # closed once Polymarket has closed trading or the market has resolved; active otherwise. The same rule labels
     # a market on markets/search, markets/explore and market/{condition_id}/snapshot.
     status: Literal["active", "closed"] | str
+    # Polymarket's traded-volume figure for the market, as last stored: cumulative taker volume in shares, each
+    # counted at its $1 settlement value, not the cash that changed hands (100 shares bought at $0.40 add 100, not
+    # 40). ...
     volume: float | None
     liquidity: float | None
     # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
@@ -3065,7 +3115,7 @@ class SmartMoneyFlowMarketMarket(TypedDict):
     slug: str | None
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
 
 
 class _SmartMoneyFlowMarketSharpMoneyRequired(TypedDict):
@@ -3103,274 +3153,6 @@ class SmartMoneyFlowMarketSmartMoney(_SmartMoneyFlowMarketSmartMoneyRequired, to
     # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
     # emitted beside it with the same value.
     large_trade_count: int
-
-
-class _ListPreGameSidesResponseRequired(TypedDict):
-    object: Literal["list"]
-    data: list[PreGameSide]
-    has_more: bool
-    meta: ResponseMeta
-
-
-class ListPreGameSidesResponse(_ListPreGameSidesResponseRequired, total=False):
-    next_cursor: str
-    total: int
-
-
-class PreGameSide(TypedDict):
-    """One ranked pre-game sports market where graded sharp money is piled on one side, with required-
-    status shadow category evidence from partial forward-observed Polymarket fills."""
-    # The side profitable wallets hold, as a provider-backed display label. Canonical spelling of piled_side
-    # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
-    # do not ...
-    side: str | None
-    # UTC time at which the snapshot that ranked this row was computed. Canonical spelling of signal_created_at
-    # (#16310), same value. Format: date-time.
-    ranked_at: str
-    # Recorded side backing score; higher values indicate stronger backing.
-    backing_score: float
-    # Signed share of graded money on the side, (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (side-yes
-    # positive, side-no negative). Canonical spelling of smart_score (#16309, #16310), same value.
-    side_share: float | None
-    # Polymarket condition id.
-    condition_id: str
-    # UTC time at which the immutable signal snapshot was computed. Every row from one snapshot shares this value;
-    # it is not provider market creation time and is not rewritten at request time. Deprecated (#16310):
-    # `ranked_at` ...
-    signal_created_at: str
-    # Polymarket CLOB token id (ERC1155 asset id, decimal string) for the PILED outcome; null when unavailable.
-    token_id: str | None
-    # Canonical sport bucket (e.g. Basketball, Tennis); null when the raw category has no canonical mapping.
-    category: str | None
-    # Raw provider category as stored (e.g. NBA, EPL).
-    raw_category: str | None
-    title: str | None
-    event_slug: str | None
-    # Kickoff (UTC). In the future at SNAPSHOT time and within the requested horizon; because the response is
-    # served from a shared snapshot cached up to the ~180s TTL, a served kickoff can be up to ~180s in the past
-    # relative ...
-    game_start_time: str | None
-    # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
-    # remain a bare Yes/No/Over/Under; do not use it alone as participant identity. Deprecated (#16310): `side` is
-    # the ...
-    piled_side: str | None
-    # Provider binary-column selector: 0 selects outcome_yes/token_id_yes; 1 selects outcome_no/token_id_no. It
-    # does not identify home/away or a participant. Use piled_side together with title/event context for display.
-    piled_outcome_index: int
-    # Piled-side dollar concentration backed_usd / (yes_usd + no_usd), in (0.5, 1] for a real pile; null when
-    # there is no sharp USD.
-    sharp_pct: float | None
-    # Raw piled-side sharp-money USD.
-    backed_sharp_usd: float
-    # S-grade graded holders on the piled side.
-    s_count: int
-    # A-grade graded holders on the piled side.
-    a_count: int
-    # B-grade graded holders on the piled side.
-    b_count: int
-    # Piled-side graded holder count (s_count + a_count + b_count).
-    graded_holders: int
-    # Best grade present on the piled side; null when none.
-    top_grade: Literal["S", "A", "B"] | str | None
-    # Canonical sharp-money score (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (piled-yes positive, piled-no
-    # negative). Deprecated (#16310): `side_share` is the canonical spelling and carries the same value; this key
-    # ...
-    smart_score: float | None
-    # Market volume (USD).
-    volume: float | None
-    # Aggregate recent flow direction on the market; null when unavailable.
-    net_side: Literal["BUY", "SELL"] | str | None
-    # Recorded conviction score; higher values indicate stronger conviction.
-    conviction_score: float
-    # Piled-side graded holders read one-way: their fresh open legs across the signal game's markets (cross-market
-    # within the one game; moneyline+spread family only) all back the same team, or, when the market's holder scan
-    # ...
-    one_way_holder_count: int | None
-    # Piled-side graded holders classified HEDGED across the game by fresh legs (they back two or more distinct
-    # teams). A wallet long both outcomes of this market is not one-way and not counted here. Null when the
-    # directional ...
-    hedged_holder_count: int | None
-    # Piled-side graded USD held by one-way wallets (share-weighted allocation of backed_sharp_usd). Null when the
-    # directional read was not computed or classified nobody.
-    one_way_graded_usd: float | None
-    # One-way fraction of the piled graded dollars, in [0, 1] -- the metric orthogonal to sharp_pct. Stale,
-    # unknown, hedged, and two-sided dollars dilute it toward zero (conservative). Null when the directional read
-    # was not ...
-    directional_confidence: float | None
-    # Recorded side ordering score; higher values sort first.
-    directional_rank_score: float
-    category_skill: PreGameSideCategorySkill
-    # 1-based rank within the (min_grade-filtered) ranked result.
-    rank: int
-
-
-class PreGameSideCategorySkill(TypedDict):
-    """Shadow-only category evidence over the full uncapped piled-side S/A/B holder allocation. It never
-    changes signal membership, ordering, routing, or sizing."""
-    status: Literal["live", "insufficient", "stale", "unknown", "degraded"] | str
-    model_version: str
-    taxonomy_version: str | None
-    platform: Literal["polymarket"]
-    scope: Literal["observed_goldsky_primary_taker_fill"]
-    source_coverage: Literal["partial_whale_threshold_fills", "graded_wallet_fills"] | str
-    # Format: date-time.
-    observation_started_at: str
-    # Format: date-time.
-    as_of: str
-    canonical_category: str | None
-    eligible_holders: int
-    covered_holders: int
-    backed_sharp_usd: float | None
-    covered_backed_usd: float | None
-    coverage_pct: float | None
-    weighted_edge_mean: float | None
-    weighted_holder_lower_mean: float | None
-    specialist_backed_usd: float | None
-    specialist_backed_usd_pct: float | None
-    largest_holder_backed_usd_pct: float | None
-    minimum_holder_event_count: int | None
-
-
-class ListPreGameSideObservationsResponse(TypedDict):
-    object: Literal["list"]
-    data: list[PreGameSideObservation]
-    has_more: bool
-    # Pass as cursor for the next page. Always sent; null on the last page.
-    next_cursor: str | None
-    # Completion time of the shared observation snapshot pinned by the cursor. Format: date-time.
-    snapshot_as_of: str
-    # True when an operational failure or unknown provider-board, holder, directional, reconciliation, or internal
-    # completeness state made this snapshot partial. This is snapshot-wide and can retain degradation that the ...
-    degraded: bool
-    funnel: PreGameSideFunnelReport
-    meta: ResponseMeta
-
-
-class PreGameSideObservation(TypedDict):
-    """One explicitly observation-only holder-pile measurement. It is evidence for cohort evaluation, not
-    an execution instruction, and is isolated from the funded sports-edge-signals route."""
-    # The side profitable wallets hold, as a provider-backed display label. Canonical spelling of piled_side
-    # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
-    # do not ...
-    side: str | None
-    # Recorded side backing score; higher values indicate stronger backing.
-    backing_score: float
-    # Signed share of graded money on the side, in [-1, 1]. Canonical spelling of smart_score (#16309, #16310),
-    # same value.
-    side_share: float
-    # Raw Polymarket condition id.
-    condition_id: str
-    # Provider-backed Polymarket CLOB token id for the piled outcome. Rows without a verified token terminate
-    # before emission.
-    token_id: str
-    # Canonical sport bucket.
-    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
-    # Raw provider category as stored.
-    raw_category: str | None
-    # Provider-backed market title.
-    title: str
-    event_slug: str | None
-    # Provider event id when available.
-    event_id: str | None
-    # Provider parent-event id used as the first event-cap identity when available.
-    parent_event_id: str | None
-    # Provider-backed kickoff time in UTC. Format: date-time.
-    game_start_time: str
-    # UTC instant when this row finished provider/holder evaluation. Format: date-time.
-    observed_at: str
-    # Source cohort or additive projection view. emerging_pile is projected from wider_holder after source
-    # computation, overlaps its funnel denominator, and uses the source row's directional evidence.
-    cohort: Literal["wider_holder", "in_play", "emerging_pile"] | str
-    # Always true. This row must not be routed to an order executor.
-    observation_only: Literal[True]
-    # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
-    # remain a bare Yes/No/Over/Under; do not use it alone as participant identity. Deprecated (#16310): `side` is
-    # the ...
-    piled_side: str | None
-    # Provider binary-column selector: 0 selects outcome_yes/token_id_yes; 1 selects outcome_no/token_id_no. It
-    # does not identify home/away or a participant. Use piled_side together with title/event context for display.
-    piled_outcome_index: Literal[0, 1] | int
-    # Provider-backed implied price for the piled outcome at observation time.
-    backed_price: float
-    # Piled-side graded-holder dollar concentration.
-    sharp_pct: float
-    # Raw graded-holder USD on the piled outcome.
-    backed_sharp_usd: float
-    s_count: int
-    a_count: int
-    b_count: int
-    # Piled-side S/A/B holder count.
-    graded_holders: int
-    top_grade: Literal["S", "A", "B"] | str
-    # Canonical signed holder-pile score. Deprecated (#16310): `side_share` is the canonical spelling and carries
-    # the same value; this key stays on the wire.
-    smart_score: float
-    # Strictly positive stored market volume in USD. Missing, zero, or non-finite volume terminates as
-    # invalid_market and is never emitted as an observation.
-    volume: float
-    # Recorded conviction score; higher values indicate stronger conviction.
-    conviction_score: float
-    # Whether the provider holder page came from the shared cache or a live provider read.
-    provider_read_source: Literal["cached", "live"] | str
-    # True only when neither provider outcome holder page hit the top-100 scan bound. False means the pile is a
-    # positive lower bound and cannot satisfy a future capital-promotion gate.
-    holder_scan_complete: bool
-    # Proven provider holder observation time. A warm cache hit uses only the original provider completion time
-    # from its companion metadata, never cache-read time. Null, malformed, future, or stale holder time fails in-
-    # play ...
-    holder_snapshot_at: str | None
-    # Truthful state of the directional read, which classifies each graded holder by its fresh synced legs across
-    # the game's markets and, when holder_scan_complete is true, by Polymarket's currentValue on both outcomes of
-    # ...
-    directional_status: Literal["available", "unknown_ungrouped", "unknown_stale", "unavailable"] | str
-    one_way_holder_count: int | None
-    hedged_holder_count: int | None
-    one_way_graded_usd: float | None
-    directional_confidence: float | None
-    # Recorded side ordering score; higher values sort first.
-    directional_rank_score: float
-    # 1-based rank within this observation cohort and snapshot.
-    rank: int
-
-
-class PreGameSideFunnelReport(TypedDict):
-    """Per-sport accountable funnel for the full observation snapshot, returned on every page."""
-    sports: list[PreGameSideSportFunnelReport]
-
-
-class PreGameSideSportFunnelReport(TypedDict):
-    """Independent sports-board supply plus stored-universe terminal accounting for one canonical sport."""
-    sport: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
-    # Unique condition ids independently visible on the provider-first sports board.
-    board_input: int
-    # Whether the always-applicable live-board source completed as available. False can mean a completed source
-    # failure (board_source_unavailable) or live-board work missing an internal configured-scope deadline or the
-    # outer ...
-    board_live_available: bool
-    # Whether a provider-backed upcoming-board source is configured and applicable for this sport. False means not
-    # applicable, not provider failure.
-    board_upcoming_configured: bool
-    # Whether every configured upcoming-board scope completed as available. False with
-    # board_upcoming_configured=false means not applicable. When board_upcoming_configured is true and this flag
-    # is false, read ...
-    board_upcoming_available: bool
-    # Why the upcoming-board source is (un)available. Board supply is one canonical-sport union: the bare category
-    # owns live truth and every configured composed league scope contributes upcoming rows; folded leagues without
-    # a ...
-    board_upcoming_status: Literal["unknown", "not_configured", "available", "capacity_limited", "source_unavailable", "cold_unavailable", "deadline_unavailable"] | str
-    # Configured upcoming scopes that did not complete as available. Values are category, a provider league tag
-    # slug (nfl, cfb, nba, wnba, nhl, mls, valorant, league-of-legends, counter-strike-2, or dota-2), registry
-    # when the ...
-    board_upcoming_unavailable_scopes: list[Literal["category", "nfl", "cfb", "nba", "wnba", "nhl", "mls", "valorant", "league-of-legends", "counter-strike-2", "dota-2", "registry", "union", "wave"] | str]
-    # Stored-universe rows plus provider-board rows missing from storage.
-    input: int
-    # Sparse counts over the closed 25-value terminal vocabulary: outside_horizon, resolved, provider_closed,
-    # provider_excluded, invalid_market, missing_token, missing_stored_market, not_provider_live, ...
-    terminals: dict[str, int]
-    # Sum of every sparse terminal count.
-    terminal_total: int
-    # True exactly when input equals terminal_total.
-    reconciled: bool
 
 
 class GetCoverageResponse(TypedDict):
@@ -3441,7 +3223,7 @@ class _MarketHolderRequired(TypedDict):
     token_id: str | None
     # All-time trader grade. This route lists the S/A/B cohort only, the same cohort a Pick of the Day roster
     # lists.
-    grade: Literal["S", "A", "B"] | str | None
+    grade: Literal["S", "A", "B", None] | str | None
     # Shares held on `side`, from the complete provider scan.
     shares: float
     # Polymarket's own currentValue for this leg, in USD. Null when the snapshot predates the value map.
@@ -3586,7 +3368,7 @@ class MarketFlowMarket(TypedDict):
     slug: str | None
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
 
 
 class _MarketFlowSharpMoneyRequired(TypedDict):
@@ -3764,9 +3546,18 @@ class MarketSnapshotTopOfBook(_MarketSnapshotTopOfBookRequired, total=False):
 
 class MarketSnapshotLiquidity(TypedDict):
     source: str
+    # Polymarket's traded-volume figure for the market, as last stored: cumulative taker volume in shares, each
+    # counted at its $1 settlement value, not the cash that changed hands (100 shares bought at $0.40 add 100, not
+    # 40). ...
     volume_usd: float | None
     liquidity_usd: float | None
+    # Polymarket's taker volume over the 24 hours before volume_24h_as_of, in shares, each counted at its $1
+    # settlement value, not the cash that changed hands (100 shares bought at $0.40 add 100, not 40). The name
+    # ends in ...
     volume_24h_usd: float | None
+    # When 0xinsider read volume_24h_usd from Polymarket; the figure covers the 24 hours before this time. Null
+    # exactly when volume_24h_usd is null. Format: date-time.
+    volume_24h_as_of: str | None
     # Always null. Polymarket snapshot prices come from outcome top-of-book midpoints.
     last_price: float | None
 
@@ -3851,8 +3642,8 @@ class GetMarketCandlesResponse(TypedDict):
 
 
 class MarketCandles(TypedDict):
-    """Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from the stored
-    token_price_snapshots series (covers open and resolved markets)."""
+    """Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from our stored
+    copy of the Polymarket CLOB prices-history series (covers open and resolved markets)."""
     # Market condition id the candles were read for.
     condition_id: str
     # Bucketing granularity that produced these candles.
@@ -3970,7 +3761,8 @@ class _GameRequired(TypedDict):
     # Both sides, in the provider's own order. For a team league the provider lists the home side first. Empty
     # when the provider identified neither side.
     competitors: list[GameCompetitor]
-    # Whether one of this game's markets pays on a draw. Read this instead of assuming a two-outcome moneyline.
+    # Whether this read includes a market classified as paying on a draw, including soccer's independent 1X2 draw
+    # leg. Read this instead of assuming a two-outcome moneyline.
     draw_offered: bool
     # Every market this read linked to the game, ordered by condition_id.
     markets: list[GameMarket]
@@ -4064,8 +3856,9 @@ class GameMarket(_GameMarketRequired, total=False):
     # The provider's own market type, for example moneyline or spread. Omitted when the provider sent none. Not an
     # enum: the provider owns this vocabulary and adds to it.
     sports_market_type: str
-    # Which side of the game this market's YES leg pays. draw is a real value: a 1X2 market's third leg is not a
-    # competitor. Omitted when the provider ids do not classify the leg, which is not the same as other.
+    # Which side of the game this market's YES leg pays. Soccer 1X2 legs are explicitly classified as home, draw
+    # or away by the provider projection. draw is a real value, not a competitor. Omitted when the provider
+    # projection ...
     side: Literal["home", "away", "draw", "other"] | str
     # The provider's label for the YES outcome. Omitted when the provider sent none.
     outcome_yes: str
@@ -4201,7 +3994,7 @@ class GamesCoverage(TypedDict):
     empty list means no games or no coverage."""
     # Canonical sport buckets served, sorted.
     sports: list[str]
-    # League tags served, sorted.
+    # League tags served, sorted. EuroLeague is euroleague under the Basketball sport bucket.
     leagues: list[str]
     # Scopes whose source half was unavailable for this read, as <sport>:<half>. Empty means every scope answered.
     sources_unavailable: list[str]
@@ -4527,7 +4320,7 @@ class _WebhookDeliveryRequired(TypedDict):
     # Why next_attempt_at was scheduled: receiver_retry_after for an accepted Retry-After on a 408, 429, or 5xx
     # response; transient_failure for a network or ordinary transient retry; permanent_or_auth_failure for another
     # ...
-    retry_schedule_reason: Literal["receiver_retry_after", "transient_failure", "permanent_or_auth_failure", "manual_redelivery", "configuration_changed"] | str | None
+    retry_schedule_reason: Literal["receiver_retry_after", "transient_failure", "permanent_or_auth_failure", "manual_redelivery", "configuration_changed", None] | str | None
     # Format: date-time.
     created_at: str
 
@@ -4758,7 +4551,7 @@ class ReportPayloadTopLargeTradesItem(TypedDict):
     # Provider market category.
     market_category: str | None
     # Always polymarket, or null when the row carries no stored value.
-    platform: Literal["polymarket"] | None
+    platform: Literal["polymarket", None] | str | None
     # Trader display name, when known.
     name: str | None
     # Trader pseudonym, when no display name is known.
@@ -4805,9 +4598,16 @@ class ExportVolumeReconciliation(TypedDict):
     # Verified full-history both-sides USD cash volume. Null without coverage; the local activity numerator may
     # cover only a subset of history.
     provider_lifetime_volume: float | None
+    # Cash in USD, buys and sells, summed over the daily P&L rows this export carries, from the fills 0xinsider
+    # has stored for the wallet. It can cover less history than provider_lifetime_volume; never Polymarket's share
+    # ...
     exported_activity_volume: float
     exported_market_cost_basis: float
+    # provider_lifetime_volume minus exported_activity_volume, in USD, rounded to cents. Null when
+    # provider_lifetime_volume is null.
     provider_activity_volume_gap: float | None
+    # exported_activity_volume divided by provider_lifetime_volume, a fraction of the cash, not a percent. Null
+    # when provider_lifetime_volume is null or zero.
     activity_volume_coverage: float | None
 
 
@@ -5042,7 +4842,7 @@ class UsageDataDailyUsage(TypedDict):
 class _UsageDataMonthlyQuotaRequired(TypedDict):
     # Admitted requests so far this UTC calendar month.
     used: int
-    # Requests Pro includes per UTC calendar month.
+    # Requests the account's plan includes per UTC calendar month: 500,000 for Pro, 2,000,000 for Max.
     limit: int
     remaining: int
     # Unix seconds: the first instant of the next UTC calendar month.
@@ -5055,8 +4855,8 @@ class _UsageDataMonthlyQuotaRequired(TypedDict):
     # Pay as you go is on: requests over the quota keep answering and bill on a monthly invoice, up to ceiling.
     pay_as_you_go: bool
     # The most requests this account is admitted in a UTC calendar month once enforcement has begun: limit, or
-    # 1,000,000 with pay as you go on. null for an admin account, which no number stops. Additive since
-    # 2026-09-22.
+    # four times limit with pay as you go on (2,000,000 for Pro). null for an admin account, which no number
+    # stops. ...
     ceiling: int | None
 
 
@@ -5089,7 +4889,7 @@ class AccountIdentityData(TypedDict):
 class AccountIdentityDataEntitlement(TypedDict):
     paid_data_access: Literal["active", "lapsed"] | str
     # When paid data access is lapsed, the caller should renew the subscription; otherwise null.
-    recovery_action: Literal["renew_subscription"] | None
+    recovery_action: Literal["renew_subscription", None] | str | None
 
 
 __SubmitWhaleDatasetBodyRequiredFields = TypedDict("__SubmitWhaleDatasetBodyRequiredFields", {
@@ -5285,7 +5085,7 @@ class WebhookVerificationAttempt(TypedDict):
     state: Literal["queued", "running", "verified", "failed", "cancelled", "expired"] | str
     # Sanitized last observation. Null before an observation; queued retries may retain their previous failure
     # outcome.
-    outcome: Literal["verified", "target_rejected", "challenge_timeout", "transport_failed", "receiver_rejected", "token_expired", "endpoint_changed", "owner_revoked", "attempts_exhausted", "internal_error"] | str | None
+    outcome: Literal["verified", "target_rejected", "challenge_timeout", "transport_failed", "receiver_rejected", "token_expired", "endpoint_changed", "owner_revoked", "attempts_exhausted", "internal_error", None] | str | None
     attempt_count: int
     max_attempts: Literal[4]
     # Earlier of the verification-token deadline and 15 minutes after admission. Activation is forbidden at or
@@ -5305,3 +5105,757 @@ class WebhookVerificationAttempt(TypedDict):
     updated_at: str
     # Relative authorized API path for this attempt. Uses the same bearer credential as admission.
     status_url: str
+
+
+class _ComboFillsResponseRequired(TypedDict):
+    object: Literal["list"]
+    data: list[ComboFill]
+    sort: Literal["recent", "largest", "payout"] | str
+    window: Literal["24h", "7d", "all"] | str
+    # Format: int64.
+    limit: int
+    coverage: ComboCoverage
+    # A continuation is available based on page fullness. Its next page may be empty.
+    has_more: bool
+    meta: ResponseMeta
+
+
+class ComboFillsResponse(_ComboFillsResponseRequired, total=False):
+    # Exclusive block_number:log_index continuation for recent ordering.
+    next_cursor: str
+    # Continuation offset for largest or payout ordering. Format: int64.
+    next_offset: int
+    # Not computed for combo fill pages; omitted.
+    total: int
+
+
+class ComboFill(TypedDict):
+    # Stable fill identity.
+    id: str
+    # Format: int64.
+    block_number: int
+    # Format: int64.
+    log_index: int
+    # Format: date-time.
+    block_timestamp: str
+    tx_hash: str
+    # Taker wallet address.
+    trader: str | None
+    trader_name: str | None
+    trader_grade: Literal["S", "A", "B", "C", "D", "F", None] | str | None
+    # Recorded wallet-wide trade time. Format: date-time.
+    last_traded_at: str | None
+    action: Literal["buy", "sell"] | str
+    # Combo identifier: 0x followed by 62 lowercase hex characters. This differs from a binary market condition
+    # ID.
+    condition_id: str
+    # 0 is YES, 1 is NO. Format: int64.
+    outcome_index: int
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    shares: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    collateral_usdc: str
+    # Execution price for the traded outcome; null for a zero-share event.
+    price: str | None
+    # Execution price normalized to YES.
+    price_yes: str | None
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    fee_usdc: str
+    # Format: int64.
+    leg_count: int | None
+    # Result of the YES conjunction, independent of the wallet side or its P&L.
+    status: Literal["pending", "won", "lost", "unknown"] | str
+    status_reason: str | None
+    # Format: int64.
+    won_legs: int
+    # Shares per dollar at execution; not a forecast or guaranteed return.
+    payout_multiplier: str | None
+    legs: list[ComboLeg]
+
+
+class ComboLeg(TypedDict):
+    # Format: int64.
+    leg_index: int
+    # Format: int64.
+    outcome_index: int
+    # Format: int64.
+    module_id: int
+    state: Literal["pending", "won", "lost", "void", "unknown"] | str
+    market: ComboLegMarket | None
+
+
+class _ComboLegMarketRequired(TypedDict):
+    # Source of the leg facts.
+    source: Literal["markets", "provider"] | str
+    # Full binary CTF condition ID for this leg.
+    condition_id: str
+    title: str | None
+    slug: str | None
+    event_slug: str | None
+    outcome_label: str | None
+    image: str | None
+    category: str | None
+    # Provider outcome index; negative sentinels describe void or unresolved states. Format: int64.
+    winning_outcome: int | None
+    # Format: date-time.
+    resolved_at: str | None
+    # A closed market may still have no terminal outcome.
+    market_closed: bool | None
+    # Stored daily price for this leg outcome token; not a live quote.
+    pick_price_daily: float | None
+    # Observation time of the stored daily price. Format: date-time.
+    pick_price_as_of: str | None
+    # Whole days since the stored daily bucket. Format: int64.
+    pick_price_age_days: int | None
+    # Unmodified provider leg status when available.
+    provider_leg_status: str | None
+
+
+class ComboLegMarket(_ComboLegMarketRequired, total=False):
+    # Provider-resolved URL including the referral tag. Format: uri.
+    polymarket_url: str
+
+
+class ComboCoverage(TypedDict):
+    state: Literal["paused", "uninitialized", "stale", "backfilling", "live"] | str
+    ingest_enabled: bool
+    cursors: list[ComboCoverageCursor]
+    # Format: int64.
+    max_lag_blocks: int | None
+    # Format: date-time.
+    oldest_cursor_update: str | None
+    # Format: int64.
+    lifecycle_lag_blocks: int | None
+    lifecycle_backfilling: bool
+    # Time the coverage state was evaluated; not a market-price timestamp. Format: date-time.
+    computed_at: str
+
+
+class ComboCoverageCursor(TypedDict):
+    # Indexed contract.
+    contract: str
+    # Format: int64.
+    last_block: int
+    # Format: int64.
+    seed_block: int
+    seed_origin: str
+    # Format: int64.
+    chain_finalized_block: int | None
+    # Format: int64.
+    lag_blocks: int | None
+    # Format: date-time.
+    updated_at: str
+
+
+class CombosSummaryResponse(TypedDict):
+    object: Literal["combos_summary"]
+    data: CombosSummary
+    meta: ResponseMeta
+
+
+class CombosSummary(TypedDict):
+    """Stored live combo count. Null means the first count is unavailable, never zero."""
+    live: ComboLiveCount | None
+
+
+class ComboLiveCount(TypedDict):
+    # Traded combos whose YES conjunction remains pending. Format: int64.
+    count: int
+    # Time the count was computed; check its age before using it. Format: date-time.
+    computed_at: str
+
+
+class ComboResponse(TypedDict):
+    object: Literal["combo"]
+    data: ComboDetail
+    meta: ResponseMeta
+
+
+class ComboDetail(TypedDict):
+    """One combo with its newest 100 fills and all-time lifecycle totals. Paid API callers receive full
+    access."""
+    access: Literal["full"]
+    combo: Combo
+    fills: list[ComboFill]
+    lifecycle: ComboLifecycleStats | None
+    coverage: ComboCoverage
+
+
+class Combo(TypedDict):
+    # Combo identifier: 0x followed by 62 lowercase hex characters. This differs from a binary market condition
+    # ID.
+    condition_id: str
+    # Format: int64.
+    leg_count: int | None
+    # Format: date-time.
+    prepared_at: str | None
+    # Whether the preparation event has been indexed.
+    legs_known: bool
+    legs: list[ComboLeg]
+    window: ComboWindowStats | None
+    totals: ComboTotals | None
+    # Result of the YES conjunction, independent of the wallet side or its P&L.
+    status: Literal["pending", "won", "lost", "unknown"] | str
+    # Reason the conjunction result cannot be verified, when unknown.
+    status_reason: str | None
+
+
+class ComboWindowStats(TypedDict):
+    # Format: int64.
+    fills: int
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    volume_usdc: str
+    # Format: int64.
+    distinct_traders: int
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    largest_fill_usdc: str
+
+
+class ComboTotals(TypedDict):
+    # Format: int64.
+    fills: int
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    volume_usdc: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    largest_fill_usdc: str
+    # Format: date-time.
+    first_fill_at: str
+    # Format: date-time.
+    last_fill_at: str
+    # Last taker execution normalized to YES; not a current quote.
+    last_fill_price_yes: str | None
+    # Format: int64.
+    last_fill_outcome_index: int
+    last_fill_action: Literal["buy", "sell"] | str
+
+
+class ComboLifecycleStats(TypedDict):
+    # Format: int64.
+    splits: int
+    # Format: int64.
+    merges: int
+    # Format: int64.
+    redeems: int
+    # Format: int64.
+    compresses: int
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    split_usdc: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    merge_usdc: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    redeemed_shares: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    redeemed_usdc: str
+    # Exact decimal string from the stored chain or SQL value; preserve precision until display.
+    compressed_usdc: str
+    # Format: date-time.
+    last_event_at: str
+
+
+class _EdgeHunterBoardResponseRequired(TypedDict):
+    object: Literal["edge_hunter"]
+    data: EdgeHunterBoard
+    meta: ResponseMeta
+
+
+class EdgeHunterBoardResponse(_EdgeHunterBoardResponseRequired, total=False):
+    # Normalized axes requested with a selector or category; omitted on an unselected default read.
+    selection: EdgeHunterSelection
+
+
+class EdgeHunterBoard(TypedDict):
+    """The full Max-only Edge Hunter board. Defaults cover all sports and esports with B grade floor,
+    48-hour horizon and at most 30 rows; common selections, legacy category, min_grade and limit narrow
+    that projection. No pagination or ETag. Rows add frozen market_context discovery metadata."""
+    # When the ranked snapshot was computed. Date current quotes with their own ts values. Format: date-time.
+    as_of: str
+    horizon_hours: int
+    # Requested holder-presence grade floor, S/A/B. A holder at that grade or better admits the row; other holders
+    # remain visible.
+    min_grade: Literal["S", "A", "B"] | str
+    # live uses the current graded holder pile; db_only is a weaker stored-data fallback.
+    ranking_source: Literal["live", "db_only"] | str
+    # degraded means directional enrichment was unavailable.
+    directional_source: Literal["live", "degraded"] | str
+    cached_age_seconds: int | None
+    viewer: Literal["max"]
+    # Always null: Edge Hunter has no free signal slot.
+    free_rank: int | None
+    # Ranked rows after normalized selections and grade filtering, before the view-specific limit cap.
+    total: int
+    rows: list[EdgeHunterRow]
+
+
+class EdgeHunterRow(TypedDict):
+    """One full Max row from Edge Hunter. signal is populated on every row this endpoint returns. Identity
+    and quotes preserve provider values; unknown values stay null."""
+    rank: int
+    state: Literal["full"]
+    free: Literal[False]
+    condition_id: str
+    event_slug: str | None
+    title: str | None
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str | None
+    raw_category: str | None
+    # Format: date-time.
+    game_start_time: str | None
+    # Cumulative provider taker volume in shares, not cash in USD. Null when unavailable.
+    volume: float | None
+    participants: list[EdgeHunterParticipant]
+    image: str | None
+    outcomes: list[EdgeHunterOutcome]
+    signal: EdgeHunterSignal
+    # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
+    # require sidecar readiness and fail closed with 503 instead.
+    market_context: EdgeHunterMarketContext | None
+
+
+class _EdgeHunterParticipantRequired(TypedDict):
+    name: str
+
+
+class EdgeHunterParticipant(_EdgeHunterParticipantRequired, total=False):
+    # Format: int64.
+    provider_id: int
+    logo: str
+    logo_mark_dark: bool
+    color: str
+    headshot: str
+    # Format: int64.
+    headshot_revision: int
+    tour: str
+
+
+class EdgeHunterOutcome(TypedDict):
+    """One provider outcome in fixed YES/NO order, including its frozen token identity and independently
+    observed quote. Null current_price means no verified current quote is available."""
+    index: Literal[0, 1] | int
+    label: str | None
+    # Format: int64.
+    provider_id: int | None
+    # Frozen provider CLOB token ID for this exact outcome in YES/NO order. Null when unavailable; not a
+    # participant identity.
+    token_id: str | None
+    current_price: EdgeHunterPrice
+
+
+class _EdgeHunterPriceRequired(TypedDict):
+    # Provider probability as a decimal string. Keep its precision until display.
+    price: str
+    basis: Literal["midpoint", "last_trade"] | str
+    # Source observation clock in epoch milliseconds, represented as a string.
+    ts: str
+
+
+class EdgeHunterPrice(_EdgeHunterPriceRequired, total=False):
+    # Backend validation clock in epoch milliseconds. Omitted when no current-source validation is available.
+    validated_at: str
+
+
+class EdgeHunterSignal(TypedDict):
+    """Backed-side analytics, token identity, frozen ranked_at and aggregate category evidence from the
+    ranked snapshot, plus a separately dated current quote. Scores rank attention; they are not
+    probabilities or order instructions."""
+    piled_side: str | None
+    piled_outcome_index: Literal[0, 1] | int
+    # Fraction of graded money on the backed side, not a percentage from 0 to 100.
+    sharp_pct: float | None
+    backed_sharp_usd: float
+    s_count: int
+    a_count: int
+    b_count: int
+    graded_holders: int
+    top_grade: Literal["S", "A", "B"] | str | None
+    smart_score: float | None
+    net_side: str | None
+    conviction_score: float
+    one_way_holder_count: int | None
+    hedged_holder_count: int | None
+    one_way_graded_usd: float | None
+    directional_confidence: float | None
+    directional_rank_score: float
+    current_price: EdgeHunterPrice
+    # Frozen provider CLOB token ID for the backed outcome. Null when unavailable; matches
+    # outcomes[piled_outcome_index].token_id when the shared provider context is available.
+    token_id: str | None
+    # UTC computation time copied from this ranked row's frozen signal_created_at. It dates the ranking, not the
+    # separately observed quote, metadata writer, or wallet entry. Format: date-time.
+    ranked_at: str
+    # Existing aggregate category evidence copied from the same ranked snapshot. Read its status, coverage and own
+    # clocks; it never changes admission or ordering and is not a predicted return.
+    category_skill: EdgeHunterCategorySkill
+
+
+class EdgeHunterCategorySkill(TypedDict):
+    """Category evidence over the full uncapped piled-side S/A/B holder allocation. It never changes signal
+    membership, ordering, routing, or sizing."""
+    status: Literal["live", "insufficient", "stale", "unknown", "degraded"] | str
+    model_version: str
+    taxonomy_version: str | None
+    platform: Literal["polymarket"]
+    scope: Literal["observed_goldsky_primary_taker_fill"]
+    source_coverage: Literal["partial_whale_threshold_fills", "graded_wallet_fills"] | str
+    # Format: date-time.
+    observation_started_at: str
+    # Format: date-time.
+    as_of: str
+    canonical_category: str | None
+    eligible_holders: int
+    covered_holders: int
+    backed_sharp_usd: float | None
+    covered_backed_usd: float | None
+    coverage_pct: float | None
+    weighted_edge_mean: float | None
+    weighted_holder_lower_mean: float | None
+    specialist_backed_usd: float | None
+    specialist_backed_usd_pct: float | None
+    largest_holder_backed_usd_pct: float | None
+    minimum_holder_event_count: int | None
+
+
+class EdgeHunterMarketContext(TypedDict):
+    """Metadata frozen with the read generation. Values are nullable when the provider/canonical source has
+    no value; no title-based inference or current-clock fallback."""
+    # Normalized machine/provider league identity. Known wire/tag aliases normalize; other provider identities
+    # match exact lowercase keys.
+    league: str | None
+    # Exact provider series slug, usable in series_slugs selection.
+    series_slug: str | None
+    # Exact provider sports_market_type, usable in market_types selection.
+    market_type: str | None
+    # Exact local canonical metadata writer market_canonical.updated_at. This is not a provider observation clock;
+    # null means unavailable. Format: date-time.
+    metadata_updated_at: str | None
+
+
+class EdgeHunterSelection(TypedDict, total=False):
+    """Normalized requested selection axes. Only requested axes appear; omitted for unselected defaults.
+    Arrays are nonempty, sorted and deduplicated. OR within an axis, AND across axes."""
+    kind: Literal["sports", "esports"] | str
+    # Resolved legacy canonical bucket or non_sport for an unmappable category.
+    category: str
+    # Canonical sport buckets, including Esports and Table Tennis, matched case-insensitively. Unknown names and
+    # league aliases such as NFL are rejected in sports; use category for legacy bucket aliases or leagues for
+    # exact ...
+    sports: list[str]
+    # Normalized machine/provider league identities, such as nfl, cfb, nba, epl, cs2, lol, dota2 or valorant.
+    # Known wire/tag aliases normalize; other provider keys match exact lowercase identity. This is separate from
+    # ...
+    leagues: list[str]
+    # Exact provider sports_market_type values. This is an open provider taxonomy, distinct from exact market IDs.
+    # Read market_context.market_type; missing selected metadata excludes the row.
+    market_types: list[str]
+    # Exact market selections. Raw provider condition IDs and the existing mkt_-prefixed aliases normalize to raw
+    # IDs. Unknown well-formed IDs return an empty result.
+    condition_ids: list[str]
+    # Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing.
+    event_slugs: list[str]
+    # Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row.
+    series_slugs: list[str]
+
+
+class _EdgeHunterSignalsResponseRequired(TypedDict):
+    object: Literal["list"]
+    view: Literal["signals"]
+    data: list[EdgeHunterRankedSignal]
+    has_more: bool
+    meta: ResponseMeta
+
+
+class EdgeHunterSignalsResponse(_EdgeHunterSignalsResponseRequired, total=False):
+    """Full Edge Hunter signals list envelope. The view literal distinguishes advanced collections,
+    including empty pages."""
+    next_cursor: str
+    total: int
+    # Normalized axes requested with a selector or category; omitted on an unselected default read.
+    selection: EdgeHunterSelection
+
+
+class EdgeHunterRankedSignal(TypedDict):
+    """One ranked pre-game sports market where graded sharp money is piled on one side, with required-
+    status category evidence from partial forward-observed Polymarket fills."""
+    # The side profitable wallets hold, as a provider-backed display label. Canonical spelling of piled_side
+    # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
+    # do not ...
+    side: str | None
+    # UTC time at which the snapshot that ranked this row was computed. Canonical spelling of signal_created_at
+    # (#16310), same value. Format: date-time.
+    ranked_at: str
+    # Recorded side backing score; higher values indicate stronger backing.
+    backing_score: float
+    # Signed share of graded money on the side, (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (side-yes
+    # positive, side-no negative). Canonical spelling of smart_score (#16309, #16310), same value.
+    side_share: float | None
+    # Polymarket condition id.
+    condition_id: str
+    # UTC time at which the immutable signal snapshot was computed. Every row from one snapshot shares this value;
+    # it is not provider market creation time and is not rewritten at request time. Deprecated (#16310):
+    # `ranked_at` ...
+    signal_created_at: str
+    # Polymarket CLOB token id (ERC1155 asset id, decimal string) for the PILED outcome; null when unavailable.
+    token_id: str | None
+    # Canonical sport bucket (e.g. Basketball, Tennis); null when the raw category has no canonical mapping.
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str | None
+    # Raw provider category as stored (e.g. NBA, EPL).
+    raw_category: str | None
+    title: str | None
+    event_slug: str | None
+    # Kickoff (UTC). In the future at SNAPSHOT time and within the requested horizon; because the response is
+    # served from a shared snapshot cached up to the ~180s TTL, a served kickoff can be up to ~180s in the past
+    # relative ...
+    game_start_time: str | None
+    # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
+    # remain a bare Yes/No/Over/Under; do not use it alone as participant identity. Deprecated (#16310): `side` is
+    # the ...
+    piled_side: str | None
+    # Provider binary-column selector: 0 selects outcome_yes/token_id_yes; 1 selects outcome_no/token_id_no. It
+    # does not identify home/away or a participant. Use piled_side together with title/event context for display.
+    piled_outcome_index: int
+    # Piled-side dollar concentration backed_usd / (yes_usd + no_usd), in (0.5, 1] for a real pile; null when
+    # there is no sharp USD.
+    sharp_pct: float | None
+    # Raw piled-side sharp-money USD.
+    backed_sharp_usd: float
+    # S-grade graded holders on the piled side.
+    s_count: int
+    # A-grade graded holders on the piled side.
+    a_count: int
+    # B-grade graded holders on the piled side.
+    b_count: int
+    # Piled-side graded holder count (s_count + a_count + b_count).
+    graded_holders: int
+    # Best grade present on the piled side; null when none.
+    top_grade: Literal["S", "A", "B", None] | str | None
+    # Canonical sharp-money score (yes_usd - no_usd)/(yes_usd + no_usd) in [-1, 1] (piled-yes positive, piled-no
+    # negative). Deprecated (#16310): `side_share` is the canonical spelling and carries the same value; this key
+    # ...
+    smart_score: float | None
+    # Cumulative provider taker volume in shares, not cash or dollars.
+    volume: float | None
+    # Aggregate recent flow direction on the market; null when unavailable.
+    net_side: Literal["BUY", "SELL", None] | str | None
+    # Recorded conviction score; higher values indicate stronger conviction.
+    conviction_score: float
+    # Piled-side graded holders read one-way: their fresh open legs across the signal game's markets (cross-market
+    # within the one game; moneyline+spread family only) all back the same team, or, when the market's holder scan
+    # ...
+    one_way_holder_count: int | None
+    # Piled-side graded holders classified HEDGED across the game by fresh legs (they back two or more distinct
+    # teams). A wallet long both outcomes of this market is not one-way and not counted here. Null when the
+    # directional ...
+    hedged_holder_count: int | None
+    # Piled-side graded USD held by one-way wallets (share-weighted allocation of backed_sharp_usd). Null when the
+    # directional read was not computed or classified nobody.
+    one_way_graded_usd: float | None
+    # One-way fraction of the piled graded dollars, in [0, 1] -- the metric orthogonal to sharp_pct. Stale,
+    # unknown, hedged, and two-sided dollars dilute it toward zero (conservative). Null when the directional read
+    # was not ...
+    directional_confidence: float | None
+    # Recorded side ordering score; higher values sort first.
+    directional_rank_score: float
+    category_skill: EdgeHunterCategorySkill
+    # 1-based rank within the (min_grade-filtered) ranked result.
+    rank: int
+    # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
+    # require sidecar readiness and fail closed with 503 instead.
+    market_context: EdgeHunterMarketContext | None
+
+
+class _EdgeHunterObservationsResponseRequired(TypedDict):
+    object: Literal["list"]
+    view: Literal["observations"]
+    data: list[EdgeHunterObservation]
+    has_more: bool
+    # Pass as cursor for the next page. Always sent; null on the last page.
+    next_cursor: str | None
+    # Completion time of the shared observation snapshot pinned by the cursor. Format: date-time.
+    snapshot_as_of: str
+    # True when an operational failure or unknown provider-board, holder, directional, reconciliation, or internal
+    # completeness state made this snapshot partial. This is snapshot-wide and can retain degradation that the ...
+    degraded: bool
+    # Sorted, deduplicated causes from the canonical all-sports generation, unchanged by category, cohort or
+    # selectors. Empty exactly when degraded is false. Capacity-limited input and
+    # board_upcoming_status=not_configured do ...
+    degradation_reasons: list[EdgeHunterObservationDegradationReason]
+    coverage: EdgeHunterObservationCoverage
+    funnel: EdgeHunterFunnelReport
+    meta: ResponseMeta
+
+
+class EdgeHunterObservationsResponse(_EdgeHunterObservationsResponseRequired, total=False):
+    """Full Edge Hunter observations list envelope. Required degradation_reasons explains the source-
+    generation verdict; required coverage distinguishes source input, intentional capacity exclusions,
+    source emissions, incomplete holder scans, selection and the returned page. The view literal
+    distinguishes advanced collections, including empty pages."""
+    # Normalized axes requested with a selector or category; omitted on an unselected default read.
+    selection: EdgeHunterSelection
+
+
+class EdgeHunterObservation(TypedDict):
+    """One explicitly observation-only holder-pile measurement. It is evidence for cohort evaluation, not
+    an execution instruction, and is isolated from the funded Edge Hunter signals view."""
+    # The side profitable wallets hold, as a provider-backed display label. Canonical spelling of piled_side
+    # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
+    # do not ...
+    side: str | None
+    # Recorded side backing score; higher values indicate stronger backing.
+    backing_score: float
+    # Signed share of graded money on the side, in [-1, 1]. Canonical spelling of smart_score (#16309, #16310),
+    # same value.
+    side_share: float
+    # Raw Polymarket condition id.
+    condition_id: str
+    # Provider-backed Polymarket CLOB token id for the piled outcome. Rows without a verified token terminate
+    # before emission.
+    token_id: str
+    # Canonical sport bucket.
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
+    # Raw provider category as stored.
+    raw_category: str | None
+    # Provider-backed market title.
+    title: str
+    event_slug: str | None
+    # Provider event id when available.
+    event_id: str | None
+    # Provider parent-event id used as the first event-cap identity when available.
+    parent_event_id: str | None
+    # Provider-backed kickoff time in UTC. Format: date-time.
+    game_start_time: str
+    # UTC instant when this row finished provider/holder evaluation. Format: date-time.
+    observed_at: str
+    # Source cohort or additive projection view. emerging_pile is projected from wider_holder after source
+    # computation, overlaps its funnel denominator, and uses the source row's directional evidence.
+    cohort: Literal["wider_holder", "in_play", "emerging_pile"] | str
+    # Always true. This row must not be routed to an order executor.
+    observation_only: Literal[True]
+    # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
+    # remain a bare Yes/No/Over/Under; do not use it alone as participant identity. Deprecated (#16310): `side` is
+    # the ...
+    piled_side: str | None
+    # Provider binary-column selector: 0 selects outcome_yes/token_id_yes; 1 selects outcome_no/token_id_no. It
+    # does not identify home/away or a participant. Use piled_side together with title/event context for display.
+    piled_outcome_index: Literal[0, 1] | int
+    # Aggregate piled-side market midpoint recorded at observed_at. This is an observation price mark, not a
+    # wallet entry cost.
+    backed_price: float
+    # Piled-side graded-holder dollar concentration.
+    sharp_pct: float
+    # Raw graded-holder USD on the piled outcome.
+    backed_sharp_usd: float
+    s_count: int
+    a_count: int
+    b_count: int
+    # Piled-side S/A/B holder count.
+    graded_holders: int
+    top_grade: Literal["S", "A", "B"] | str
+    # Canonical signed holder-pile score. Deprecated (#16310): `side_share` is the canonical spelling and carries
+    # the same value; this key stays on the wire.
+    smart_score: float
+    # Cumulative provider taker volume in shares, not cash or dollars.
+    volume: float
+    # Recorded conviction score; higher values indicate stronger conviction.
+    conviction_score: float
+    # Whether the provider holder page came from the shared cache or a live provider read.
+    provider_read_source: Literal["cached", "live"] | str
+    # True only when provider pagination proves exhaustion of both outcome holder populations. Observation
+    # collection may follow bounded cursor pages; hitting an individual 100-row page does not by itself prove ...
+    holder_scan_complete: bool
+    # Proven provider holder observation time. A warm cache hit uses only the original provider completion time
+    # from its companion metadata, never cache-read time. Null, malformed, future, or stale holder time fails in-
+    # play ...
+    holder_snapshot_at: str | None
+    # Truthful state of the directional read, which classifies each graded holder by its fresh synced legs across
+    # the game's markets and, when holder_scan_complete is true, by Polymarket's currentValue on both outcomes of
+    # ...
+    directional_status: Literal["available", "unknown_ungrouped", "unknown_stale", "unavailable"] | str
+    one_way_holder_count: int | None
+    hedged_holder_count: int | None
+    one_way_graded_usd: float | None
+    directional_confidence: float | None
+    # Recorded side ordering score; higher values sort first.
+    directional_rank_score: float
+    # 1-based rank within this observation cohort and snapshot.
+    rank: int
+    # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
+    # require sidecar readiness and fail closed with 503 instead.
+    market_context: EdgeHunterMarketContext | None
+
+
+class EdgeHunterObservationDegradationReason(TypedDict):
+    """One observed cause of operational degradation in the canonical all-sports observation generation.
+    Reasons are independent of the one-terminal-per-input funnel and remain unchanged through category,
+    cohort and selector projection. Intentional capacity limits and an unconfigured upcoming source are
+    not degradation reasons."""
+    # Recorded producer cause. holder_scan_incomplete means at least one attempted holder scan did not establish
+    # complete coverage; directional_unavailable can accompany an emitted wider_holder row; live_source_stale
+    # means ...
+    reason: Literal["holder_scan_incomplete", "live_source_stale", "directional_unavailable", "funnel_unreconciled", "board_live_unavailable", "board_upcoming_unavailable", "provider_unavailable", "holder_deadline_unavailable", "holder_computation_unavailable", "missing_stored_market", "price_unavailable", "in_play_stale_observed", "in_play_directional_unavailable", "internal_unclassified", "board_source_unavailable", "board_deadline_unavailable"] | str
+    # Canonical sport for the recorded cause; null only for generation-wide evidence without a sport attribution.
+    sport: str | None
+
+
+class EdgeHunterObservationCoverage(TypedDict):
+    """Measured coverage of the frozen canonical observation generation and this requested page. For sports
+    and esports reads, the first four counts remain global through category, cohort and all selectors.
+    They are neither a census of all provider markets nor a count of successfully evaluated holders.
+    Selected and returned counts describe the requested projection. An unmappable legacy category
+    synthesizes a zero-work empty generation with all six counts zero and no degradation reasons; it
+    does not read the all-sports cache."""
+    # Sum of canonical source-generation funnel input across all sports, before category, cohort or selector
+    # projection.
+    input_markets: int
+    # Canonical source-generation input assigned capacity_limited. These markets were intentionally outside the
+    # bounded holder-work admission and are not missing emitted rows.
+    capacity_limited_markets: int
+    # All wider_holder and in_play observations emitted in the canonical source generation, before cohort,
+    # category or selector projection. Emerging pile is an overlapping projection and does not add source
+    # emissions.
+    emitted_observations: int
+    # Canonical source-generation markets whose attempted holder scan did not establish complete coverage,
+    # including incomplete scans that did not emit an observation.
+    incomplete_holder_markets: int
+    # Observations matching the requested cohort, category, selectors and applicable pinned projection cutoff
+    # before pagination.
+    selected_observations: int
+    # Observation rows on this page; equals data.length.
+    returned_observations: int
+
+
+class EdgeHunterFunnelReport(TypedDict):
+    """Per-sport accountable funnel for the full observation snapshot, returned on every page."""
+    sports: list[EdgeHunterSportFunnelReport]
+
+
+class EdgeHunterSportFunnelReport(TypedDict):
+    """Independent sports-board supply plus stored-universe terminal accounting for one canonical sport."""
+    sport: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
+    # Unique condition ids independently visible on the provider-first sports board.
+    board_input: int
+    # Whether the always-applicable live-board source completed as available. False can mean a completed source
+    # failure (board_source_unavailable) or live-board work missing an internal configured-scope deadline or the
+    # outer ...
+    board_live_available: bool
+    # Whether a provider-backed upcoming-board source is configured and applicable for this sport. False means not
+    # applicable, not provider failure.
+    board_upcoming_configured: bool
+    # Whether every configured upcoming-board scope completed as available. False with
+    # board_upcoming_configured=false means not applicable. When board_upcoming_configured is true and this flag
+    # is false, read ...
+    board_upcoming_available: bool
+    # Why the upcoming-board source is (un)available. Board supply is one canonical-sport union: the bare category
+    # owns live truth and every configured composed league scope contributes upcoming rows; folded leagues without
+    # a ...
+    board_upcoming_status: Literal["unknown", "not_configured", "available", "capacity_limited", "source_unavailable", "cold_unavailable", "deadline_unavailable"] | str
+    # Configured upcoming scopes that did not complete as available. Values are category, a provider league tag
+    # slug (nfl, cfb, nba, wnba, euroleague-basketball, nhl, mls, valorant, league-of-legends, counter-strike-2,
+    # or ...
+    board_upcoming_unavailable_scopes: list[Literal["category", "nfl", "cfb", "nba", "wnba", "euroleague-basketball", "nhl", "mls", "valorant", "league-of-legends", "counter-strike-2", "dota-2", "registry", "union", "wave"] | str]
+    # Stored-universe rows plus provider-board rows missing from storage.
+    input: int
+    # Sparse counts over the closed 25-value terminal vocabulary: outside_horizon, resolved, provider_closed,
+    # provider_excluded, invalid_market, missing_token, missing_stored_market, not_provider_live, ...
+    terminals: dict[str, int]
+    # Sum of every sparse terminal count.
+    terminal_total: int
+    # True exactly when input equals terminal_total.
+    reconciled: bool

@@ -17,12 +17,18 @@ from .types import (
     BatchGetMarketIntelResponse,
     BatchGetTradersBody,
     BatchGetTradersResponse,
+    ComboFillsResponse,
+    ComboResponse,
+    CombosSummaryResponse,
     CreateMcpJsonRpcResponseBody,
     CreateMcpJsonRpcResponseResponse,
     CreateWebhookRequest,
     CreateWebhookResponse,
     CreateWebhookVerificationAttemptRequest,
     CreateWebhookVerificationAttemptResponse,
+    EdgeHunterBoardResponse,
+    EdgeHunterObservationsResponse,
+    EdgeHunterSignalsResponse,
     ExploreMarketsResponse,
     GetApiDiscoveryResponse,
     GetCoverageResponse,
@@ -58,8 +64,6 @@ from .types import (
     ListLargeTradesResponse,
     ListLeaderboardResponse,
     ListPositionsResponse,
-    ListPreGameSideObservationsResponse,
-    ListPreGameSidesResponse,
     ListSmartMoneyFlowsResponse,
     ListSuspiciousTradesResponse,
     ListTrendingWalletsResponse,
@@ -184,6 +188,10 @@ OPERATIONS: dict[str, Operation] = {
     "getPickOfTheDayLedgerEntry": Operation("GET", "/api/v1/pick-of-the-day/ledger/{pick_id}", streaming=False, redirect=False),
     "createWebhookVerificationAttempt": Operation("POST", "/api/v1/webhooks/{id}/verification-attempts", streaming=False, redirect=False),
     "getWebhookVerificationAttempt": Operation("GET", "/api/v1/webhooks/{id}/verification-attempts/{attempt_id}", streaming=False, redirect=False),
+    "listComboFills": Operation("GET", "/api/v1/combos/fills", streaming=False, redirect=False),
+    "getCombosSummary": Operation("GET", "/api/v1/combos/summary", streaming=False, redirect=False),
+    "getCombo": Operation("GET", "/api/v1/combos/{condition_id}", streaming=False, redirect=False),
+    "getEdgeHunter": Operation("GET", "/api/v1/edge-hunter", streaming=False, redirect=False),
 }
 
 
@@ -444,8 +452,8 @@ class OperationsMixin:
 
         Returns stored Polymarket fills for one tracked trader in one market, newest first, with
         outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. The {address} segment accepts the same identity shapes as the plural
-        alias: wallet, username, ...
+        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
+        that date. The {address} segment ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -629,8 +637,8 @@ class OperationsMixin:
 
         Returns the current positions-board feed backed by the wallet_positions mirror. Ordered
         by current_value_usd DESC with deterministic (wallet, condition_id, outcome_index)
-        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Cursor-
-        paginated. Every filter pushes into SQL. Deep ...
+        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Positions on
+        resolved markets are excluded: a position ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1277,10 +1285,10 @@ class OperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and cumulative record. Resolved game details and results are public. For
-        unauthorized unresolved selections, game identity, category, image, publication time,
-        and backed facts are omitted; `required_tier` ...
+        Returns published picks that have not been withdrawn, with their outcome, modeled
+        return, unit score, closing-line value, and cumulative record. Resolved game details and
+        results are public. For unauthorized unresolved selections, game identity, category,
+        image, publication time, and backed facts ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1314,7 +1322,7 @@ class OperationsMixin:
         Returns the pre-game commitment for every published pick, so the public track record can
         be checked by someone who was not watching when the pick dropped. One entry per
         (pick_date, pick_rank), ascending by pick_date then pick_rank, in one of three states.
-        `sealed` is a live pick: the hash, the ...
+        `sealed` is an unresolved pick: the hash, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1584,222 +1592,6 @@ class OperationsMixin:
             direction: Optional post-aggregate flow direction filter.
         """
         result: ListSmartMoneyFlowsResponse | NotModifiedResponse = self._call("listSharpMoneyFlows", path_params={}, query={"timeframe": timeframe, "limit": limit, "cursor": cursor, "category": category, "platform": platform, "min_grade": min_grade, "direction": direction}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSidesResponse: ...
-
-    @overload
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
-
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse:
-        """List upcoming games ranked by the side profitable wallets hold.
-
-        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
-        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
-        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
-        carrying signal_created_at (the UTC time its ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ListPreGameSidesResponse | NotModifiedResponse = self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSideObservationsResponse: ...
-
-    @overload
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
-
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
-        """List observation-only pre-game side cohorts.
-
-        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
-        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
-        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
-        wider_holder measures pre-game holder piles ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSidesResponse: ...
-
-    @overload
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
-
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse:
-        """List ranked pre-game sports-edge signals.
-
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
-        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
-        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
-        (S/A/B) sharp money is piled on one ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ListPreGameSidesResponse | NotModifiedResponse = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSideObservationsResponse: ...
-
-    @overload
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
-
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
-        """List observation-only sports-edge cohorts.
-
-        ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
-        the same body. This path stays live and answers with Deprecation and successor Link
-        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
-        without changing or feeding GET ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ListPreGameSideObservationsResponse | NotModifiedResponse = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     def get_coverage(
@@ -2082,9 +1874,9 @@ class OperationsMixin:
         ``GET /api/v1/market/{condition_id}/candles`` (operationId ``getMarketCandles``).
 
         Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from
-        the stored token_price_snapshots series (the same series the market-detail chart
-        renders; covers open and resolved markets). Because the stored data is daily, a 1d
-        bucket typically carries one point so its ...
+        our stored copy of the Polymarket CLOB prices-history series (the same series the
+        market-detail chart renders; covers open and resolved markets). Because the stored data
+        is daily, a 1d bucket typically carries ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -2243,7 +2035,7 @@ class OperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague. EuroLeague games use sport=Basketball and league=euroleague. Omit for ...
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -2279,10 +2071,10 @@ class OperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
-        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
-        game straight from a pulse. A slug outside the published coverage returns 404, including
-        a real Polymarket event in a sport ...
+        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
+        home, draw and away market sides and draw_offered. The slug is the identity the
+        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
+        from a pulse. A slug outside the ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3019,7 +2811,8 @@ class OperationsMixin:
 
         Public read of one published pick by its stable decimal-string pick_id. Same proof
         gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
+        400; absent or unpublished picks return 404. Withdrawal from recommendations or the
+        archive does not remove a published ledger ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3061,6 +2854,249 @@ class OperationsMixin:
         a challenge or restarts work. At ...
         """
         result: CreateWebhookVerificationAttemptResponse = self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
+    @overload
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: None = None,
+    ) -> ComboFillsResponse: ...
+
+    @overload
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None,
+    ) -> ComboFillsResponse | NotModifiedResponse: ...
+
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None = None,
+    ) -> ComboFillsResponse | NotModifiedResponse:
+        """List combo fills.
+
+        ``GET /api/v1/combos/fills`` (operationId ``listComboFills``).
+
+        Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
+        identities, grades, legs, conjunction results, and ingest coverage. Requires an active
+        Pro or Max API key. Listing includes executions with price at most 0.95; use combo
+        detail for complete history. Recent ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            result: CSV of pending, won, or lost; all clears the filter. Unknown results appear only in unfiltered lists.
+            legs: CSV of 2, 3, 4, or 5+; all clears the filter. A combo matches any named pick count.
+            min_stake: Minimum collateral in whole USDC.
+            min_multiplier: 0 disables the filter; otherwise use 2..1000000. Minimum shares per dollar at execution.
+            grades: CSV of S, A, B, C, D, F; all clears the filter. Ungraded wallets do not match.
+            sports: CSV of nfl, ncaaf, nba, wnba, baseball, hockey, soccer, tennis, table-tennis, esports, mma, boxing, golf, cricket, f1, pickleball; all clears the filter. ...
+            sort: Recent is newest first; largest ranks collateral; payout ranks buy-fill shares and excludes sells.
+            window: Defaults to all for recent and 24h for largest or payout.
+            limit: Page size. Integer values outside the range are clamped to 1..200.
+            cursor: Exclusive block_number:log_index cursor for recent only; send the returned next_cursor unchanged.
+            offset: Offset for ranked largest or payout ordering; use returned next_offset.
+        """
+        result: ComboFillsResponse | NotModifiedResponse = self._call("listComboFills", path_params={}, query={"result": result, "legs": legs, "min_stake": min_stake, "min_multiplier": min_multiplier, "grades": grades, "sports": sports, "sort": sort, "window": window, "limit": limit, "cursor": cursor, "offset": offset}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: None = None,
+    ) -> CombosSummaryResponse: ...
+
+    @overload
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None,
+    ) -> CombosSummaryResponse | NotModifiedResponse: ...
+
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None = None,
+    ) -> CombosSummaryResponse | NotModifiedResponse:
+        """Get live combo count.
+
+        ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
+
+        Returns the stored count of traded combos whose YES conjunction remains pending, with
+        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
+        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
+        value is unknown, never zero.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: CombosSummaryResponse | NotModifiedResponse = self._call("getCombosSummary", path_params={}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ComboResponse: ...
+
+    @overload
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ComboResponse | NotModifiedResponse: ...
+
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ComboResponse | NotModifiedResponse:
+        """Get combo detail.
+
+        ``GET /api/v1/combos/{condition_id}`` (operationId ``getCombo``).
+
+        Returns one Polymarket combo with its legs, conjunction result, all-time trade totals,
+        newest 100 taker fills, lifecycle totals, and ingest coverage. Requires an active Pro or
+        Max API key. Detail retains execution history above the listing price cap. A malformed
+        combo ID returns 400; an unknown ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ComboResponse | NotModifiedResponse = self._call("getCombo", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: None = None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse: ...
+
+    @overload
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse: ...
+
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None = None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse:
+        """Get Edge Hunter.
+
+        ``GET /api/v1/edge-hunter`` (operationId ``getEdgeHunter``).
+
+        Max-only canonical Edge Hunter API with board, signals and observations views. An active
+        Pro credential receives 403 forbidden with reason max_plan_required. Default board
+        admission and ordering remain compatible: B grade floor, 30-row cap, 48-hour kickoff
+        horizon, full Max projection and both ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
+            category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
+            cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. Emerging pile is a wider-holder projection with ...
+            min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
+            limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
+            cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
+            horizon_hours: Kickoff window for board (default 48) or signals (default 12). Integer values clamp to 1..48. Rejected for observations, whose pre-game universe is fixed at 48 ...
+            kind: All views: sports excludes the Esports bucket; esports selects only Esports. Omit for both. Combines with other selections using AND. Selected reads echo ...
+            sports: Canonical sport buckets, including Esports and Table Tennis, matched case-insensitively. Unknown names and league aliases such as NFL are rejected in sports; ...
+            leagues: Normalized machine/provider league identities, such as nfl, cfb, nba, epl, cs2, lol, dota2 or valorant. Known wire/tag aliases normalize; other provider keys ...
+            market_types: Exact provider sports_market_type values. This is an open provider taxonomy, distinct from exact market IDs. Read market_context.market_type; missing selected ...
+            condition_ids: Exact market selections. Raw provider condition IDs and the existing mkt_-prefixed aliases normalize to raw IDs. Unknown well-formed IDs return an empty ...
+            event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
+            series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
+        """
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -3321,8 +3357,8 @@ class ResponseOperationsMixin:
 
         Returns stored Polymarket fills for one tracked trader in one market, newest first, with
         outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. The {address} segment accepts the same identity shapes as the plural
-        alias: wallet, username, ...
+        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
+        that date. The {address} segment ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3506,8 +3542,8 @@ class ResponseOperationsMixin:
 
         Returns the current positions-board feed backed by the wallet_positions mirror. Ordered
         by current_value_usd DESC with deterministic (wallet, condition_id, outcome_index)
-        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Cursor-
-        paginated. Every filter pushes into SQL. Deep ...
+        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Positions on
+        resolved markets are excluded: a position ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4154,10 +4190,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and cumulative record. Resolved game details and results are public. For
-        unauthorized unresolved selections, game identity, category, image, publication time,
-        and backed facts are omitted; `required_tier` ...
+        Returns published picks that have not been withdrawn, with their outcome, modeled
+        return, unit score, closing-line value, and cumulative record. Resolved game details and
+        results are public. For unauthorized unresolved selections, game identity, category,
+        image, publication time, and backed facts ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4191,7 +4227,7 @@ class ResponseOperationsMixin:
         Returns the pre-game commitment for every published pick, so the public track record can
         be checked by someone who was not watching when the pick dropped. One entry per
         (pick_date, pick_rank), ascending by pick_date then pick_rank, in one of three states.
-        `sealed` is a live pick: the hash, the ...
+        `sealed` is an unresolved pick: the hash, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4461,222 +4497,6 @@ class ResponseOperationsMixin:
             direction: Optional post-aggregate flow direction filter.
         """
         result: ApiResponse[ListSmartMoneyFlowsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSharpMoneyFlows", path_params={}, query={"timeframe": timeframe, "limit": limit, "cursor": cursor, "category": category, "platform": platform, "min_grade": min_grade, "direction": direction}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse]: ...
-
-    @overload
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
-        """List upcoming games ranked by the side profitable wallets hold.
-
-        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
-        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
-        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
-        carrying signal_created_at (the UTC time its ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
-
-    @overload
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
-        """List observation-only pre-game side cohorts.
-
-        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
-        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
-        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
-        wider_holder measures pre-game holder piles ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse]: ...
-
-    @overload
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked pre-game sports-edge signals.
-
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
-        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
-        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
-        (S/A/B) sharp money is piled on one ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
-
-    @overload
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
-        """List observation-only sports-edge cohorts.
-
-        ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
-        the same body. This path stays live and answers with Deprecation and successor Link
-        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
-        without changing or feeding GET ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     def get_coverage(
@@ -4959,9 +4779,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/market/{condition_id}/candles`` (operationId ``getMarketCandles``).
 
         Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from
-        the stored token_price_snapshots series (the same series the market-detail chart
-        renders; covers open and resolved markets). Because the stored data is daily, a 1d
-        bucket typically carries one point so its ...
+        our stored copy of the Polymarket CLOB prices-history series (the same series the
+        market-detail chart renders; covers open and resolved markets). Because the stored data
+        is daily, a 1d bucket typically carries ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5120,7 +4940,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague. EuroLeague games use sport=Basketball and league=euroleague. Omit for ...
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -5156,10 +4976,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
-        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
-        game straight from a pulse. A slug outside the published coverage returns 404, including
-        a real Polymarket event in a sport ...
+        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
+        home, draw and away market sides and draw_offered. The slug is the identity the
+        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
+        from a pulse. A slug outside the ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5896,7 +5716,8 @@ class ResponseOperationsMixin:
 
         Public read of one published pick by its stable decimal-string pick_id. Same proof
         gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
+        400; absent or unpublished picks return 404. Withdrawal from recommendations or the
+        archive does not remove a published ledger ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5938,6 +5759,249 @@ class ResponseOperationsMixin:
         a challenge or restarts work. At ...
         """
         result: ApiResponse[CreateWebhookVerificationAttemptResponse] = self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
+    @overload
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ComboFillsResponse]: ...
+
+    @overload
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse]:
+        """List combo fills.
+
+        ``GET /api/v1/combos/fills`` (operationId ``listComboFills``).
+
+        Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
+        identities, grades, legs, conjunction results, and ingest coverage. Requires an active
+        Pro or Max API key. Listing includes executions with price at most 0.95; use combo
+        detail for complete history. Recent ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            result: CSV of pending, won, or lost; all clears the filter. Unknown results appear only in unfiltered lists.
+            legs: CSV of 2, 3, 4, or 5+; all clears the filter. A combo matches any named pick count.
+            min_stake: Minimum collateral in whole USDC.
+            min_multiplier: 0 disables the filter; otherwise use 2..1000000. Minimum shares per dollar at execution.
+            grades: CSV of S, A, B, C, D, F; all clears the filter. Ungraded wallets do not match.
+            sports: CSV of nfl, ncaaf, nba, wnba, baseball, hockey, soccer, tennis, table-tennis, esports, mma, boxing, golf, cricket, f1, pickleball; all clears the filter. ...
+            sort: Recent is newest first; largest ranks collateral; payout ranks buy-fill shares and excludes sells.
+            window: Defaults to all for recent and 24h for largest or payout.
+            limit: Page size. Integer values outside the range are clamped to 1..200.
+            cursor: Exclusive block_number:log_index cursor for recent only; send the returned next_cursor unchanged.
+            offset: Offset for ranked largest or payout ordering; use returned next_offset.
+        """
+        result: ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse] = self._call("listComboFills", path_params={}, query={"result": result, "legs": legs, "min_stake": min_stake, "min_multiplier": min_multiplier, "grades": grades, "sports": sports, "sort": sort, "window": window, "limit": limit, "cursor": cursor, "offset": offset}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[CombosSummaryResponse]: ...
+
+    @overload
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse]:
+        """Get live combo count.
+
+        ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
+
+        Returns the stored count of traded combos whose YES conjunction remains pending, with
+        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
+        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
+        value is unknown, never zero.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse] = self._call("getCombosSummary", path_params={}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[ComboResponse]: ...
+
+    @overload
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse]:
+        """Get combo detail.
+
+        ``GET /api/v1/combos/{condition_id}`` (operationId ``getCombo``).
+
+        Returns one Polymarket combo with its legs, conjunction result, all-time trade totals,
+        newest 100 taker fills, lifecycle totals, and ingest coverage. Requires an active Pro or
+        Max API key. Detail retains execution history above the listing price cap. A malformed
+        combo ID returns 400; an unknown ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse] = self._call("getCombo", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse]: ...
+
+    @overload
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse]:
+        """Get Edge Hunter.
+
+        ``GET /api/v1/edge-hunter`` (operationId ``getEdgeHunter``).
+
+        Max-only canonical Edge Hunter API with board, signals and observations views. An active
+        Pro credential receives 403 forbidden with reason max_plan_required. Default board
+        admission and ordering remain compatible: B grade floor, 30-row cap, 48-hour kickoff
+        horizon, full Max projection and both ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
+            category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
+            cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. Emerging pile is a wider-holder projection with ...
+            min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
+            limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
+            cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
+            horizon_hours: Kickoff window for board (default 48) or signals (default 12). Integer values clamp to 1..48. Rejected for observations, whose pre-game universe is fixed at 48 ...
+            kind: All views: sports excludes the Esports bucket; esports selects only Esports. Omit for both. Combines with other selections using AND. Selected reads echo ...
+            sports: Canonical sport buckets, including Esports and Table Tennis, matched case-insensitively. Unknown names and league aliases such as NFL are rejected in sports; ...
+            leagues: Normalized machine/provider league identities, such as nfl, cfb, nba, epl, cs2, lol, dota2 or valorant. Known wire/tag aliases normalize; other provider keys ...
+            market_types: Exact provider sports_market_type values. This is an open provider taxonomy, distinct from exact market IDs. Read market_context.market_type; missing selected ...
+            condition_ids: Exact market selections. Raw provider condition IDs and the existing mkt_-prefixed aliases normalize to raw IDs. Unknown well-formed IDs return an empty ...
+            event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
+            series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
+        """
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -6199,8 +6263,8 @@ class AsyncOperationsMixin:
 
         Returns stored Polymarket fills for one tracked trader in one market, newest first, with
         outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. The {address} segment accepts the same identity shapes as the plural
-        alias: wallet, username, ...
+        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
+        that date. The {address} segment ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -6384,8 +6448,8 @@ class AsyncOperationsMixin:
 
         Returns the current positions-board feed backed by the wallet_positions mirror. Ordered
         by current_value_usd DESC with deterministic (wallet, condition_id, outcome_index)
-        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Cursor-
-        paginated. Every filter pushes into SQL. Deep ...
+        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Positions on
+        resolved markets are excluded: a position ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7032,10 +7096,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and cumulative record. Resolved game details and results are public. For
-        unauthorized unresolved selections, game identity, category, image, publication time,
-        and backed facts are omitted; `required_tier` ...
+        Returns published picks that have not been withdrawn, with their outcome, modeled
+        return, unit score, closing-line value, and cumulative record. Resolved game details and
+        results are public. For unauthorized unresolved selections, game identity, category,
+        image, publication time, and backed facts ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7069,7 +7133,7 @@ class AsyncOperationsMixin:
         Returns the pre-game commitment for every published pick, so the public track record can
         be checked by someone who was not watching when the pick dropped. One entry per
         (pick_date, pick_rank), ascending by pick_date then pick_rank, in one of three states.
-        `sealed` is a live pick: the hash, the ...
+        `sealed` is an unresolved pick: the hash, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7339,222 +7403,6 @@ class AsyncOperationsMixin:
             direction: Optional post-aggregate flow direction filter.
         """
         result: ListSmartMoneyFlowsResponse | NotModifiedResponse = await self._call("listSharpMoneyFlows", path_params={}, query={"timeframe": timeframe, "limit": limit, "cursor": cursor, "category": category, "platform": platform, "min_grade": min_grade, "direction": direction}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSidesResponse: ...
-
-    @overload
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
-
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse:
-        """List upcoming games ranked by the side profitable wallets hold.
-
-        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
-        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
-        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
-        carrying signal_created_at (the UTC time its ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ListPreGameSidesResponse | NotModifiedResponse = await self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSideObservationsResponse: ...
-
-    @overload
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
-
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
-        """List observation-only pre-game side cohorts.
-
-        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
-        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
-        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
-        wider_holder measures pre-game holder piles ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSidesResponse: ...
-
-    @overload
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse: ...
-
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSidesResponse | NotModifiedResponse:
-        """List ranked pre-game sports-edge signals.
-
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
-        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
-        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
-        (S/A/B) sharp money is piled on one ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ListPreGameSidesResponse | NotModifiedResponse = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ListPreGameSideObservationsResponse: ...
-
-    @overload
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse: ...
-
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ListPreGameSideObservationsResponse | NotModifiedResponse:
-        """List observation-only sports-edge cohorts.
-
-        ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
-        the same body. This path stays live and answers with Deprecation and successor Link
-        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
-        without changing or feeding GET ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ListPreGameSideObservationsResponse | NotModifiedResponse = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     async def get_coverage(
@@ -7837,9 +7685,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/market/{condition_id}/candles`` (operationId ``getMarketCandles``).
 
         Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from
-        the stored token_price_snapshots series (the same series the market-detail chart
-        renders; covers open and resolved markets). Because the stored data is daily, a 1d
-        bucket typically carries one point so its ...
+        our stored copy of the Polymarket CLOB prices-history series (the same series the
+        market-detail chart renders; covers open and resolved markets). Because the stored data
+        is daily, a 1d bucket typically carries ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7998,7 +7846,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague. EuroLeague games use sport=Basketball and league=euroleague. Omit for ...
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -8034,10 +7882,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
-        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
-        game straight from a pulse. A slug outside the published coverage returns 404, including
-        a real Polymarket event in a sport ...
+        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
+        home, draw and away market sides and draw_offered. The slug is the identity the
+        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
+        from a pulse. A slug outside the ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8774,7 +8622,8 @@ class AsyncOperationsMixin:
 
         Public read of one published pick by its stable decimal-string pick_id. Same proof
         gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
+        400; absent or unpublished picks return 404. Withdrawal from recommendations or the
+        archive does not remove a published ledger ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8816,6 +8665,249 @@ class AsyncOperationsMixin:
         a challenge or restarts work. At ...
         """
         result: CreateWebhookVerificationAttemptResponse = await self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
+    @overload
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: None = None,
+    ) -> ComboFillsResponse: ...
+
+    @overload
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None,
+    ) -> ComboFillsResponse | NotModifiedResponse: ...
+
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None = None,
+    ) -> ComboFillsResponse | NotModifiedResponse:
+        """List combo fills.
+
+        ``GET /api/v1/combos/fills`` (operationId ``listComboFills``).
+
+        Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
+        identities, grades, legs, conjunction results, and ingest coverage. Requires an active
+        Pro or Max API key. Listing includes executions with price at most 0.95; use combo
+        detail for complete history. Recent ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            result: CSV of pending, won, or lost; all clears the filter. Unknown results appear only in unfiltered lists.
+            legs: CSV of 2, 3, 4, or 5+; all clears the filter. A combo matches any named pick count.
+            min_stake: Minimum collateral in whole USDC.
+            min_multiplier: 0 disables the filter; otherwise use 2..1000000. Minimum shares per dollar at execution.
+            grades: CSV of S, A, B, C, D, F; all clears the filter. Ungraded wallets do not match.
+            sports: CSV of nfl, ncaaf, nba, wnba, baseball, hockey, soccer, tennis, table-tennis, esports, mma, boxing, golf, cricket, f1, pickleball; all clears the filter. ...
+            sort: Recent is newest first; largest ranks collateral; payout ranks buy-fill shares and excludes sells.
+            window: Defaults to all for recent and 24h for largest or payout.
+            limit: Page size. Integer values outside the range are clamped to 1..200.
+            cursor: Exclusive block_number:log_index cursor for recent only; send the returned next_cursor unchanged.
+            offset: Offset for ranked largest or payout ordering; use returned next_offset.
+        """
+        result: ComboFillsResponse | NotModifiedResponse = await self._call("listComboFills", path_params={}, query={"result": result, "legs": legs, "min_stake": min_stake, "min_multiplier": min_multiplier, "grades": grades, "sports": sports, "sort": sort, "window": window, "limit": limit, "cursor": cursor, "offset": offset}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: None = None,
+    ) -> CombosSummaryResponse: ...
+
+    @overload
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None,
+    ) -> CombosSummaryResponse | NotModifiedResponse: ...
+
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None = None,
+    ) -> CombosSummaryResponse | NotModifiedResponse:
+        """Get live combo count.
+
+        ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
+
+        Returns the stored count of traded combos whose YES conjunction remains pending, with
+        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
+        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
+        value is unknown, never zero.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: CombosSummaryResponse | NotModifiedResponse = await self._call("getCombosSummary", path_params={}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ComboResponse: ...
+
+    @overload
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ComboResponse | NotModifiedResponse: ...
+
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ComboResponse | NotModifiedResponse:
+        """Get combo detail.
+
+        ``GET /api/v1/combos/{condition_id}`` (operationId ``getCombo``).
+
+        Returns one Polymarket combo with its legs, conjunction result, all-time trade totals,
+        newest 100 taker fills, lifecycle totals, and ingest coverage. Requires an active Pro or
+        Max API key. Detail retains execution history above the listing price cap. A malformed
+        combo ID returns 400; an unknown ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ComboResponse | NotModifiedResponse = await self._call("getCombo", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: None = None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse: ...
+
+    @overload
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse: ...
+
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None = None,
+    ) -> EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse:
+        """Get Edge Hunter.
+
+        ``GET /api/v1/edge-hunter`` (operationId ``getEdgeHunter``).
+
+        Max-only canonical Edge Hunter API with board, signals and observations views. An active
+        Pro credential receives 403 forbidden with reason max_plan_required. Default board
+        admission and ordering remain compatible: B grade floor, 30-row cap, 48-hour kickoff
+        horizon, full Max projection and both ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
+            category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
+            cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. Emerging pile is a wider-holder projection with ...
+            min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
+            limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
+            cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
+            horizon_hours: Kickoff window for board (default 48) or signals (default 12). Integer values clamp to 1..48. Rejected for observations, whose pre-game universe is fixed at 48 ...
+            kind: All views: sports excludes the Esports bucket; esports selects only Esports. Omit for both. Combines with other selections using AND. Selected reads echo ...
+            sports: Canonical sport buckets, including Esports and Table Tennis, matched case-insensitively. Unknown names and league aliases such as NFL are rejected in sports; ...
+            leagues: Normalized machine/provider league identities, such as nfl, cfb, nba, epl, cs2, lol, dota2 or valorant. Known wire/tag aliases normalize; other provider keys ...
+            market_types: Exact provider sports_market_type values. This is an open provider taxonomy, distinct from exact market IDs. Read market_context.market_type; missing selected ...
+            condition_ids: Exact market selections. Raw provider condition IDs and the existing mkt_-prefixed aliases normalize to raw IDs. Unknown well-formed IDs return an empty ...
+            event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
+            series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
+        """
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -9076,8 +9168,8 @@ class AsyncResponseOperationsMixin:
 
         Returns stored Polymarket fills for one tracked trader in one market, newest first, with
         outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. The {address} segment accepts the same identity shapes as the plural
-        alias: wallet, username, ...
+        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
+        that date. The {address} segment ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9261,8 +9353,8 @@ class AsyncResponseOperationsMixin:
 
         Returns the current positions-board feed backed by the wallet_positions mirror. Ordered
         by current_value_usd DESC with deterministic (wallet, condition_id, outcome_index)
-        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Cursor-
-        paginated. Every filter pushes into SQL. Deep ...
+        tiebreakers. Pre-reconcile rows (current_value_usd IS NULL) are excluded. Positions on
+        resolved markets are excluded: a position ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9909,10 +10001,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/pick-of-the-day/archive`` (operationId ``getPickOfTheDayArchive``).
 
-        Returns every published pick with its outcome, modeled return, unit score, closing-line
-        value, and cumulative record. Resolved game details and results are public. For
-        unauthorized unresolved selections, game identity, category, image, publication time,
-        and backed facts are omitted; `required_tier` ...
+        Returns published picks that have not been withdrawn, with their outcome, modeled
+        return, unit score, closing-line value, and cumulative record. Resolved game details and
+        results are public. For unauthorized unresolved selections, game identity, category,
+        image, publication time, and backed facts ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9946,7 +10038,7 @@ class AsyncResponseOperationsMixin:
         Returns the pre-game commitment for every published pick, so the public track record can
         be checked by someone who was not watching when the pick dropped. One entry per
         (pick_date, pick_rank), ascending by pick_date then pick_rank, in one of three states.
-        `sealed` is a live pick: the hash, the ...
+        `sealed` is an unresolved pick: the hash, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -10216,222 +10308,6 @@ class AsyncResponseOperationsMixin:
             direction: Optional post-aggregate flow direction filter.
         """
         result: ApiResponse[ListSmartMoneyFlowsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSharpMoneyFlows", path_params={}, query={"timeframe": timeframe, "limit": limit, "cursor": cursor, "category": category, "platform": platform, "min_grade": min_grade, "direction": direction}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse]: ...
-
-    @overload
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    async def list_pre_game_sides(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
-        """List upcoming games ranked by the side profitable wallets hold.
-
-        ``GET /api/v1/sports/pre-game-sides`` (operationId ``listPreGameSides``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-signals is its deprecated alias and
-        serves the same body. Pro-tier. Ranked list of upcoming pre-game sports markets
-        (moneyline + props) where graded (S/A/B) sharp money is piled on one side, each row
-        carrying signal_created_at (the UTC time its ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPreGameSides", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
-
-    @overload
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    async def list_pre_game_side_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
-        """List observation-only pre-game side cohorts.
-
-        ``GET /api/v1/sports/pre-game-side-observations`` (operationId ``listPreGameSideObservations``).
-
-        Canonical since #16310; GET /api/v1/sports-edge-observations is its deprecated alias and
-        serves the same body. Pro-tier. Measures three explicitly observation-only Polymarket
-        sports cohorts without changing or feeding GET /api/v1/sports/pre-game-sides:
-        wider_holder measures pre-game holder piles ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPreGameSideObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse]: ...
-
-    @overload
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    async def list_sports_edge_signals(
-        self,
-        *,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        horizon_hours: int | None = None,
-        min_grade: Literal["S", "A", "B"] | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse]:
-        """List ranked pre-game sports-edge signals.
-
-        ``GET /api/v1/sports-edge-signals`` (operationId ``listSportsEdgeSignals``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-sides, which serves the same
-        body. This path stays live and answers with Deprecation and successor Link headers. Pro-
-        tier. Ranked list of upcoming pre-game sports markets (moneyline + props) where graded
-        (S/A/B) sharp money is piled on one ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            category: Optional canonical sport bucket filter (e.g. Basketball, Tennis, Soccer). A raw provider value (NBA) resolves to its canonical bucket. A non-sport category ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Opaque cursor from a previous response's next_cursor. Encodes the snapshot anchor plus the last row's directional_rank_score, conviction_score, smart_score and ...
-            horizon_hours: Kickoff ceiling in hours from now; the floor is now (only games not yet started). Clamped to 1..48.
-            min_grade: Minimum trader grade required on the piled side. Only S, A, B are accepted (the piled-side grade distribution is S/A/B only; C, D, F return 400). Default B ...
-        """
-        result: ApiResponse[ListPreGameSidesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeSignals", path_params={}, query={"category": category, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "min_grade": min_grade}, if_none_match=if_none_match)
-        return result
-
-    @overload
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse]: ...
-
-    @overload
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
-
-    async def list_sports_edge_observations(
-        self,
-        *,
-        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        category: str | None = None,
-        limit: int | None = None,
-        cursor: str | None = None,
-        if_none_match: str | None = None,
-    ) -> ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse]:
-        """List observation-only sports-edge cohorts.
-
-        ``GET /api/v1/sports-edge-observations`` (operationId ``listSportsEdgeObservations``).
-
-        Deprecated since #16310: use GET /api/v1/sports/pre-game-side-observations, which serves
-        the same body. This path stays live and answers with Deprecation and successor Link
-        headers. Pro-tier. Measures three explicitly observation-only Polymarket sports cohorts
-        without changing or feeding GET ...
-
-        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
-        then returns ``NotModifiedResponse`` and your cached body is still current.
-
-        Query parameters:
-            cohort: Required. Observation cohort. wider_holder measures pre-game holder piles outside the funded route's exact raw signals admission. in_play admits only provider-confirmed ...
-            category: Optional canonical sport bucket. Omitted or blank selects all registered sports. Raw provider categories resolve through the canonical taxonomy, including ...
-            limit: Page size. Out-of-range values are clamped to 1..100.
-            cursor: Server-authenticated opaque seo_v2_ cursor from next_cursor. Pins snapshot_as_of, cohort, rank, and condition_id; pre-deploy unsigned seo_ cursors are ...
-        """
-        result: ApiResponse[ListPreGameSideObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSportsEdgeObservations", path_params={}, query={"cohort": cohort, "category": category, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     async def get_coverage(
@@ -10714,9 +10590,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/market/{condition_id}/candles`` (operationId ``getMarketCandles``).
 
         Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from
-        the stored token_price_snapshots series (the same series the market-detail chart
-        renders; covers open and resolved markets). Because the stored data is daily, a 1d
-        bucket typically carries one point so its ...
+        our stored copy of the Polymarket CLOB prices-history series (the same series the
+        market-detail chart renders; covers open and resolved markets). Because the stored data
+        is daily, a 1d bucket typically carries ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -10875,7 +10751,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2. Omit for every league inside the selected sports.
+            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague. EuroLeague games use sport=Basketball and league=euroleague. Omit for ...
             status: Keep only games in this state. A value outside the enum returns an empty page.
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set.
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -10911,10 +10787,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug. The slug is the
-        identity the live_sports_updated webhook pulse carries, so a receiver can read the full
-        game straight from a pulse. A slug outside the published coverage returns 404, including
-        a real Polymarket event in a sport ...
+        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
+        home, draw and away market sides and draw_offered. The slug is the identity the
+        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
+        from a pulse. A slug outside the ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11651,7 +11527,8 @@ class AsyncResponseOperationsMixin:
 
         Public read of one published pick by its stable decimal-string pick_id. Same proof
         gating, canonical bytes, ETag and integrity failures as the ledger. Invalid ids return
-        400; absent or unpublished picks return 404.
+        400; absent or unpublished picks return 404. Withdrawal from recommendations or the
+        archive does not remove a published ledger ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11693,5 +11570,248 @@ class AsyncResponseOperationsMixin:
         a challenge or restarts work. At ...
         """
         result: ApiResponse[CreateWebhookVerificationAttemptResponse] = await self._call("getWebhookVerificationAttempt", path_params={"id": id, "attempt_id": attempt_id}, query={})
+        return result
+
+    @overload
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ComboFillsResponse]: ...
+
+    @overload
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_combo_fills(
+        self,
+        *,
+        result: str | None = None,
+        legs: str | None = None,
+        min_stake: int | None = None,
+        min_multiplier: int | None = None,
+        grades: str | None = None,
+        sports: str | None = None,
+        sort: Literal["recent", "largest", "payout"] | None = None,
+        window: Literal["24h", "7d", "all"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        offset: int | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse]:
+        """List combo fills.
+
+        ``GET /api/v1/combos/fills`` (operationId ``listComboFills``).
+
+        Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
+        identities, grades, legs, conjunction results, and ingest coverage. Requires an active
+        Pro or Max API key. Listing includes executions with price at most 0.95; use combo
+        detail for complete history. Recent ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            result: CSV of pending, won, or lost; all clears the filter. Unknown results appear only in unfiltered lists.
+            legs: CSV of 2, 3, 4, or 5+; all clears the filter. A combo matches any named pick count.
+            min_stake: Minimum collateral in whole USDC.
+            min_multiplier: 0 disables the filter; otherwise use 2..1000000. Minimum shares per dollar at execution.
+            grades: CSV of S, A, B, C, D, F; all clears the filter. Ungraded wallets do not match.
+            sports: CSV of nfl, ncaaf, nba, wnba, baseball, hockey, soccer, tennis, table-tennis, esports, mma, boxing, golf, cricket, f1, pickleball; all clears the filter. ...
+            sort: Recent is newest first; largest ranks collateral; payout ranks buy-fill shares and excludes sells.
+            window: Defaults to all for recent and 24h for largest or payout.
+            limit: Page size. Integer values outside the range are clamped to 1..200.
+            cursor: Exclusive block_number:log_index cursor for recent only; send the returned next_cursor unchanged.
+            offset: Offset for ranked largest or payout ordering; use returned next_offset.
+        """
+        result: ApiResponse[ComboFillsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listComboFills", path_params={}, query={"result": result, "legs": legs, "min_stake": min_stake, "min_multiplier": min_multiplier, "grades": grades, "sports": sports, "sort": sort, "window": window, "limit": limit, "cursor": cursor, "offset": offset}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[CombosSummaryResponse]: ...
+
+    @overload
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_combos_summary(
+        self,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse]:
+        """Get live combo count.
+
+        ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
+
+        Returns the stored count of traded combos whose YES conjunction remains pending, with
+        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
+        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
+        value is unknown, never zero.
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[CombosSummaryResponse] | ApiResponse[NotModifiedResponse] = await self._call("getCombosSummary", path_params={}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[ComboResponse]: ...
+
+    @overload
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_combo(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse]:
+        """Get combo detail.
+
+        ``GET /api/v1/combos/{condition_id}`` (operationId ``getCombo``).
+
+        Returns one Polymarket combo with its legs, conjunction result, all-time trade totals,
+        newest 100 taker fills, lifecycle totals, and ingest coverage. Requires an active Pro or
+        Max API key. Detail retains execution history above the listing price cap. A malformed
+        combo ID returns 400; an unknown ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[ComboResponse] | ApiResponse[NotModifiedResponse] = await self._call("getCombo", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse]: ...
+
+    @overload
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_edge_hunter(
+        self,
+        *,
+        view: Literal["board", "signals", "observations"] | None = None,
+        category: str | None = None,
+        cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        horizon_hours: int | None = None,
+        kind: Literal["sports", "esports"] | None = None,
+        sports: list[str] | None = None,
+        leagues: list[str] | None = None,
+        market_types: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        event_slugs: list[str] | None = None,
+        series_slugs: list[str] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse]:
+        """Get Edge Hunter.
+
+        ``GET /api/v1/edge-hunter`` (operationId ``getEdgeHunter``).
+
+        Max-only canonical Edge Hunter API with board, signals and observations views. An active
+        Pro credential receives 403 forbidden with reason max_plan_required. Default board
+        admission and ordering remain compatible: B grade floor, 30-row cap, 48-hour kickoff
+        horizon, full Max projection and both ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
+            category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
+            cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. Emerging pile is a wider-holder projection with ...
+            min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
+            limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
+            cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
+            horizon_hours: Kickoff window for board (default 48) or signals (default 12). Integer values clamp to 1..48. Rejected for observations, whose pre-game universe is fixed at 48 ...
+            kind: All views: sports excludes the Esports bucket; esports selects only Esports. Omit for both. Combines with other selections using AND. Selected reads echo ...
+            sports: Canonical sport buckets, including Esports and Table Tennis, matched case-insensitively. Unknown names and league aliases such as NFL are rejected in sports; ...
+            leagues: Normalized machine/provider league identities, such as nfl, cfb, nba, epl, cs2, lol, dota2 or valorant. Known wire/tag aliases normalize; other provider keys ...
+            market_types: Exact provider sports_market_type values. This is an open provider taxonomy, distinct from exact market IDs. Read market_context.market_type; missing selected ...
+            condition_ids: Exact market selections. Raw provider condition IDs and the existing mkt_-prefixed aliases normalize to raw IDs. Unknown well-formed IDs return an empty ...
+            event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
+            series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
+        """
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
