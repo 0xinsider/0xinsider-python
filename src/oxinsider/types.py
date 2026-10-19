@@ -254,6 +254,7 @@ __all__ = [
     "PlatformCapabilityStatus",
     "Platforms",
     "PlatformsPlatforms",
+    "PnlCorrection",
     "Position",
     "PositionExact",
     "PositionMarket",
@@ -562,10 +563,18 @@ class TraderPnl(TypedDict, total=False):
     # all-time leaderboard (dated by the leaderboard_pnl data_quality group). Omitted when that leaderboard has no
     # ...
     total: float
-    # The profile's Total P&L in USD: native Polymarket position P&L, with fees already included, plus credited
-    # maker and taker rebates (trader_trading_pnl.net_total_pnl). The same figure the 0xinsider profile, search,
-    # live ...
+    # Polymarket's net total P&L in USD: native Polymarket position P&L, with fees already included, plus credited
+    # maker and taker rebates (trader_trading_pnl.net_total_pnl). Truncated toward zero to cents before conversion
+    # ...
     net_total: float
+    # The 0xinsider correction to Polymarket's P&L for neg-risk conversions. Present only when one is published;
+    # pnl.net_total and pnl.realized keep Polymarket's own figures, and correction.net_total and
+    # correction.realized ...
+    correction: PnlCorrection
+    # true while 0xinsider is still checking some of the wallet's converted neg-risk markets (not yet measured,
+    # measured and not yet checked for transfers, or its latest reads keep failing), so the correction may change,
+    # or ...
+    correction_pending: bool
     # For pnl.realized, expand=trust marks a matching native accounting snapshot as computed: native Polymarket
     # realized P&L plus credited maker and taker rebates, with fees already included. The exact numeric value is
     # ...
@@ -580,6 +589,36 @@ class TraderPnl(TypedDict, total=False):
     # Additive lossless counterpart. Omitted when the trusted native realized-P&L source is unavailable; existing
     # numeric fields keep their display-safe v1 semantics.
     exact: TraderPnlExact
+
+
+class _PnlCorrectionRequired(TypedDict):
+    # The correction method.
+    basis: Literal["neg_risk_conversion_v1"]
+    # The correction in USD. Negative when Polymarket overstates the wallet.
+    amount: float
+    # The newest measurement among the measured markets. Format: date-time.
+    as_of: str
+    # Neg-risk markets whose measurement amount sums.
+    markets_measured: int
+
+
+class PnlCorrection(_PnlCorrectionRequired, total=False):
+    """A derived 0xinsider correction to Polymarket's P&L, never a Polymarket value. Polymarket misbooks
+    neg-risk conversions, in both directions: it puts cost on placeholder YES outcomes minted by a
+    conversion and never books it as a loss (negative amount), and its position records leave out shares
+    the wallet really got, such as YES minted by a conversion, so it books no P&L on them (positive
+    amount). Per neg-risk market the wallet converted in, 0xinsider measures Polymarket's own activity
+    cash against the sum of its position P&L, and sums the difference over every measured market whose
+    shares did ..."""
+    # Polymarket's net realized P&L plus amount: the figure 0xinsider grades on. Omitted when Polymarket's figure
+    # is.
+    realized: float
+    # Polymarket's net total P&L plus amount: the 0xinsider profile's Total P&L. Omitted when Polymarket's figure
+    # is, and on leaderboard entries.
+    net_total: float
+    # Measured neg-risk markets left out because shares moved in or out of the wallet by direct transfer; they
+    # keep Polymarket's figure. Omitted when none.
+    markets_excluded: int
 
 
 class TraderPnlExact(TypedDict):
@@ -626,11 +665,14 @@ class TraderStatsExact(TypedDict):
     total_volume: ExactDecimal
 
 
-class TraderStrategy(TypedDict, total=False):
+class _TraderStrategyRequired(TypedDict):
     # Observed trading style identifier. New rows use two_sided, category_focused, high_activity, diversified,
     # mixed, or unclassified. Historical identifiers remain readable during normal reclassification; style does
     # not ...
     strategy_type: str
+
+
+class TraderStrategy(_TraderStrategyRequired, total=False):
     description: str
     confidence: float
 
@@ -714,8 +756,7 @@ class DataQualityGroup(_DataQualityGroupRequired, total=False):
     reason: str
 
 
-class TraderTrust(TypedDict):
-    """Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust."""
+class _TraderTrustRequired(TypedDict):
     total_pnl: TrustMetadata
     realized_pnl: TrustMetadata
     net_total_pnl: TrustMetadata
@@ -738,6 +779,13 @@ class TraderTrust(TypedDict):
     sync_status: TrustMetadata
     category_records: TrustMetadata
     category_skill_model: TrustMetadata
+
+
+class TraderTrust(_TraderTrustRequired, total=False):
+    """Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust."""
+    # Present only with pnl.correction: a computed value owned by trader_pnl_corrections, dated by the newest
+    # measurement behind it.
+    pnl_correction: TrustMetadata
 
 
 class TrustMetadata(TypedDict):
@@ -1030,6 +1078,8 @@ class BatchResponseMeta(TypedDict):
 
 class BatchRateLimitMeta(TypedDict):
     basis: Literal["batch_items_per_minute"]
+    # The batch item budget per minute for the caller's plan: 2500 item units on Pro, 5000 on Max. The same number
+    # X-Batch-RateLimit-Limit reports.
     limit: int
     remaining: int
     # Unix timestamp when the batch item window resets.
@@ -1232,8 +1282,8 @@ class _PositionTraderRequired(TypedDict):
     # Prefixed ID (`trd_...`).
     id: str
     address: str
-    # True when 0xinsider first recorded the wallet within the new-wallet threshold (30 days). This public V1
-    # field is first-seen recency, not the wallet's on-chain age.
+    # True when wallet_age_days is under the new-wallet threshold (30 days), which means 0xinsider first recorded
+    # the wallet in the last 30 days. False when wallet_age_days is absent. This public V1 field is first-seen ...
     is_new_wallet: bool
 
 
@@ -1243,11 +1293,14 @@ class PositionTrader(_PositionTraderRequired, total=False):
     # Win rate as a ratio from 0 to 1 (0.62 means 62%), the same scale as stats.win_rate on GET
     # /api/v1/trader/{address}. Absent when unknown.
     win_rate: float
-    # The wallet's Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position P&L across
-    # all markets, fees included, plus credited maker and taker rebates (trader_trading_pnl.net_total_pnl). Not
-    # the ...
+    # Polymarket's net total P&L for the wallet in USD: native Polymarket position P&L across all markets, fees
+    # included, plus credited maker and taker rebates (trader_trading_pnl.net_total_pnl). The 0xinsider profile's
+    # Total ...
     pnl: float
     markets: int
+    # Days since the wallet's first-seen time. For a wallet 0xinsider first recorded on or after March 21, 2026,
+    # that is when 0xinsider recorded it. For a wallet recorded earlier, it is usually the wallet's first
+    # Polymarket ...
     wallet_age_days: float
 
 
@@ -1377,8 +1430,9 @@ class LargePositionTrader(_LargePositionTraderRequired, total=False):
     username: str
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     win_rate: float
-    # The wallet's Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position P&L across
-    # all markets, fees included, plus credited maker and taker rebates. Distinct from this position's ...
+    # Polymarket's net total P&L for the wallet in USD: native Polymarket position P&L across all markets, fees
+    # included, plus credited maker and taker rebates. The 0xinsider profile's Total P&L is this figure unless the
+    # ...
     pnl: float
     markets_traded: int
 
@@ -1424,8 +1478,8 @@ class _LargeTradeRequired(TypedDict):
     # ...
     outcome: str | None
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the traded outcome; null when
-    # unavailable (e.g. unsynced markets) and for a Polymarket trade recorded before 2026-04-02T00:00:00Z, where
-    # the traded ...
+    # unavailable (e.g. unsynced markets) and for a Polymarket trade recorded before 2026-04-02T00:00:00Z whose
+    # traded side is ...
     token_id: str | None
     price: float
     # Current trade review score on a 0..1 scale; higher values indicate a stronger review signal. This is the
@@ -1707,6 +1761,10 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # numeric value is truncated toward zero to cents before JSON conversion. Omitted when the wallet has no
     # native ...
     realized_pnl: float
+    # The 0xinsider correction to Polymarket's P&L for neg-risk conversions. Present only when one is published;
+    # realized_pnl keeps Polymarket's own figure and pnl_correction.realized adds the amount to it. The grade and
+    # the ...
+    pnl_correction: PnlCorrection
     # Full-history both-sides USD cash volume from a verified Polymarket user-volume observation. Omitted without
     # coverage.
     volume: float
@@ -1732,7 +1790,8 @@ class GetPickOfTheDayResponse(TypedDict):
 class _PickOfTheDayRequired(TypedDict):
     # Full success containing entitled proof-readable picks.
     state: Literal["full"]
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
 
 
@@ -1758,9 +1817,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     display_category: str
     # Provider platform. Always polymarket.
     platform: Literal["polymarket"]
-    # The pick's stored release instant. Qualified automatic selections are due immediately; explicitly scheduled
-    # selections retain their stored time. Final checks, worker or claim delay can make the actual publication
-    # later. ...
+    # The pick's stored release instant. Use the returned timestamp; published_at records when publication
+    # occurred. Format: date-time.
     release_at: str
     # True only before the pick's stored release instant (a pre-release embargo flag); effectively always false on
     # a served, already-published pick. To detect that the backed game has kicked off, use `game_started`.
@@ -1855,26 +1913,25 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     sharp_pct: float
     # Recorded market-implied probability as a 0..1 fraction when available.
     market_pct: float
-    # Optional legacy recorded specialist facts. These describe the trader and do not disclose selection
-    # decisions. Present only on a full response when available; newly certified picks use lead_backer instead.
+    # Optional recorded specialist facts on a full response. These describe the trader, not the pick's win
+    # probability. Omitted when no recorded specialist is available.
     qualifying_expert: PickOfTheDayQualifyingExpert
     # Public V1 S/A wallet count on the backed side, equal to sharp_wallet_count.
     traders: int
-    # Recorded backed-side position value in USD when available. Newly certified picks sum only publication-
-    # certified wallet positions; legacy rows retain their recorded value.
+    # Recorded aggregate backed-side position value in USD when available, not a live balance or entry cost. The
+    # display_holders roster can include additional wallets; use the returned aggregate rather than summing that
+    # ...
     backed_sharp_usd: float
-    # Bounded S/A holder display projection. Newly certified picks include only publication-certified wallets;
-    # historical rows retain their recorded display shape.
+    # Bounded S/A holder display projection from the recorded snapshot. Historical rows retain their recorded
+    # display shape.
     holders: list[PickHolder]
-    # Optional complete holder display roster. Newly certified picks list the recorded lead first, then any
-    # verified supporters, then the other graded wallets that held the backed side at publication, ordered by
-    # shares; only ...
+    # Optional recorded holder roster in display order, with lead_backer first when present. Preserve the returned
+    # order. The roster can include wallets outside the recorded count and aggregate fields; do not derive ...
     display_holders: list[PickHolder]
     # S/A holder count for the public V1 compatibility projection. display_holders can include additional grades.
     holder_count: int
-    # Required truthful thesis. With at least one profitable-wallet holder: Profitable wallets hold
-    # {pick_outcome_label}[, led by a grade-{top_grade} trader]. Without holder backing: 0xInsider's Pick of the
-    # Day is ...
+    # Display-ready explanation of the recorded pick. Render the returned text rather than reconstructing it from
+    # holder counts or grades.
     thesis: str
     # Canonical web market URL.
     market_url: str
@@ -1917,14 +1974,14 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
 
 
 class ScheduledPickSlot(TypedDict):
-    """An entitled same-day pick selected but not yet released: stable rank and backend-owned
-    release/kickoff instants. No matchup, category, platform, side, price, or holder fields appear
-    before release. Unauthorized scheduled ranks appear only in locked_picks."""
+    """An entitled same-day slot with a future scheduled release: stable identity and backend-owned
+    release/kickoff instants. It leaves this list at its release instant; an unpublished slot is never a
+    delayed recommendation. No matchup, category, platform, side, price, or holder fields appear before
+    release. Unauthorized scheduled ranks appear only in locked_picks."""
     # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
     pick_rank: int
-    # The slot's stored release instant. Qualified automatic selections are due immediately; explicitly scheduled
-    # selections retain their stored time. The actual publication can follow final checks and worker delay.
-    # Format: ...
+    # The slot's future release instant. Remove this preview at that instant and read again for published picks; a
+    # scheduled slot does not guarantee publication. Format: date-time.
     release_at: str
     # The backed game's current kickoff instant. Format: date-time.
     kickoff: str
@@ -1935,7 +1992,8 @@ class ScheduledPickSlot(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
 
 
@@ -1962,9 +2020,8 @@ class _PickOfTheDayQualifyingExpertRequired(TypedDict):
 
 
 class PickOfTheDayQualifyingExpert(_PickOfTheDayQualifyingExpertRequired, total=False):
-    """Optional legacy recorded specialist facts. These describe the trader and do not disclose selection
-    decisions. Present only on a full response when available; newly certified picks use lead_backer
-    instead."""
+    """Optional recorded specialist facts on a full response. These describe the trader, not the pick's win
+    probability. Omitted when no recorded specialist is available."""
     # Recorded position value on the other outcome of this market, in USD. Omitted when not recorded; zero is a
     # measured value.
     opposite_position_usd: float
@@ -1996,6 +2053,10 @@ class PickHolder(_PickHolderRequired, total=False):
     # rate. Counts every resolved Polymarket market the wallet traded in the pick's canonical category (or in its
     # game, ...
     category_win_record: PickHolderCategoryWinRecord
+    # The wallet's average entry price in the pick's canonical category, as a 0..1 fraction of $1 (0.98 is 98
+    # cents). Its sample is the wallet's settled markets in that category of $20 or more where it bought one side
+    # at a ...
+    category_avg_price: float
     # For an esports pick, the game `category_win_rate` and `category_win_record` were measured in, by the same
     # name the pick's `display_category` uses for it: `LoL`, `CS2`, `Dota 2`, `Valorant`, `Call of Duty`, `Honor
     # of ...
@@ -2179,7 +2240,8 @@ class _ProofPendingPickSlotRequired(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
 
 
@@ -2193,18 +2255,15 @@ class ProofPendingPickSlot(_ProofPendingPickSlotRequired, total=False):
 
 
 class PotdEntryAuthorization(TypedDict):
-    """Returned entry permission bound to the named market, token and outcome. New policy-8 grants allow
-    five cents above the first reference ask, capped at 85 cents and floored to the provider tick;
-    policy-7 grants retain their original two-cent allowance. Honor the immutable max_entry_price and
-    expires_at, and quote a current executable book for the actual stake. The submitted order price must
-    remain within the limit; fills may be lower. Fees are separate, and this grant does not guarantee
-    liquidity, execution or positive expected value."""
+    """Returned entry permission bound to the named market, token and outcome. Honor the immutable
+    max_entry_price and expires_at, and quote a current executable book for the actual stake. The
+    submitted order price must remain within the returned limit; fills may be lower. Fees are separate,
+    and this grant does not guarantee liquidity, execution or positive expected value."""
     version: Literal[1]
     # Format: uuid.
     authorization_id: str
-    # Entry allowance policy, independent of selection or feed policy. Policy 8 issues new grants at the first
-    # reference ask plus 0.05, capped at 0.85 and floored to the provider tick. Policy 7 retains its original
-    # plus-0.02 ...
+    # Identifier for the policy recorded with this authorization. It does not replace the returned max_entry_price
+    # or expires_at. Existing grants retain their recorded values.
     policy_version: Literal[7, 8] | int
     condition_id: str
     token_id: str
@@ -2217,16 +2276,16 @@ class PotdEntryAuthorization(TypedDict):
     # for the actual stake and keep the submitted order price at or below this bound. Actual fills may be lower;
     # this ...
     max_entry_price: str
-    # Selected-token best ask at first issuance. The entry allowance uses this immutable reference, not the
-    # published pick price or a later quote.
+    # Selected-token best ask from the recorded reference book at issuance. This is a reference quote, not the
+    # authorized order-price limit; use max_entry_price for that limit.
     reference_best_ask: str
     reference_book_hash: str
     # Format: date-time.
     reference_book_at: str
     # Format: date-time.
     issued_at: str
-    # Original authorization expiry at the earlier requested or provider kickoff; never extended. An expired
-    # authorization cannot authorize a new automated entry. Format: date-time.
+    # Authorization expiry timestamp. Existing grants do not extend; an expired authorization cannot authorize a
+    # new automated entry. Format: date-time.
     expires_at: str
 
 
@@ -2274,8 +2333,8 @@ class _PickLeadBackerRequired(TypedDict):
 
 
 class PickLeadBacker(_PickLeadBackerRequired, total=False):
-    """Recorded lead wallet facts, available only on full newly certified picks. Position and category
-    history are frozen at publication; they are not live balances or pick win probabilities."""
+    """Recorded lead wallet facts on a full response when available. Position and category history are
+    frozen at publication; they are not live balances or pick win probabilities."""
     # Net value of the lead's position toward the backed outcome at publication, in USD: shares held on the backed
     # outcome minus shares held on the other outcome of the same market, valued at the backed outcome's provider
     # ...
@@ -2296,7 +2355,7 @@ class _PickOfTheDayNoEntitledPicksRequired(TypedDict):
     locked_picks: list[PickOfTheDayLockedPicksItem]
     # Actionable status, including Upgrade to Max when only locked ranks are published.
     message: str
-    # Null: the empty entitlement envelope has no selection lineage.
+    # Deprecated (#24157): always null, as on every Pick of the Day shape.
     supersedes_pick_id: Literal[None] | None
 
 
@@ -2332,6 +2391,8 @@ class PickOfTheDayArchive(TypedDict):
 class _PickOfTheDayArchiveEntryRequired(TypedDict):
     # The pick's local publication date (YYYY-MM-DD). Format: date.
     pick_date: str
+    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
+    pick_rank: int
     # Settlement outcome of the backed side; 'pending' until the market resolves.
     outcome: Literal["pending", "win", "loss", "void"] | str
     # Stable pick row identity as decimal text. Never use a quality rank as identity.
@@ -2341,21 +2402,20 @@ class _PickOfTheDayArchiveEntryRequired(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
 
 
 class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
-    # Deprecated compatibility daily release slot; use pick_id for identity and publication_order for scheduling.
-    pick_rank: int
     # When this selection was published, as RFC3339 UTC. Use this instant for publication feeds and timelines;
-    # pick_date is the America/New_York product day, not a publication timestamp. Automatic picks publish from
-    # 03:00 ...
+    # pick_date is the America/New_York product day, not a publication timestamp. Absent only for historical rows
+    # whose ...
     published_at: str
     # Human-readable matchup (e.g. "Portugal vs. Uzbekistan").
     matchup: str
-    # Frozen canonical calibration/report bucket (e.g. "Basketball", "MMA", or "Soccer"). Existing semantics are
-    # unchanged; presentation consumers should prefer display_category when present.
+    # Frozen canonical sport bucket (e.g. "Basketball", "MMA", or "Soccer"). Existing semantics are unchanged;
+    # presentation consumers should prefer display_category when present.
     category: str
     # Frozen public presentation category. Tennis uses the provider-verified ATP or WTA tour, including Wimbledon
     # and doubles; unknown tours retain Tennis. Every men's and women's cricket competition uses Cricket. Other
@@ -2367,8 +2427,8 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # The backed side's outcome label. Omitted for a still-pending pick when the request is not from an
     # authenticated Pro key.
     pick_outcome_label: str
-    # Best public V1-compatible S/A sharp-money grade on the backed side; a current B-only grade is omitted by the
-    # stable V1 adapter, while historical rows retain their frozen policy's grade. Omitted when no sharp-money ...
+    # Recorded top grade on the backed side in the public V1 compatibility projection. Omitted when unavailable.
+    # Historical values remain recorded snapshots.
     top_grade: str
     # Pre-formatted settlement status for display: "Win" / "Loss" / "Void" / "Pending" -- the outcome enum above
     # as a label, from the same formatter the pick payload's outcome_display uses. Convenience only; outcome is
@@ -2382,17 +2442,16 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # is valued at the current stake, including picks published before the change. Present exactly when return_usd
     # is.
     stake_usd: float
-    # Gross return of stake_usd on this resolved pick: a win returns stake_usd / backed_price, a loss returns 0, a
-    # void refunds stake_usd. A loss always returns 0 (the whole stake is lost regardless of price). The operand
-    # is ...
+    # Gross return of stake_usd on this resolved pick: a win returns stake_usd / backed_price and a loss returns
+    # 0. A loss always returns 0 (the whole stake is lost regardless of price). The operand is published beside it
+    # as ...
     return_usd: float
-    # The same return on a literal $100 (a win returns 100 / backed_price, a loss 0, a void 100), kept for
-    # compatibility: the field predates stake_usd and its name promises the $100 basis. Present exactly when
-    # return_usd is.
+    # The same return on a literal $100 (a win returns 100 / backed_price, a loss 0), kept for compatibility: the
+    # field predates stake_usd and its name promises the $100 basis. Present exactly when return_usd is.
     return_per_100: float
     # Pre-formatted return_usd as USD with cents: "$2,000.00". Present exactly when return_usd is -- it is
-    # formatted from that already-gated value -- so it is omitted for a still-pending pick, an unpriced win, and
-    # any pick ...
+    # formatted from that already-gated value -- so it is omitted for a still-pending pick, a void, an unpriced
+    # win, and any ...
     payout_display: str
     # Frozen price of the backed side (0..1) that return_usd and return_per_100 were computed from: on a win,
     # stake_usd / backed_price equals return_usd. It is the Polymarket CLOB order book midpoint at release, frozen
@@ -2445,7 +2504,8 @@ class _PickOfTheDayArchiveDayRequired(TypedDict):
     wins: int
     # Picks on the day that resolved as a loss, counted by the same pass as hit_rate.losses.
     losses: int
-    # Picks on the day that resolved void (stake refunded).
+    # Picks on the day that resolved void: the market settled with no winner. A void is neither a win nor a loss
+    # and is not staked, so it enters no money figure.
     void: int
     # Picks on the day not yet resolved. A day whose picks are all pending is a real 0-0 day with pending > 0, not
     # a missing record.
@@ -2453,9 +2513,9 @@ class _PickOfTheDayArchiveDayRequired(TypedDict):
 
 
 class PickOfTheDayArchiveDay(_PickOfTheDayArchiveDayRequired, total=False):
-    # Net units over the day's visible, valued, decided (win/loss) picks: the same population staked_usd runs
-    # over. Omitted when the day has not scored -- every pick still pending, every pick void, or a price-gated
-    # current ...
+    # Net units over the day's visible, valued, staked (win or loss) picks: the same population staked_usd runs
+    # over. Omitted when the day has not scored -- every pick still pending or void, or a price-gated current row
+    # -- ...
     unit_score: float
     # unit_score pre-formatted as signed units to two decimals (for example +1.24u or -2.00u), by the same
     # formatter the per-pick unit_score_display and hit_rate.unit_score_display use. Present exactly when
@@ -2480,12 +2540,14 @@ class _PickOfTheDayHitRateRequired(TypedDict):
     void: int
     # Number of picks still pending resolution (excluded from the hit rate).
     pending: int
-    # Cumulative profit (USD) of a stake_usd-per-pick strategy over visible valued decided picks: a priced win
-    # pays stake_usd/backed_price - stake_usd, every visible loss pays -stake_usd independent of price, and a void
-    # pays ...
+    # The flat stake every money figure here assumes, in USD: 1000 since 2026-09-22 (100 before). Always present.
+    stake_usd: float
+    # Cumulative profit (USD) of a stake_usd-per-pick strategy over visible valued settled picks: a priced win
+    # pays stake_usd/backed_price - stake_usd, every visible loss pays -stake_usd independent of price. A void is
+    # not ...
     net_profit_usd: float
-    # Total staked (USD) = stake_usd * count of visible valued decided picks: every visible loss plus every priced
-    # win. Void, unpriced wins, and current non-Insider rows whose price is gated are excluded.
+    # Total staked (USD) = stake_usd * count of visible valued settled picks: every visible loss and every priced
+    # win. Voids, unpriced wins and current non-Insider rows whose price is gated are excluded.
     staked_usd: float
     # Return on the staked amount as a percentage (net_profit_usd / staked_usd * 100, to 1 decimal); 0 when
     # nothing is staked.
@@ -2522,11 +2584,13 @@ class _PickOfTheDayHitRateRequired(TypedDict):
     clv_beats_close: int
     # Measured public rows where close exactly equals entry.
     clv_ties: int
+    # Cumulative track-record series, one point per decided (win/loss) pick in ascending pick_date order (pending
+    # and void picks add no point). A non-valued decided row carries cumulative profit forward while advancing hit
+    # ...
+    series: list[PickOfTheDayHitRateSeriesItem]
 
 
 class PickOfTheDayHitRate(_PickOfTheDayHitRateRequired, total=False):
-    # The flat stake every money figure here assumes, in USD: 1000 since 2026-09-22 (100 before). Always present.
-    stake_usd: float
     # Cumulative net return in stake units over the same valued win/loss population as net_profit_usd.
     unit_score: float
     # Backend-formatted signed cumulative unit score, for example "+1.25u". Omitted when no valued settled pick
@@ -2550,10 +2614,6 @@ class PickOfTheDayHitRate(_PickOfTheDayHitRateRequired, total=False):
     # Backend-formatted signed average in percentage points, for example "+0.4 pp"; a value that rounds to zero
     # reads "0.0 pp". Present when clv_avg_pp is present.
     clv_avg_pp_display: str
-    # Cumulative track-record series, one point per decided (win/loss) pick in ascending pick_date order (void and
-    # pending add no point). A non-valued decided row carries cumulative profit forward while advancing hit rate.
-    # ...
-    series: list[PickOfTheDayHitRateSeriesItem]
 
 
 class PickOfTheDayHitRateSeriesItem(TypedDict):
@@ -2615,7 +2675,8 @@ class PickOfTheDayLedgerSealedEntry(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
     # Explicit proof provenance: 1 retains historic eight-field canonical JSON; 2 binds stable pick_id and version
     # without pick_rank.
@@ -2654,10 +2715,14 @@ class PickOfTheDayLedgerOpenedEntry(TypedDict):
     payload: PickOfTheDayCommitmentPayload
     # How the pick settled. Never pending: a pending pick is a sealed entry.
     outcome: Literal["win", "loss", "void"] | str
+    # Why the site withdrew this pick from its track record, or null when the pick counts.
+    # provider_game_cancelled: Polymarket marked the game Cancelled while the pick was pending.
+    # published_after_kickoff: the pick was ...
+    withdrawal_reason: Literal["provider_game_cancelled", "published_after_kickoff", None] | str | None
     # Frozen matchup, for a reader.
     matchup: str
-    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
-    # identity; the archive owns that.
+    # Frozen canonical sport bucket (for example Basketball or MMA), not the exact public league identity; the
+    # archive owns that.
     category: str
     # The pick's public page. Format: uri.
     permalink: str
@@ -2668,7 +2733,8 @@ class PickOfTheDayLedgerOpenedEntry(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
     # Explicit proof provenance: 1 retains historic eight-field canonical JSON; 2 binds stable pick_id and version
     # without pick_rank.
@@ -2759,7 +2825,8 @@ class _PickOfTheDayLedgerUncommittedEntryRequired(TypedDict):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Replacement predecessor stable id; null when no lineage is recorded.
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
     supersedes_pick_id: str | None
 
 
@@ -2767,10 +2834,14 @@ class PickOfTheDayLedgerUncommittedEntry(_PickOfTheDayLedgerUncommittedEntryRequ
     """A pick without a commitment, retained so the record cannot omit unprovable entries. Unresolved
     entries omit game identity; once resolved, matchup, category and payload become public. Existing
     opened canonical payload bytes and hashes are unchanged."""
+    # Omitted while the pick is pending; once it settles, why the site withdrew it from its track record, or null
+    # when the pick counts. provider_game_cancelled: Polymarket marked the game Cancelled while the pick was
+    # pending. ...
+    withdrawal_reason: Literal["provider_game_cancelled", "published_after_kickoff", None] | str | None
     # Frozen matchup, for a reader.
     matchup: str
-    # Frozen canonical sport bucket used for selection calibration (Basketball, MMA), not the exact public league
-    # identity; the archive owns that.
+    # Frozen canonical sport bucket (for example Basketball or MMA), not the exact public league identity; the
+    # archive owns that.
     category: str
 
 
@@ -2855,10 +2926,13 @@ class TrendingWallet(_TrendingWalletRequired, total=False):
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     # Hot-streak tier (trailing-7d cross-sectional percentile). Omitted when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
-    # The wallet's all-time Total P&L in USD, the figure its 0xinsider profile shows: native Polymarket position
-    # P&L across all markets, fees included, plus credited maker and taker rebates
-    # (trader_trading_pnl.net_total_pnl). ...
+    # Polymarket's net total P&L for the wallet in USD: native Polymarket position P&L across all markets, fees
+    # included, plus credited maker and taker rebates (trader_trading_pnl.net_total_pnl). The 0xinsider profile's
+    # Total ...
     all_time_pnl_usd: float
+    # The 0xinsider correction to Polymarket's P&L for neg-risk conversions. Present only when one is published;
+    # all_time_pnl_usd keeps Polymarket's own figure and pnl_correction.net_total is the profile's Total P&L.
+    pnl_correction: PnlCorrection
     all_time_score: float
     # Format: date-time.
     last_synced: str
@@ -2964,7 +3038,7 @@ class ExploreGroup(TypedDict):
     rep_whales: int | None
 
 
-class _ExploreMarketRequired(TypedDict):
+class ExploreMarket(TypedDict):
     id: str
     condition_id: str
     # Non-empty market title.
@@ -3022,6 +3096,10 @@ class _ExploreMarketRequired(TypedDict):
     # side diverges from that side's price-implied share by at least 10 points, with at least $500 on the leaning
     # side ...
     smart_label: str | None
+    # When the oldest stored smart-money wallet behind this split (smart_score, smart_count and smart_label) last
+    # finished syncing. Graded wallets sync on different schedules, so this is often hours or days ago. Some
+    # holdings ...
+    sharp_money_as_of: str | None
     # Display label for the YES/outcome_index=0 side, enriched from provider outcome metadata when available.
     outcome_yes_label: str | None
     # Display label for the NO/outcome_index=1 side, enriched from provider outcome metadata when available.
@@ -3040,9 +3118,6 @@ class _ExploreMarketRequired(TypedDict):
     no_change_pct_24h: float | None
     # Backend-owned deterministic market discovery score used by the hot sort.
     discover_score: float | None
-
-
-class ExploreMarket(_ExploreMarketRequired, total=False):
     score_components: ExploreMarketScoreComponents
     freshness: ExploreMarketFreshness
 
@@ -3118,41 +3193,35 @@ class SmartMoneyFlowMarketMarket(TypedDict):
     platform: Literal["polymarket", None] | str | None
 
 
-class _SmartMoneyFlowMarketSharpMoneyRequired(TypedDict):
-    net_flow_usd: float
-    direction: Literal["YES", "NO"] | str
-    # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
-    # when unavailable (e.g. unsynced markets).
-    token_id: str | None
-    whale_trade_count: int
-    buy_volume_usd: float
-    sell_volume_usd: float
-
-
-class SmartMoneyFlowMarketSharpMoney(_SmartMoneyFlowMarketSharpMoneyRequired, total=False):
+class SmartMoneyFlowMarketSharpMoney(TypedDict):
     """Sharp-money flow aggregate for the market (canonical; smart_money is a deprecated byte-identical
     alias)."""
-    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
-    # emitted beside it with the same value.
-    large_trade_count: int
-
-
-class _SmartMoneyFlowMarketSmartMoneyRequired(TypedDict):
     net_flow_usd: float
     direction: Literal["YES", "NO"] | str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
     # when unavailable (e.g. unsynced markets).
     token_id: str | None
+    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
+    # emitted beside it with the same value.
+    large_trade_count: int
     whale_trade_count: int
     buy_volume_usd: float
     sell_volume_usd: float
 
 
-class SmartMoneyFlowMarketSmartMoney(_SmartMoneyFlowMarketSmartMoneyRequired, total=False):
+class SmartMoneyFlowMarketSmartMoney(TypedDict):
     """Deprecated alias of sharp_money; byte-identical and retained for backward compatibility."""
+    net_flow_usd: float
+    direction: Literal["YES", "NO"] | str
+    # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
+    # when unavailable (e.g. unsynced markets).
+    token_id: str | None
     # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
     # emitted beside it with the same value.
     large_trade_count: int
+    whale_trade_count: int
+    buy_volume_usd: float
+    sell_volume_usd: float
 
 
 class GetCoverageResponse(TypedDict):
@@ -3192,6 +3261,8 @@ class _GetMarketHoldersResponseRequired(TypedDict):
     object: Literal["list"]
     data: list[MarketHolder]
     has_more: bool
+    # Holders matching the request's `outcome` and `min_grade` filters across every page.
+    total: int
     market: MarketHoldersMarket
     scan: MarketHoldersScan
     totals: MarketHoldersTotals
@@ -3201,8 +3272,6 @@ class _GetMarketHoldersResponseRequired(TypedDict):
 class GetMarketHoldersResponse(_GetMarketHoldersResponseRequired, total=False):
     # Absent on the last page.
     next_cursor: str
-    # Holders matching the request's `outcome` and `min_grade` filters across every page.
-    total: int
 
 
 class _MarketHolderRequired(TypedDict):
@@ -3246,6 +3315,10 @@ class MarketHolder(_MarketHolderRequired, total=False):
     # Every resolved Polymarket market the wallet traded in the market's canonical category, at any position size,
     # ...
     category_win_record: MarketHolderCategoryWinRecord
+    # The wallet's average entry price in the market's canonical category, as a 0..1 fraction of $1 (0.98 is 98
+    # cents). Its sample is the wallet's settled markets in that category of $20 or more where it bought one side
+    # at a ...
+    category_avg_price: float
     # For an esports market, the game `category_win_rate` and `category_win_record` were measured in: `LoL`,
     # `CS2`, `Dota 2`, `Valorant`, `Call of Duty`, `Honor of Kings`, `Mobile Legends: Bang Bang`, `Overwatch`,
     # `Rainbow ...
@@ -3371,12 +3444,20 @@ class MarketFlowMarket(TypedDict):
     platform: Literal["polymarket", None] | str | None
 
 
-class _MarketFlowSharpMoneyRequired(TypedDict):
+class MarketFlowSharpMoney(TypedDict):
+    """Outcome-aware flow from all tracked whale trades in the window, without a grade filter. BUY YES and
+    SELL NO add net exposure; BUY NO and SELL YES subtract it. Gross buy/sell volumes count both
+    outcomes. Top positions are separately graded. Direction uses unrounded net: negative is NO,
+    otherwise YES; the zero tie-break is not conviction. Canonical; smart_money is a deprecated byte-
+    identical alias."""
     net_flow_usd: float
     direction: Literal["YES", "NO"] | str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
     # when unavailable (e.g. unsynced markets).
     token_id: str | None
+    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
+    # emitted beside it with the same value.
+    large_trade_count: int
     whale_trade_count: int
     buy_volume_usd: float
     sell_volume_usd: float
@@ -3385,17 +3466,6 @@ class _MarketFlowSharpMoneyRequired(TypedDict):
     # positions this body publishes. The roster is a stored read rather than a live one, and graded wallets sit on
     # ...
     oldest_snapshot_as_of: str | None
-
-
-class MarketFlowSharpMoney(_MarketFlowSharpMoneyRequired, total=False):
-    """Outcome-aware flow from all tracked whale trades in the window, without a grade filter. BUY YES and
-    SELL NO add net exposure; BUY NO and SELL YES subtract it. Gross buy/sell volumes count both
-    outcomes. Top positions are separately graded. Direction uses unrounded net: negative is NO,
-    otherwise YES; the zero tie-break is not conviction. Canonical; smart_money is a deprecated byte-
-    identical alias."""
-    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
-    # emitted beside it with the same value.
-    large_trade_count: int
 
 
 class MarketFlowSharpMoneyTopPositionsItem(TypedDict):
@@ -3410,12 +3480,16 @@ class MarketFlowSharpMoneyTopPositionsItem(TypedDict):
     size_usd: float
 
 
-class _MarketFlowSmartMoneyRequired(TypedDict):
+class MarketFlowSmartMoney(TypedDict):
+    """Deprecated alias of sharp_money; byte-identical and retained for backward compatibility."""
     net_flow_usd: float
     direction: Literal["YES", "NO"] | str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
     # when unavailable (e.g. unsynced markets).
     token_id: str | None
+    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
+    # emitted beside it with the same value.
+    large_trade_count: int
     whale_trade_count: int
     buy_volume_usd: float
     sell_volume_usd: float
@@ -3424,13 +3498,6 @@ class _MarketFlowSmartMoneyRequired(TypedDict):
     # positions this body publishes. The roster is a stored read rather than a live one, and graded wallets sit on
     # ...
     oldest_snapshot_as_of: str | None
-
-
-class MarketFlowSmartMoney(_MarketFlowSmartMoneyRequired, total=False):
-    """Deprecated alias of sharp_money; byte-identical and retained for backward compatibility."""
-    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
-    # emitted beside it with the same value.
-    large_trade_count: int
 
 
 class GetMarketIntelResponse(TypedDict):
@@ -3509,7 +3576,12 @@ class MarketSnapshotMarket(TypedDict):
     # Polymarket series slug from the canonical identity row, null when unavailable. A sports series identifies a
     # league and must not be used as a per-matchup grouping key.
     series_slug: str | None
+    # Always null. Deprecated (#24169): 0xinsider has never stored a value for this field. The key stays on the
+    # wire so existing clients keep parsing; do not read it.
     market_type: str | None
+    # Always null. Deprecated (#24169): 0xinsider stores no value for this field on a Polymarket market. The key
+    # stays on the wire so existing clients keep parsing; do not read it. market.status and market.resolved_at say
+    # ...
     market_result: str | None
     # Format: date-time.
     created_at: str | None
@@ -3527,6 +3599,8 @@ class _MarketSnapshotOutcomesItemRequired(TypedDict):
 
 class MarketSnapshotOutcomesItem(_MarketSnapshotOutcomesItemRequired, total=False):
     token_id: str
+    # The outcome's display price, the probability Polymarket shows for it: the midpoint of the cached top of book
+    # when the spread is at most 0.10, otherwise the token's last trade price. Omitted when neither is known, ...
     current_price: float
 
 
@@ -3817,7 +3891,9 @@ class GameStatus(_GameStatusRequired, total=False):
     period: str
     # The game clock as the provider spells it, never reformatted. Omitted when the provider sent none.
     clock: str
-    # The provider's own in-play flag. Omitted when no live-score frame exists, which is not the same as false.
+    # Whether the game is in play. It is the provider's own in-play flag, except that a game the provider reports
+    # suspended (period SUS) or rescheduled to a later kickoff reads false. Omitted when no live-score frame
+    # exists, ...
     live: bool
 
 
@@ -4368,7 +4444,7 @@ class GetHealthResponse(TypedDict):
     meta: ResponseMeta
 
 
-class GetHealthResponseData(TypedDict, total=False):
+class GetHealthResponseData(TypedDict):
     status: Literal["ok", "degraded", "down", "maintenance"] | str
     db: bool
     cache: bool
@@ -4426,9 +4502,14 @@ class CreateMcpJsonRpcResponseResponse(_CreateMcpJsonRpcResponseResponseRequired
     error: CreateMcpJsonRpcResponseResponseError
 
 
-class CreateMcpJsonRpcResponseResponseError(TypedDict):
+class _CreateMcpJsonRpcResponseResponseErrorRequired(TypedDict):
     code: int
     message: str
+
+
+class CreateMcpJsonRpcResponseResponseError(_CreateMcpJsonRpcResponseResponseErrorRequired, total=False):
+    # Optional JSON-serializable error data.
+    data: dict[str, Any] | list[Any] | str | float | bool | None
 
 
 class GetReportsResponse(TypedDict):
@@ -4484,19 +4565,16 @@ class SnapshotState(TypedDict):
     source_read_started_at: str | None
 
 
-class _SnapshotCompletenessRequired(TypedDict):
+class SnapshotCompleteness(TypedDict):
     # complete only on a final body (snapshot.status final). partial for a live range and for a closed range whose
     # body was read before final_after; reason says which. empty when the range has no whale activity.
     status: Literal["complete", "partial", "empty"] | str
     reason: str
     expected_days: int
-    covered_days_with_whale_activity: int
-
-
-class SnapshotCompleteness(_SnapshotCompletenessRequired, total=False):
     # Canonical key since #16304; covered_days_with_whale_activity is its deprecated spelling, emitted beside it
     # with the same value.
     covered_days_with_large_trade_activity: int
+    covered_days_with_whale_activity: int
 
 
 class ReportReconciliation(TypedDict):
@@ -4629,7 +4707,7 @@ class LargeExportPolicy(TypedDict):
     rate_limit: dict[str, Any]
 
 
-class LargeExportPolicyV1Async(TypedDict, total=False):
+class LargeExportPolicyV1Async(TypedDict):
     """Programmatic API-key-gated export routes (submit/status/download/cancel) and supported formats
     (json, ndjson, csv)."""
     # POST route template to submit an export job. fresh=true asks for a snapshot read after the submit instead of
@@ -4823,6 +4901,8 @@ class UsageData(TypedDict):
 
 class UsageDataRateLimit(TypedDict):
     used: int
+    # The per-minute window's limit for the caller's plan: 100 requests on Pro, 200 on Max. The same number
+    # RateLimit-Limit reports on a counted request.
     limit: int
     remaining: int
     reset_at: int
@@ -4839,7 +4919,10 @@ class UsageDataDailyUsage(TypedDict):
     window_seconds: int
 
 
-class _UsageDataMonthlyQuotaRequired(TypedDict):
+class UsageDataMonthlyQuota(TypedDict):
+    """The monthly request quota (#16111): where the account stands against the requests the current Pro or
+    Max plan includes per UTC calendar month. Reading it here spends nothing. null only when the month's
+    count could not be read for this response."""
     # Admitted requests so far this UTC calendar month.
     used: int
     # Requests the account's plan includes per UTC calendar month: 500,000 for Pro, 2,000,000 for Max.
@@ -4858,14 +4941,9 @@ class _UsageDataMonthlyQuotaRequired(TypedDict):
     # four times limit with pay as you go on (2,000,000 for Pro). null for an admin account, which no number
     # stops. ...
     ceiling: int | None
-
-
-class UsageDataMonthlyQuota(_UsageDataMonthlyQuotaRequired, total=False):
-    """The monthly request quota (#16111): where the account stands against the requests the current Pro or
-    Max plan includes per UTC calendar month. Reading it here spends nothing. null only when the month's
-    count could not be read for this response."""
-    # A historical usage price has not been reconciled to this plan allowance. Pay as you go remains unavailable
-    # until billing reconciliation.
+    # Why pay as you go is unavailable, or null. usage_price_reconciliation_required: the account's usage
+    # subscription carries a historical price whose included requests differ from its plan's, so pay as you go
+    # stays off ...
     unavailable_reason: Literal["usage_price_reconciliation_required", None] | str | None
 
 
@@ -5674,8 +5752,7 @@ class _EdgeHunterObservationsResponseRequired(TypedDict):
     # completeness state made this snapshot partial. This is snapshot-wide and can retain degradation that the ...
     degraded: bool
     # Sorted, deduplicated causes from the canonical all-sports generation, unchanged by category, cohort or
-    # selectors. Empty exactly when degraded is false. Capacity-limited input and
-    # board_upcoming_status=not_configured do ...
+    # selectors. Empty exactly when degraded is false. Capacity-limited input, the one-page holder bound ...
     degradation_reasons: list[EdgeHunterObservationDegradationReason]
     coverage: EdgeHunterObservationCoverage
     funnel: EdgeHunterFunnelReport
@@ -5726,6 +5803,10 @@ class EdgeHunterObservation(TypedDict):
     # Source cohort or additive projection view. emerging_pile is projected from wider_holder after source
     # computation, overlaps its funnel denominator, and uses the source row's directional evidence.
     cohort: Literal["wider_holder", "in_play", "emerging_pile"] | str
+    # Which evaluation place in its sport the row took this refresh. most_held: a wider_holder place for up to 8
+    # markets per sport kicking off within 24 hours, most graded holders first, kept until kickoff while the
+    # holder ...
+    admitted_by: Literal["most_held", "soonest_kickoff"] | str
     # Always true. This row must not be routed to an order executor.
     observation_only: Literal[True]
     # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
@@ -5757,12 +5838,13 @@ class EdgeHunterObservation(TypedDict):
     conviction_score: float
     # Whether the provider holder page came from the shared cache or a live provider read.
     provider_read_source: Literal["cached", "live"] | str
-    # True only when provider pagination proves exhaustion of both outcome holder populations. Observation
-    # collection may follow bounded cursor pages; hitting an individual 100-row page does not by itself prove ...
+    # True only when the provider page read for each outcome token listed every holder of that token. Observation
+    # collection reads one 100-row page per token; a token with more holders stays incomplete. False means holder
+    # ...
     holder_scan_complete: bool
     # Proven provider holder observation time. A warm cache hit uses only the original provider completion time
-    # from its companion metadata, never cache-read time. Null, malformed, future, or stale holder time fails in-
-    # play ...
+    # from its companion metadata, never cache-read time. A wider_holder or emerging_pile row whose holder read
+    # did not ...
     holder_snapshot_at: str | None
     # Truthful state of the directional read, which classifies each graded holder by its fresh synced legs across
     # the game's markets and, when holder_scan_complete is true, by Polymarket's currentValue on both outcomes of
@@ -5786,9 +5868,9 @@ class EdgeHunterObservationDegradationReason(TypedDict):
     Reasons are independent of the one-terminal-per-input funnel and remain unchanged through category,
     cohort and selector projection. Intentional capacity limits and an unconfigured upcoming source are
     not degradation reasons."""
-    # Recorded producer cause. holder_scan_incomplete means at least one attempted holder scan did not establish
-    # complete coverage; directional_unavailable can accompany an emitted wider_holder row; live_source_stale
-    # means ...
+    # Recorded producer cause. holder_scan_incomplete is retired and no longer emitted: the one-page holder read
+    # is an intentional bound, disclosed by each row's holder_scan_complete and by
+    # coverage.incomplete_holder_markets, ...
     reason: Literal["holder_scan_incomplete", "live_source_stale", "directional_unavailable", "funnel_unreconciled", "board_live_unavailable", "board_upcoming_unavailable", "provider_unavailable", "holder_deadline_unavailable", "holder_computation_unavailable", "missing_stored_market", "price_unavailable", "in_play_stale_observed", "in_play_directional_unavailable", "internal_unclassified", "board_source_unavailable", "board_deadline_unavailable"] | str
     # Canonical sport for the recorded cause; null only for generation-wide evidence without a sport attribution.
     sport: str | None
@@ -5812,7 +5894,8 @@ class EdgeHunterObservationCoverage(TypedDict):
     # emissions.
     emitted_observations: int
     # Canonical source-generation markets whose attempted holder scan did not establish complete coverage,
-    # including incomplete scans that did not emit an observation.
+    # including incomplete scans that did not emit an observation. Collection reads one 100-row page per token, so
+    # a market ...
     incomplete_holder_markets: int
     # Observations matching the requested cohort, category, selectors and applicable pinned projection cutoff
     # before pagination.
