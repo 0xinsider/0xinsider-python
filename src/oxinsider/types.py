@@ -93,6 +93,8 @@ __all__ = [
     "EdgeHunterObservation",
     "EdgeHunterObservationCoverage",
     "EdgeHunterObservationDegradationReason",
+    "EdgeHunterObservationDeparture",
+    "EdgeHunterObservationTerminalReason",
     "EdgeHunterObservationsResponse",
     "EdgeHunterOutcome",
     "EdgeHunterParticipant",
@@ -310,6 +312,7 @@ __all__ = [
     "TraderGradeAtObservation",
     "TraderPnl",
     "TraderPnlExact",
+    "TraderPnlInScope",
     "TraderQuantMetrics",
     "TraderStats",
     "TraderStatsExact",
@@ -589,6 +592,10 @@ class TraderPnl(TypedDict, total=False):
     # Additive lossless counterpart. Omitted when the trusted native realized-P&L source is unavailable; existing
     # numeric fields keep their display-safe v1 semantics.
     exact: TraderPnlExact
+    # Additive (#27311): the wallet's sports and esports record, the figure the 0xinsider profile headlines.
+    # Omitted until 0xinsider has computed the wallet's record; absent means not computed yet, never zero. The
+    # other pnl ...
+    in_scope: TraderPnlInScope
 
 
 class _PnlCorrectionRequired(TypedDict):
@@ -645,6 +652,29 @@ class ExactDecimal(TypedDict):
     basis: str
 
 
+class TraderPnlInScope(TypedDict):
+    """A wallet's sports and esports record (#27311): Polymarket's published realized P&L (pnl.realized
+    plus any published pnl.correction) split into the part earned on sports and esports markets. Fees,
+    refunds and rebates stay in, apportioned by cost. A wallet wholly in sports keeps the published
+    figure exactly; one with no sports market gets 0. Refreshed after each wallet sync; as_of dates it."""
+    # Names the split rule, currently sports_esports_split_v1. A new value means the rule changed; compare figures
+    # only within one basis.
+    basis: str
+    # Sports and esports realized P&L in USD, display-safe. null when the wallet has no published realized figure
+    # to split.
+    realized_pnl: float | None
+    # Sports and esports markets the wallet has traded, any status.
+    markets: int
+    # Of those, the markets that have resolved.
+    markets_resolved: int
+    # Share of decided sports and esports markets the wallet won, 0 to 1. null with no decided market.
+    win_rate: float | None
+    # The wallet's markets outside sports and esports, which 0xinsider no longer lists.
+    markets_out_of_scope: int
+    # When the record behind these figures was computed. Format: date-time.
+    as_of: str
+
+
 class TraderStats(TypedDict, total=False):
     markets_traded: int
     win_rate: float
@@ -667,8 +697,8 @@ class TraderStatsExact(TypedDict):
 
 class _TraderStrategyRequired(TypedDict):
     # Observed trading style identifier. New rows use two_sided, category_focused, high_activity, diversified,
-    # mixed, or unclassified. Historical identifiers remain readable during normal reclassification; style does
-    # not ...
+    # mixed, or unclassified, counted over the wallet's sports and esports markets only. Historical identifiers
+    # remain ...
     strategy_type: str
 
 
@@ -949,16 +979,17 @@ class _TraderContextRequired(TypedDict):
 
 
 class TraderContext(_TraderContextRequired, total=False):
-    # Aggregate position and P&L coverage for the trader. Omitted entirely (key absent, never null) when the
-    # trader is not in the local database or native net economics is unavailable. Realized fields remain numbers
-    # when ...
+    # Aggregate position and P&L coverage for the trader. Counts all Polymarket markets, not only sports and
+    # esports. Omitted entirely (key absent, never null) when the trader is not in the local database or native
+    # net ...
     position_summary: TraderContextPositionSummary
 
 
 class TraderContextPositionSummary(TypedDict):
-    """Aggregate position and P&L coverage for the trader. Omitted entirely (key absent, never null) when
-    the trader is not in the local database or native net economics is unavailable. Realized fields
-    remain numbers when present, including a genuine zero."""
+    """Aggregate position and P&L coverage for the trader. Counts all Polymarket markets, not only sports
+    and esports. Omitted entirely (key absent, never null) when the trader is not in the local database
+    or native net economics is unavailable. Realized fields remain numbers when present, including a
+    genuine zero."""
     # Provider markets_traded count when known; null when the provider total is unavailable.
     markets_total: int | None
     # Markets with locally synced position rows.
@@ -1045,7 +1076,7 @@ class ApiErrorBody(_ApiErrorBodyRequired, total=False):
     # ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the
     # code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on
     # ...
-    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
+    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "market_out_of_scope", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
 
 
 class _FreshnessFailureRequired(TypedDict):
@@ -1774,8 +1805,8 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # list ...
     win_rate: float
     # Observed trading style identifier. New rows use two_sided, category_focused, high_activity, diversified,
-    # mixed, or unclassified. Historical identifiers remain readable during normal reclassification; style does
-    # not ...
+    # mixed, or unclassified, counted over the wallet's sports and esports markets only. Historical identifiers
+    # remain ...
     strategy_type: str
     # Format: date-time.
     last_active: str
@@ -2504,8 +2535,9 @@ class _PickOfTheDayArchiveDayRequired(TypedDict):
     wins: int
     # Picks on the day that resolved as a loss, counted by the same pass as hit_rate.losses.
     losses: int
-    # Picks on the day that resolved void: the market settled with no winner. A void is neither a win nor a loss
-    # and is not staked, so it enters no money figure.
+    # Picks on the day that resolved void: the market settled with no winner, or the game was suspended or
+    # postponed and not completed within 72 hours of kickoff. A void is neither a win nor a loss and is not
+    # staked, so it ...
     void: int
     # Picks on the day not yet resolved. A day whose picks are all pending is a real 0-0 day with pending > 0, not
     # a missing record.
@@ -4606,6 +4638,10 @@ class ReportPayload(TypedDict):
     # source date range. The grade is the current projection at snapshot materialization time, not a historical
     # grade at ...
     grade_distribution: list[dict[str, Any]] | None
+    # Which markets the report counts. sports_and_esports for a period that ends on or after 2026-10-21: totals,
+    # categories, top trades and the grade cohort cover sports and esports markets only. all_markets for an
+    # earlier ...
+    market_scope: Literal["all_markets", "sports_and_esports"] | str
 
 
 class ReportPayloadTopLargeTradesItem(TypedDict):
@@ -4646,6 +4682,10 @@ class GetTraderExportSnapshotResponse(TypedDict):
 
 class TraderExportSnapshot(TypedDict):
     address: str
+    # The markets the export file's trades and markets sections hold: sports and esports markets only.
+    # counts.exported_markets, counts.estimated_trade_rows, counts.estimated_size_mb,
+    # reconciliation.exported_market_cost_basis ...
+    product_scope: Literal["sports_esports_v1"]
     # Format: date-time.
     generated_at: str
     source_range: ExportSourceRange
@@ -4660,9 +4700,9 @@ class ExportSourceRange(TypedDict):
     first_pnl_date: str | None
     # Format: date.
     last_pnl_date: str | None
-    # Format: date-time.
+    # The latest trade in the wallet's sports and esports markets. Null when it has none. Format: date-time.
     latest_trade_at: str | None
-    # Format: date-time.
+    # Same instant as latest_trade_at: the latest activity of the markets the export holds. Format: date-time.
     latest_market_activity_at: str | None
 
 
@@ -4680,6 +4720,7 @@ class ExportVolumeReconciliation(TypedDict):
     # has stored for the wallet. It can cover less history than provider_lifetime_volume; never Polymarket's share
     # ...
     exported_activity_volume: float
+    # Cost basis in USD summed over the wallet's sports and esports markets, the markets section of the export.
     exported_market_cost_basis: float
     # provider_lifetime_volume minus exported_activity_volume, in USD, rounded to cents. Null when
     # provider_lifetime_volume is null.
@@ -4690,9 +4731,15 @@ class ExportVolumeReconciliation(TypedDict):
 
 
 class ExportCounts(TypedDict):
+    # Daily P&L rows. The daily P&L covers every market of the wallet.
     pnl_days: int
+    # The wallet's sports and esports markets: the rows of the export's markets section, before its 50,000-row
+    # cap.
     exported_markets: int
+    # Estimated trades in the wallet's sports and esports markets: the summed trade counts of those markets. The
+    # file counts its own rows in generation.source_watermarks.trades.rows.
     estimated_trade_rows: int
+    # Estimated file size from estimated_trade_rows and exported_markets.
     estimated_size_mb: float
 
 
@@ -4741,9 +4788,11 @@ class _TraderExportJobDataRequired(TypedDict):
     # the job to ...
     status: Literal["queued", "running", "ready", "failed", "reconcile_required", "expired", "cancel_requested", "cancelled"] | str
     format: Literal["json", "ndjson", "csv"] | str
-    # Format: int64.
+    # Trade rows the file holds: trades in the wallet's sports and esports markets, counted in the file's own read
+    # snapshot. Null until the worker has read the snapshot (queued, and early in running); a job accepted before
+    # ...
     total_trades: int | None
-    # Format: int64.
+    # Trade rows written so far; equals total_trades once the file is read. Format: int64.
     processed_trades: int | None
     # Format: int64.
     file_size: int | None
@@ -4830,13 +4879,20 @@ class TraderExportArtifactManifest(TypedDict):
     compressed_sha256: str
 
 
-class TraderExportGeneration(TypedDict):
+class _TraderExportGenerationRequired(TypedDict):
     # Opaque generation identity selected for the coherent read snapshot. Format: uuid.
     id: str
     # Format: date-time.
     selected_at: str
     consistency: Literal["repeatable_read"]
     source_watermarks: TraderExportSourceWatermarks
+
+
+class TraderExportGeneration(_TraderExportGenerationRequired, total=False):
+    # The markets the file's trades and markets sections hold: sports and esports markets only
+    # (export_metadata.scope_note in a JSON or NDJSON file names the sections that still cover every market).
+    # Absent on a file written ...
+    product_scope: Literal["sports_esports_v1"]
 
 
 class TraderExportSourceWatermarks(TypedDict):
@@ -4875,8 +4931,10 @@ class TraderExportCategoryWatermark(TypedDict):
 
 class TraderExportTradeWatermark(TypedDict):
     source: str
+    # sports_esports_rows: the file holds every stored trade in the wallet's sports and esports markets.
+    # all_matching_rows on a file written before 2026-10-22, which holds every market's trades.
     coverage: str
-    # Format: int64.
+    # Trade rows the file holds, counted in the same read snapshot as the rows. Format: int64.
     rows: int
     # Format: date.
     first_activity_date: str | None
@@ -5752,7 +5810,8 @@ class _EdgeHunterObservationsResponseRequired(TypedDict):
     # completeness state made this snapshot partial. This is snapshot-wide and can retain degradation that the ...
     degraded: bool
     # Sorted, deduplicated causes from the canonical all-sports generation, unchanged by category, cohort or
-    # selectors. Empty exactly when degraded is false. Capacity-limited input, the one-page holder bound ...
+    # selectors; with admission=most_held_48h, from that selection's generation. Empty exactly when degraded is
+    # false. ...
     degradation_reasons: list[EdgeHunterObservationDegradationReason]
     coverage: EdgeHunterObservationCoverage
     funnel: EdgeHunterFunnelReport
@@ -5766,6 +5825,13 @@ class EdgeHunterObservationsResponse(_EdgeHunterObservationsResponseRequired, to
     distinguishes advanced collections, including empty pages."""
     # Normalized axes requested with a selector or category; omitted on an unselected default read.
     selection: EdgeHunterSelection
+    # Echoes the opt-in admission rule a request named; omitted on a default read. When present, data, funnel,
+    # coverage, degraded and degradation_reasons describe that selection, not the default one.
+    admission: Literal["most_held_48h"]
+    # cohort=wider_holder only, for the default selection and for admission=most_held_48h: markets that had a
+    # wider_holder card in an earlier snapshot of the same selection, have none in this one, and have not kicked
+    # off. ...
+    departures: list[EdgeHunterObservationDeparture]
 
 
 class EdgeHunterObservation(TypedDict):
@@ -5806,7 +5872,7 @@ class EdgeHunterObservation(TypedDict):
     # Which evaluation place in its sport the row took this refresh. most_held: a wider_holder place for up to 8
     # markets per sport kicking off within 24 hours, most graded holders first, kept until kickoff while the
     # holder ...
-    admitted_by: Literal["most_held", "soonest_kickoff"] | str
+    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h"] | str
     # Always true. This row must not be routed to an order executor.
     observation_only: Literal[True]
     # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
@@ -5878,11 +5944,12 @@ class EdgeHunterObservationDegradationReason(TypedDict):
 
 class EdgeHunterObservationCoverage(TypedDict):
     """Measured coverage of the frozen canonical observation generation and this requested page. For sports
-    and esports reads, the first four counts remain global through category, cohort and all selectors.
-    They are neither a census of all provider markets nor a count of successfully evaluated holders.
-    Selected and returned counts describe the requested projection. An unmappable legacy category
-    synthesizes a zero-work empty generation with all six counts zero and no degradation reasons; it
-    does not read the all-sports cache."""
+    and esports reads, the first four counts remain global through category, cohort and all selectors;
+    with admission=most_held_48h they count that selection's generation, where every wider_holder
+    candidate it did not take is capacity_limited. They are neither a census of all provider markets nor
+    a count of successfully evaluated holders. Selected and returned counts describe the requested
+    projection. An unmappable legacy category synthesizes a zero-work empty generation with all six
+    counts zero ..."""
     # Sum of canonical source-generation funnel input across all sports, before category, cohort or selector
     # projection.
     input_markets: int
@@ -5942,3 +6009,29 @@ class EdgeHunterSportFunnelReport(TypedDict):
     terminal_total: int
     # True exactly when input equals terminal_total.
     reconciled: bool
+
+
+class EdgeHunterObservationDeparture(TypedDict):
+    """A market whose wider_holder card left this selection before kickoff, with why it left."""
+    # Raw Polymarket condition id.
+    condition_id: str
+    event_slug: str | None
+    # Canonical sport bucket the departed card carried.
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
+    # The departed card's admitted_by: most_held_48h on an admission=most_held_48h response.
+    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h"] | str
+    # Kickoff the departed card carried, in UTC. The entry leaves the list once it passes. Format: date-time.
+    game_start_time: str
+    # The departed card's observed_at: when its last evaluation finished. Format: date-time.
+    last_observed_at: str
+    # snapshot_as_of of the first snapshot of this selection without the card. Format: date-time.
+    departed_at: str
+    # Why the market has no card: its terminal in this selection's funnel in the snapshot it left, and while that
+    # terminal reports a read that did not finish (holder_deadline_unavailable, provider_unavailable, ...
+    reason: EdgeHunterObservationTerminalReason
+
+
+# Closed 25-value terminal-reason vocabulary for the accountable Edge Hunter observation funnel. capacity_limited
+# is intentional bounded provider-work admission and does not itself set the snapshot degraded.
+# board_source_unavailable is a completed board-source failure; board_deadline_unavailable ...
+EdgeHunterObservationTerminalReason = Union[Literal["outside_horizon", "resolved", "provider_closed", "provider_excluded", "invalid_market", "missing_token", "missing_stored_market", "not_provider_live", "board_source_unavailable", "board_deadline_unavailable", "primary_slate_candidate", "zero_indexed_holder_research", "capacity_limited", "provider_unavailable", "holder_deadline_unavailable", "holder_computation_unavailable", "holder_scan_incomplete", "no_current_graded_holder", "split_holder_pile", "price_unavailable", "wider_holder_emitted", "in_play_emitted", "in_play_stale_observed", "in_play_directional_unavailable", "internal_unclassified"], str]

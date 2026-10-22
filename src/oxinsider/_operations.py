@@ -648,7 +648,7 @@ class OperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
-            category: Exact match against provider-backed market_canonical.category.
+            category: Exact match against provider-backed market_canonical.category. Sports and esports only (#27311): a category outside them returns 400 bad_request with param ...
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
@@ -1222,8 +1222,8 @@ class OperationsMixin:
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
+            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
         """
         result: ListLeaderboardResponse | NotModifiedResponse = self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -1369,14 +1369,14 @@ class OperationsMixin:
 
         Search prediction markets by keyword. Returns representative market matches with status,
         category, and platform metadata. Cursor pagination advances over grouped market results
-        rather than raw sub-market rows.
+        rather than raw sub-market rows. Returns sports and esports markets only (#27411).
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
         """
         result: SearchMarketsResponse = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -1510,10 +1510,10 @@ class OperationsMixin:
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
-        opaque cursor carrying the first-page ...
+        Ranks sports and esports markets (#27306) by absolute net S/A/B-grade whale flow over a
+        requested timeframe. Use this discovery endpoint to answer where sharp money is flowing
+        before drilling into a specific market with /api/v1/market/{condition_id}/flow.
+        Pagination is anchored by an opaque cursor ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1575,9 +1575,9 @@ class OperationsMixin:
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
         Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
-        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
-        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
-        where sharp money is flowing before drilling ...
+        live as a deprecated byte-identical alias of it. Ranks sports and esports markets
+        (#27306) by absolute net S/A/B-grade whale flow over a requested timeframe. Use this
+        discovery endpoint to answer where sharp ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -1602,8 +1602,9 @@ class OperationsMixin:
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
         Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
-        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
-        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        for Polymarket, the one venue it covers. Every capability reports supported. Coverage is
+        sports and esports markets only (#27299): a market outside them answers 404 not_found
+        with error.reason ...
         """
         result: GetCoverageResponse = self._call("getCoverage", path_params={}, query={})
         return result
@@ -1972,8 +1973,9 @@ class OperationsMixin:
         ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
 
         Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
-        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
-        deprecated alias and keeps answering object: radar_flag.
+        list responses. A flag on a market outside sports and esports returns 404 not_found with
+        error.reason=market_out_of_scope (#27305); stop requesting it. Canonical since
+        2026-09-23; GET /api/v1/insider-radar/{id} is ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -2915,7 +2917,7 @@ class OperationsMixin:
         Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
         identities, grades, legs, conjunction results, and ingest coverage. Requires an active
         Pro or Max API key. Listing includes executions with price at most 0.95; use combo
-        detail for complete history. Recent ...
+        detail for complete history. Sports and ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -2960,9 +2962,9 @@ class OperationsMixin:
         ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
 
         Returns the stored count of traded combos whose YES conjunction remains pending, with
-        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
-        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
-        value is unknown, never zero.
+        its computation timestamp. Sports and esports only (#27449): a combo with a leg outside
+        them is not counted. Requires an active Pro or Max API key. The count is refreshed by
+        the ingest owner at most every five ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3014,6 +3016,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3035,6 +3038,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3055,6 +3059,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3084,6 +3089,7 @@ class OperationsMixin:
             view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets outside the funded ...
+            admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -3096,7 +3102,7 @@ class OperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -3553,7 +3559,7 @@ class ResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
-            category: Exact match against provider-backed market_canonical.category.
+            category: Exact match against provider-backed market_canonical.category. Sports and esports only (#27311): a category outside them returns 400 bad_request with param ...
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
@@ -4127,8 +4133,8 @@ class ResponseOperationsMixin:
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
+            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
         """
         result: ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse] = self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -4274,14 +4280,14 @@ class ResponseOperationsMixin:
 
         Search prediction markets by keyword. Returns representative market matches with status,
         category, and platform metadata. Cursor pagination advances over grouped market results
-        rather than raw sub-market rows.
+        rather than raw sub-market rows. Returns sports and esports markets only (#27411).
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
         """
         result: ApiResponse[SearchMarketsResponse] = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -4415,10 +4421,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
-        opaque cursor carrying the first-page ...
+        Ranks sports and esports markets (#27306) by absolute net S/A/B-grade whale flow over a
+        requested timeframe. Use this discovery endpoint to answer where sharp money is flowing
+        before drilling into a specific market with /api/v1/market/{condition_id}/flow.
+        Pagination is anchored by an opaque cursor ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4480,9 +4486,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
         Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
-        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
-        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
-        where sharp money is flowing before drilling ...
+        live as a deprecated byte-identical alias of it. Ranks sports and esports markets
+        (#27306) by absolute net S/A/B-grade whale flow over a requested timeframe. Use this
+        discovery endpoint to answer where sharp ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4507,8 +4513,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
         Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
-        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
-        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        for Polymarket, the one venue it covers. Every capability reports supported. Coverage is
+        sports and esports markets only (#27299): a market outside them answers 404 not_found
+        with error.reason ...
         """
         result: ApiResponse[GetCoverageResponse] = self._call("getCoverage", path_params={}, query={})
         return result
@@ -4877,8 +4884,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
 
         Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
-        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
-        deprecated alias and keeps answering object: radar_flag.
+        list responses. A flag on a market outside sports and esports returns 404 not_found with
+        error.reason=market_out_of_scope (#27305); stop requesting it. Canonical since
+        2026-09-23; GET /api/v1/insider-radar/{id} is ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5820,7 +5828,7 @@ class ResponseOperationsMixin:
         Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
         identities, grades, legs, conjunction results, and ingest coverage. Requires an active
         Pro or Max API key. Listing includes executions with price at most 0.95; use combo
-        detail for complete history. Recent ...
+        detail for complete history. Sports and ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5865,9 +5873,9 @@ class ResponseOperationsMixin:
         ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
 
         Returns the stored count of traded combos whose YES conjunction remains pending, with
-        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
-        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
-        value is unknown, never zero.
+        its computation timestamp. Sports and esports only (#27449): a combo with a leg outside
+        them is not counted. Requires an active Pro or Max API key. The count is refreshed by
+        the ingest owner at most every five ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5919,6 +5927,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -5940,6 +5949,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -5960,6 +5970,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -5989,6 +6000,7 @@ class ResponseOperationsMixin:
             view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets outside the funded ...
+            admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -6001,7 +6013,7 @@ class ResponseOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -6459,7 +6471,7 @@ class AsyncOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
-            category: Exact match against provider-backed market_canonical.category.
+            category: Exact match against provider-backed market_canonical.category. Sports and esports only (#27311): a category outside them returns 400 bad_request with param ...
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
@@ -7033,8 +7045,8 @@ class AsyncOperationsMixin:
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
+            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
         """
         result: ListLeaderboardResponse | NotModifiedResponse = await self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -7180,14 +7192,14 @@ class AsyncOperationsMixin:
 
         Search prediction markets by keyword. Returns representative market matches with status,
         category, and platform metadata. Cursor pagination advances over grouped market results
-        rather than raw sub-market rows.
+        rather than raw sub-market rows. Returns sports and esports markets only (#27411).
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
         """
         result: SearchMarketsResponse = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -7321,10 +7333,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
-        opaque cursor carrying the first-page ...
+        Ranks sports and esports markets (#27306) by absolute net S/A/B-grade whale flow over a
+        requested timeframe. Use this discovery endpoint to answer where sharp money is flowing
+        before drilling into a specific market with /api/v1/market/{condition_id}/flow.
+        Pagination is anchored by an opaque cursor ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7386,9 +7398,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
         Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
-        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
-        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
-        where sharp money is flowing before drilling ...
+        live as a deprecated byte-identical alias of it. Ranks sports and esports markets
+        (#27306) by absolute net S/A/B-grade whale flow over a requested timeframe. Use this
+        discovery endpoint to answer where sharp ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7413,8 +7425,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
         Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
-        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
-        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        for Polymarket, the one venue it covers. Every capability reports supported. Coverage is
+        sports and esports markets only (#27299): a market outside them answers 404 not_found
+        with error.reason ...
         """
         result: GetCoverageResponse = await self._call("getCoverage", path_params={}, query={})
         return result
@@ -7783,8 +7796,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
 
         Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
-        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
-        deprecated alias and keeps answering object: radar_flag.
+        list responses. A flag on a market outside sports and esports returns 404 not_found with
+        error.reason=market_out_of_scope (#27305); stop requesting it. Canonical since
+        2026-09-23; GET /api/v1/insider-radar/{id} is ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8726,7 +8740,7 @@ class AsyncOperationsMixin:
         Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
         identities, grades, legs, conjunction results, and ingest coverage. Requires an active
         Pro or Max API key. Listing includes executions with price at most 0.95; use combo
-        detail for complete history. Recent ...
+        detail for complete history. Sports and ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8771,9 +8785,9 @@ class AsyncOperationsMixin:
         ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
 
         Returns the stored count of traded combos whose YES conjunction remains pending, with
-        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
-        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
-        value is unknown, never zero.
+        its computation timestamp. Sports and esports only (#27449): a combo with a leg outside
+        them is not counted. Requires an active Pro or Max API key. The count is refreshed by
+        the ingest owner at most every five ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -8825,6 +8839,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8846,6 +8861,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8866,6 +8882,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8895,6 +8912,7 @@ class AsyncOperationsMixin:
             view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets outside the funded ...
+            admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -8907,7 +8925,7 @@ class AsyncOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -9364,7 +9382,7 @@ class AsyncResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             consistency: live (default) reads the current value-ordered board. snapshot requires wallet and freezes up to 500 matching rows and 2 MB for up to five minutes. Keep ...
             min_size: Minimum current position value in USD. Defaults to 100 when omitted, or to 0 when wallet is present; send 0 to include every reconciled position.
-            category: Exact match against provider-backed market_canonical.category.
+            category: Exact match against provider-backed market_canonical.category. Sports and esports only (#27311): a category outside them returns 400 bad_request with param ...
             condition_id: Scope to one market. Accepts the raw provider condition_id or the mkt_-prefixed market id emitted by V1 responses. Combine with min_size=0 for every reconciled ...
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
@@ -9938,8 +9956,8 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
             cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category. Values are matched to canonical category buckets: political variants (Elections, Global Politics, U.S. Politics, ...) fold into Politics, ...
-            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. The original ten archetype ...
+            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
         """
         result: ApiResponse[ListLeaderboardResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLeaderboard", path_params={}, query={"limit": limit, "cursor": cursor, "category": category, "strategy": strategy}, if_none_match=if_none_match)
         return result
@@ -10085,14 +10103,14 @@ class AsyncResponseOperationsMixin:
 
         Search prediction markets by keyword. Returns representative market matches with status,
         category, and platform metadata. Cursor pagination advances over grouped market results
-        rather than raw sub-market rows.
+        rather than raw sub-market rows. Returns sports and esports markets only (#27411).
 
         Query parameters:
             q: Required. Search query. Must be 1-512 characters before whitespace trimming and non-empty after trimming.
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
         """
         result: ApiResponse[SearchMarketsResponse] = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -10226,10 +10244,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/markets/smart-money-flows`` (operationId ``listSmartMoneyFlows``).
 
-        Ranks markets by absolute net S/A/B-grade whale flow over a requested timeframe. Use
-        this discovery endpoint to answer where sharp money is flowing before drilling into a
-        specific market with /api/v1/market/{condition_id}/flow. Pagination is anchored by an
-        opaque cursor carrying the first-page ...
+        Ranks sports and esports markets (#27306) by absolute net S/A/B-grade whale flow over a
+        requested timeframe. Use this discovery endpoint to answer where sharp money is flowing
+        before drilling into a specific market with /api/v1/market/{condition_id}/flow.
+        Pagination is anchored by an opaque cursor ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -10291,9 +10309,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/markets/sharp-money-flows`` (operationId ``listSharpMoneyFlows``).
 
         Canonical path for ranked sharp-money flows; /api/v1/markets/smart-money-flows remains
-        live as a deprecated byte-identical alias of it. Ranks markets by absolute net
-        S/A/B-grade whale flow over a requested timeframe. Use this discovery endpoint to answer
-        where sharp money is flowing before drilling ...
+        live as a deprecated byte-identical alias of it. Ranks sports and esports markets
+        (#27306) by absolute net S/A/B-grade whale flow over a requested timeframe. Use this
+        discovery endpoint to answer where sharp ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -10318,8 +10336,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/coverage`` (operationId ``getCoverage``).
 
         Unauthenticated discovery endpoint that declares which V1 data surfaces the API serves
-        for Polymarket, the one venue it covers. Every capability reports supported. Canonical
-        since #16315; GET /api/v1/platforms is its deprecated alias with the same body.
+        for Polymarket, the one venue it covers. Every capability reports supported. Coverage is
+        sports and esports markets only (#27299): a market outside them answers 404 not_found
+        with error.reason ...
         """
         result: ApiResponse[GetCoverageResponse] = await self._call("getCoverage", path_params={}, query={})
         return result
@@ -10688,8 +10707,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/suspicious-trades/{id}`` (operationId ``getSuspiciousTrade``).
 
         Returns one suspicious trade by raw whale_alerts.id or the rf_-prefixed id emitted by
-        list responses. Canonical since 2026-09-23; GET /api/v1/insider-radar/{id} is its
-        deprecated alias and keeps answering object: radar_flag.
+        list responses. A flag on a market outside sports and esports returns 404 not_found with
+        error.reason=market_out_of_scope (#27305); stop requesting it. Canonical since
+        2026-09-23; GET /api/v1/insider-radar/{id} is ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11631,7 +11651,7 @@ class AsyncResponseOperationsMixin:
         Returns live Polymarket combo taker fills with exact decimal-string economics, wallet
         identities, grades, legs, conjunction results, and ingest coverage. Requires an active
         Pro or Max API key. Listing includes executions with price at most 0.95; use combo
-        detail for complete history. Recent ...
+        detail for complete history. Sports and ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11676,9 +11696,9 @@ class AsyncResponseOperationsMixin:
         ``GET /api/v1/combos/summary`` (operationId ``getCombosSummary``).
 
         Returns the stored count of traded combos whose YES conjunction remains pending, with
-        its computation timestamp. Requires an active Pro or Max API key. The count is refreshed
-        by the ingest owner at most every five minutes and cached for 60 seconds. A null live
-        value is unknown, never zero.
+        its computation timestamp. Sports and esports only (#27449): a combo with a leg outside
+        them is not counted. Requires an active Pro or Max API key. The count is refreshed by
+        the ingest owner at most every five ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11730,6 +11750,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -11751,6 +11772,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -11771,6 +11793,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
+        admission: Literal["most_held_48h"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -11800,6 +11823,7 @@ class AsyncResponseOperationsMixin:
             view: Response mode. board preserves the full quoted board; signals exposes ranked records and category evidence; observations exposes cohort measurements and ...
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets outside the funded ...
+            admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -11812,6 +11836,6 @@ class AsyncResponseOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
