@@ -1253,8 +1253,8 @@ class OperationsMixin:
 
         Returns entitled published picks for the current product day. Pro includes five
         selections in total: the designated free selection and the first four non-free
-        selections in publication order. Max opens every available selection, up to twenty. A
-        day can include multiple selections from the same ...
+        selections in publication order. Max opens every available selection, up to twenty-five.
+        A day can include multiple selections from the same ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4164,8 +4164,8 @@ class ResponseOperationsMixin:
 
         Returns entitled published picks for the current product day. Pro includes five
         selections in total: the designated free selection and the first four non-free
-        selections in publication order. Max opens every available selection, up to twenty. A
-        day can include multiple selections from the same ...
+        selections in publication order. Max opens every available selection, up to twenty-five.
+        A day can include multiple selections from the same ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7076,8 +7076,8 @@ class AsyncOperationsMixin:
 
         Returns entitled published picks for the current product day. Pro includes five
         selections in total: the designated free selection and the first four non-free
-        selections in publication order. Max opens every available selection, up to twenty. A
-        day can include multiple selections from the same ...
+        selections in publication order. Max opens every available selection, up to twenty-five.
+        A day can include multiple selections from the same ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9987,8 +9987,8 @@ class AsyncResponseOperationsMixin:
 
         Returns entitled published picks for the current product day. Pro includes five
         selections in total: the designated free selection and the first four non-free
-        selections in publication order. Max opens every available selection, up to twenty. A
-        day can include multiple selections from the same ...
+        selections in publication order. Max opens every available selection, up to twenty-five.
+        A day can include multiple selections from the same ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.

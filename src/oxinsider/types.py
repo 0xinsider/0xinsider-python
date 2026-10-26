@@ -574,9 +574,9 @@ class TraderPnl(TypedDict, total=False):
     # pnl.net_total and pnl.realized keep Polymarket's own figures, and correction.net_total and
     # correction.realized ...
     correction: PnlCorrection
-    # true while 0xinsider is still checking some of the wallet's converted neg-risk markets (not yet measured,
-    # measured and not yet checked for transfers, or its latest reads keep failing), so the correction may change,
-    # or ...
+    # true while 0xinsider is still checking some of the wallet's converted neg-risk markets with a sports or
+    # esports event (not yet measured, measured and not yet checked for transfers, or its latest reads keep
+    # failing), so ...
     correction_pending: bool
     # For pnl.realized, expand=trust marks a matching native accounting snapshot as computed: native Polymarket
     # realized P&L plus credited maker and taker rebates, with fees already included. The exact numeric value is
@@ -617,8 +617,8 @@ class PnlCorrection(_PnlCorrectionRequired, total=False):
     amount). Per neg-risk market the wallet converted in, 0xinsider measures Polymarket's own activity
     cash against the sum of its position P&L, and sums the difference over every measured market whose
     shares did ..."""
-    # Polymarket's net realized P&L plus amount: the figure 0xinsider grades on. Omitted when Polymarket's figure
-    # is.
+    # Polymarket's net realized P&L plus amount. Since 2026-10-22 the grade reads this figure's sports and esports
+    # share. Omitted when Polymarket's figure is.
     realized: float
     # Polymarket's net total P&L plus amount: the 0xinsider profile's Total P&L. Omitted when Polymarket's figure
     # is, and on leaderboard entries.
@@ -653,15 +653,19 @@ class ExactDecimal(TypedDict):
 
 
 class TraderPnlInScope(TypedDict):
-    """A wallet's sports and esports record (#27311): Polymarket's published realized P&L (pnl.realized
-    plus any published pnl.correction) split into the part earned on sports and esports markets. Fees,
-    refunds and rebates stay in, apportioned by cost. A wallet wholly in sports keeps the published
-    figure exactly; one with no sports market gets 0. Refreshed after each wallet sync; as_of dates it."""
-    # Names the split rule, currently sports_esports_split_v1. A new value means the rule changed; compare figures
-    # only within one basis.
+    """A wallet's sports and esports record (#27311). basis names the rule behind realized_pnl (#29370):
+    polymarket_sports_esports_v1 is Polymarket's own realized P&L for the wallet in its sports and
+    esports categories, plus the wallet's maker and taker rebates apportioned by cost and the in-scope
+    part of any published pnl.correction; sports_esports_split_v1, used until both of the wallet's
+    category figures are confirmed, is Polymarket's published realized P&L (pnl.realized plus any
+    published pnl.correction) split into the part earned on sports and esports markets, with fees,
+    refunds and rebates ..."""
+    # The rule behind realized_pnl: polymarket_sports_esports_v1 (Polymarket's sports and esports category figures
+    # plus apportioned rebates) or sports_esports_split_v1 (the published realized figure split by cost). A new
+    # ...
     basis: str
-    # Sports and esports realized P&L in USD, display-safe. null when the wallet has no published realized figure
-    # to split.
+    # Sports and esports realized P&L in USD, display-safe. null when the split basis has no published realized
+    # figure to split.
     realized_pnl: float | None
     # Sports and esports markets the wallet has traded, any status.
     markets: int
@@ -1076,7 +1080,7 @@ class ApiErrorBody(_ApiErrorBodyRequired, total=False):
     # ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the
     # code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on
     # ...
-    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "market_out_of_scope", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
+    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "market_out_of_scope", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "cold_read_limited", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
 
 
 class _FreshnessFailureRequired(TypedDict):
@@ -1676,7 +1680,10 @@ class CounterpartyAnalysis(_CounterpartyAnalysisRequired, total=False):
 
 class _CounterpartyExecutionRequired(TypedDict):
     execution_id: str
-    exchange_family: Literal["ctf_v2", "neg_risk_ctf_v2"] | str
+    # Polymarket exchange contract that emitted the execution: `ctf_v2` the CTF Exchange v2, `neg_risk_ctf_v2` the
+    # Neg Risk CTF Exchange v2, `exchange_v3` ExchangeV3, which settles Polymarket Protocol V2 binary and neg-risk
+    # ...
+    exchange_family: Literal["ctf_v2", "neg_risk_ctf_v2", "exchange_v3"] | str
     transaction_hash: str
     orders_matched_log_index: int
     taker: CounterpartyParticipant
@@ -1793,8 +1800,8 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # native ...
     realized_pnl: float
     # The 0xinsider correction to Polymarket's P&L for neg-risk conversions. Present only when one is published;
-    # realized_pnl keeps Polymarket's own figure and pnl_correction.realized adds the amount to it. The grade and
-    # the ...
+    # realized_pnl keeps Polymarket's own figure and pnl_correction.realized adds the amount to it. Since
+    # 2026-10-22 ...
     pnl_correction: PnlCorrection
     # Full-history both-sides USD cash volume from a verified Polymarket user-volume observation. Omitted without
     # coverage.
@@ -1804,6 +1811,9 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # listed (the wallet must be ranked in that category); it does not rescope this field, so a soccer-filtered
     # list ...
     win_rate: float
+    # Additive (#27859): the wallet's sports and esports record, the same object as GET /api/v1/trader/{address}
+    # pnl.in_scope, as of the leaderboard's last refresh. The 0xinsider leaderboard page shows and sorts by ...
+    in_scope: TraderPnlInScope
     # Observed trading style identifier. New rows use two_sided, category_focused, high_activity, diversified,
     # mixed, or unclassified, counted over the wallet's sports and esports markets only. Historical identifiers
     # remain ...
@@ -2096,9 +2106,9 @@ class PickHolder(_PickHolderRequired, total=False):
     # `not_enough_data` (the wallet is below the resolved-market floor of 5 in the category), or `unavailable`
     # (the ...
     category_win_rate_status: Literal["measured", "not_enough_data", "unavailable"] | str
-    # Days since this wallet's first trade. Stamped at serve time from the wallet's current trader record, never
-    # frozen with the pick. The five badge fields are present together, and only for a wallet that carries at
-    # least ...
+    # Whole days since this wallet's first trade, rounded down (3.6 days reads 3), so it changes once a day, not
+    # on every request, and the pick's ETag holds between requests. Stamped at serve time from the wallet's
+    # current ...
     wallet_age_days: float | None
     # True when the wallet's first trade was under 30 days ago. Stamped at serve time from the wallet's current
     # trader record, never frozen with the pick. The five badge fields are present together, and only for a wallet
@@ -2147,11 +2157,11 @@ class _PickSportsContextRequired(TypedDict):
 
 class PickSportsContext(_PickSportsContextRequired, total=False):
     """Provider-first sports context for a Pick of the Day market: team crests, league branding, and live
-    score. Team logos and league logo are provider-owned (Polymarket /teams crests for clubs, country
-    flags for national teams and tennis players); no local derivation."""
+    score. Each team `logo` is a registered club crest or national flag as a same-origin path where one
+    exists, and provider artwork otherwise."""
     # Provider-owned event taxonomy from Gamma eventMetadata, joined in league · serie · tournament order with
-    # blanks and case-insensitive duplicates removed. Separate from league_name; omitted when the provider does
-    # not ...
+    # blanks and case-insensitive duplicates removed. A tennis qualifying match ends in ", Qualification",
+    # including an ...
     competition_label: str
     # Provider game identifier (Polymarket Gamma gameId); omitted when the provider supplies none.
     game_id: int
@@ -2386,8 +2396,9 @@ class _PickOfTheDayNoEntitledPicksRequired(TypedDict):
     locked_picks: list[PickOfTheDayLockedPicksItem]
     # Actionable status, including Upgrade to Max when only locked ranks are published.
     message: str
-    # Deprecated (#24157): always null, as on every Pick of the Day shape.
-    supersedes_pick_id: Literal[None] | None
+    # Deprecated (#24157): always null. No replacement lineage was ever recorded in this field; the key stays so
+    # existing V1 clients keep parsing. Identify a pick by pick_id.
+    supersedes_pick_id: str | None
 
 
 class PickOfTheDayNoEntitledPicks(_PickOfTheDayNoEntitledPicksRequired, total=False):
@@ -2952,9 +2963,9 @@ class TrendingWallet(_TrendingWalletRequired, total=False):
     # Both-sides traded volume over the window in SHARES, from the Polymarket leaderboard row, whose own schema
     # states the figure is never USD. Omitted when the row carried none.
     window_volume_shares: float
-    # All-time trader grade; a separate axis from streak_tier. Led by realized profit (the money actually banked,
-    # about 95 percent of the grade), with forecasting calibration, risk-adjusted returns, and consistency as the
-    # ...
+    # All-time trader grade; a separate axis from streak_tier. Led by realized profit on sports and esports
+    # markets (the money actually banked, about 95 percent of the grade; since 2026-10-22, the sports and esports
+    # share of ...
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     # Hot-streak tier (trailing-7d cross-sectional percentile). Omitted when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
@@ -3356,8 +3367,9 @@ class MarketHolder(_MarketHolderRequired, total=False):
     # `Rainbow ...
     category_win_rate_game: str
     category_evidence: HolderCategoryEvidence
-    # Days since this wallet's first trade. The five badge fields are present together, only for a wallet that
-    # draws at least one badge.
+    # Whole days since this wallet's first trade, rounded down (3.6 days reads 3), so it changes once a day, not
+    # on every request. The five badge fields are present together, only for a wallet that draws at least one
+    # badge.
     wallet_age_days: float | None
     # True when the wallet's first trade was under 30 days ago.
     is_new_wallet: bool
@@ -4713,20 +4725,19 @@ class ExportCompleteness(TypedDict):
 
 
 class ExportVolumeReconciliation(TypedDict):
-    # Verified full-history both-sides USD cash volume. Null without coverage; the local activity numerator may
-    # cover only a subset of history.
+    # Verified full-history both-sides USD cash volume across every market of the wallet. Null without coverage.
     provider_lifetime_volume: float | None
-    # Cash in USD, buys and sells, summed over the daily P&L rows this export carries, from the fills 0xinsider
-    # has stored for the wallet. It can cover less history than provider_lifetime_volume; never Polymarket's share
-    # ...
-    exported_activity_volume: float
+    # Cash in USD, buys and sells, in sports and esports markets, summed over the daily P&L rows this export
+    # carries (their total_volume, from the fills 0xinsider stores for the wallet). Never Polymarket's share
+    # count. Null ...
+    exported_activity_volume: float | None
     # Cost basis in USD summed over the wallet's sports and esports markets, the markets section of the export.
     exported_market_cost_basis: float
-    # provider_lifetime_volume minus exported_activity_volume, in USD, rounded to cents. Null when
-    # provider_lifetime_volume is null.
+    # Always null. provider_lifetime_volume covers every market and exported_activity_volume sports and esports
+    # markets only, so their difference measures nothing; the field stays so existing clients keep parsing the
+    # object.
     provider_activity_volume_gap: float | None
-    # exported_activity_volume divided by provider_lifetime_volume, a fraction of the cash, not a percent. Null
-    # when provider_lifetime_volume is null or zero.
+    # Always null, for the same reason as provider_activity_volume_gap.
     activity_volume_coverage: float | None
 
 
@@ -5531,7 +5542,7 @@ class EdgeHunterRow(TypedDict):
     condition_id: str
     event_slug: str | None
     title: str | None
-    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str | None
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball", None] | str | None
     raw_category: str | None
     # Format: date-time.
     game_start_time: str | None
@@ -5540,7 +5551,7 @@ class EdgeHunterRow(TypedDict):
     participants: list[EdgeHunterParticipant]
     image: str | None
     outcomes: list[EdgeHunterOutcome]
-    signal: EdgeHunterSignal
+    signal: EdgeHunterSignal | None
     # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
     # require sidecar readiness and fail closed with 503 instead.
     market_context: EdgeHunterMarketContext | None
@@ -5572,7 +5583,7 @@ class EdgeHunterOutcome(TypedDict):
     # Frozen provider CLOB token ID for this exact outcome in YES/NO order. Null when unavailable; not a
     # participant identity.
     token_id: str | None
-    current_price: EdgeHunterPrice
+    current_price: EdgeHunterPrice | None
 
 
 class _EdgeHunterPriceRequired(TypedDict):
@@ -5601,7 +5612,7 @@ class EdgeHunterSignal(TypedDict):
     a_count: int
     b_count: int
     graded_holders: int
-    top_grade: Literal["S", "A", "B"] | str | None
+    top_grade: Literal["S", "A", "B", None] | str | None
     smart_score: float | None
     net_side: str | None
     conviction_score: float
@@ -5610,7 +5621,7 @@ class EdgeHunterSignal(TypedDict):
     one_way_graded_usd: float | None
     directional_confidence: float | None
     directional_rank_score: float
-    current_price: EdgeHunterPrice
+    current_price: EdgeHunterPrice | None
     # Frozen provider CLOB token ID for the backed outcome. Null when unavailable; matches
     # outcomes[piled_outcome_index].token_id when the shared provider context is available.
     token_id: str | None
@@ -5731,7 +5742,7 @@ class EdgeHunterRankedSignal(TypedDict):
     # Polymarket CLOB token id (ERC1155 asset id, decimal string) for the PILED outcome; null when unavailable.
     token_id: str | None
     # Canonical sport bucket (e.g. Basketball, Tennis); null when the raw category has no canonical mapping.
-    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str | None
+    category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball", None] | str | None
     # Raw provider category as stored (e.g. NBA, EPL).
     raw_category: str | None
     title: str | None
@@ -5954,7 +5965,8 @@ class EdgeHunterObservationCoverage(TypedDict):
     # projection.
     input_markets: int
     # Canonical source-generation input assigned capacity_limited. These markets were intentionally outside the
-    # bounded holder-work admission and are not missing emitted rows.
+    # bounded holder-work admission and are not missing emitted rows. It includes the admitted pregame
+    # wider_holder ...
     capacity_limited_markets: int
     # All wider_holder and in_play observations emitted in the canonical source generation, before cohort,
     # category or selector projection. Emerging pile is an overlapping projection and does not add source
