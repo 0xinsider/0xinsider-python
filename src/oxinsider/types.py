@@ -661,9 +661,8 @@ class TraderPnl(TypedDict, total=False):
     # Deprecated since 2026-10-27 and never sent. It was native Polymarket realized P&L over every Polymarket
     # market of the wallet, and wallet figures cover sports and esports markets only (#29830). Read ...
     realized: float
-    # Unrealized P&L in USD of the wallet's open positions on its synced sports and esports markets, from the
-    # open-position aggregate (dated by the positions data_quality group). Each open position's market is judged
-    # when the ...
+    # Unrealized (mark-to-market) P&L in USD of the wallet's open positions on its synced sports and esports
+    # markets: Polymarket's cashPnl, current value minus cost, summed over the positions still held, from the ...
     unrealized: float
     # Deprecated since 2026-10-27 and never sent: its one member was the lossless counterpart of the retired
     # pnl.realized (#29830).
@@ -842,9 +841,9 @@ class TraderQuantMetrics(TypedDict):
 
 
 class _DataQualityRequired(TypedDict):
-    # fresh when every group is fresh, unavailable when every group is unavailable, and partial in every other
-    # case.
-    status: Literal["fresh", "partial", "unknown", "untracked", "unavailable"] | str
+    # fresh when every group is fresh, unavailable when every group is unavailable, stale when every group is
+    # fresh or stale and at least one is stale, and partial in every other case.
+    status: Literal["fresh", "stale", "partial", "unknown", "untracked", "unavailable"] | str
     # One entry per field group. Entries may be added in later releases, so match on group rather than on position
     # or length.
     field_groups: list[DataQualityGroup]
@@ -853,10 +852,10 @@ class _DataQualityRequired(TypedDict):
 class DataQuality(_DataQualityRequired, total=False):
     """Compact data age and coverage for a response body, always present on the operations that publish it.
     Read status and as_of to decide whether to use the body at all, and field_groups to see which part
-    is weak. Everything here comes from stored observation clocks, so a cached body reports the same
-    ages a freshly computed one does: meta.cached and meta.cache_age_s stay the only transport-time
-    facts and neither makes this block newer. The per-field audit object is still available through
-    expand=trust; this is the default summary of the same question."""
+    is weak. Everything here comes from stored observation clocks, and each clocked group is judged
+    against its writer's budget when the body is served, so a cached body reports the same ages and
+    verdicts a freshly computed one does: meta.cached and meta.cache_age_s stay the only transport-time
+    facts and neither makes this block newer. The per-field audit object is still available through ..."""
     # The oldest as_of among the groups that carry one: the age of the weakest clock this body rests on. Omitted
     # when no group carries a clock. Format: date-time.
     as_of: str
@@ -869,10 +868,10 @@ class _DataQualityGroupRequired(TypedDict):
     # The table and column that write this group, named so the verdict can be audited (for example
     # trader_rankings.computed_at).
     owner: str
-    # fresh: served, and as_of carries this group's real observation or computation clock. partial: some of the
-    # group's fields are served and some are missing. unknown: served, and this read has no clock for it, so no
-    # age may ...
-    status: Literal["fresh", "partial", "unknown", "untracked", "unavailable"] | str
+    # fresh: served, as_of carries this group's real observation or computation clock, and that clock is no older
+    # than max_age_s when the group carries one. stale: served and clocked, but as_of is older than max_age_s, so
+    # the ...
+    status: Literal["fresh", "stale", "partial", "unknown", "untracked", "unavailable"] | str
 
 
 class DataQualityGroup(_DataQualityGroupRequired, total=False):
@@ -882,6 +881,10 @@ class DataQualityGroup(_DataQualityGroupRequired, total=False):
     as_of: str
     # Why the status is not fresh. Omitted when it is.
     reason: str
+    # The longest gap in seconds this group's writer leaves between refreshes on its schedule: the age past which
+    # the group reads stale instead of fresh. Omitted when the writer keeps no schedule its clock could fall
+    # behind ...
+    max_age_s: int
 
 
 class _TraderTrustRequired(TypedDict):
@@ -1141,7 +1144,9 @@ class TraderContextPositionSummary(TypedDict):
     # directly from the accounting snapshot. For the sports and esports figure read
     # trader.pnl.in_scope.realized_pnl. ...
     total_realized_pnl: float
-    # Mark-to-market unrealized P&L (USD) on open positions in synced sports and esports markets (#32119).
+    # Mark-to-market unrealized P&L (USD) on open positions in synced sports and esports markets (#32119):
+    # Polymarket's cashPnl summed over the positions still held, without the realized P&L of partial sells. The
+    # same figure ...
     unrealized_mtm: float
     # Cost basis (USD) currently tied up in open positions in synced sports and esports markets (#32119).
     cost_basis_locked: float
@@ -1214,8 +1219,9 @@ class ApiErrorBody(_ApiErrorBodyRequired, total=False):
 class _FreshnessFailureRequired(TypedDict):
     # The caller's requested whole-response freshness ceiling in seconds. Format: int64.
     max_age_s: int
-    # The trader body's whole-response data-quality status. Only fresh can satisfy max_age_s.
-    data_quality_status: Literal["fresh", "partial", "unknown", "untracked", "unavailable"] | str
+    # The trader body's whole-response data-quality status. Only fresh or stale can satisfy max_age_s: the ceiling
+    # replaces each writer's own budget, so a stale body inside it is answered.
+    data_quality_status: Literal["fresh", "stale", "partial", "unknown", "untracked", "unavailable"] | str
 
 
 class FreshnessFailure(_FreshnessFailureRequired, total=False):
@@ -4118,6 +4124,10 @@ class _MarketTopHoldersRequired(TypedDict):
     # `unavailable` when the wallet record read failed: `in_scope_realized_pnl`, `in_scope_volume` and
     # `strategy_type` are then null for every row because they were not read, not because they are unknown.
     profiles_status: Literal["available", "unavailable"] | str
+    # `true` when this is the market's last sample, served after its 30 s window while a refresh runs;
+    # `positions_as_of` is then at most 300 s old. Read again in a few seconds for the refreshed sample. Always
+    # `false` on a ...
+    source_stale: bool
 
 
 class MarketTopHolders(_MarketTopHoldersRequired, total=False):

@@ -322,7 +322,7 @@ class OperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
-            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: GetTraderResponse | NotModifiedResponse = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
@@ -3802,7 +3802,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
-            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
@@ -7283,7 +7283,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
-            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: GetTraderResponse | NotModifiedResponse = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
@@ -10763,7 +10763,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
-            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh and data_quality.as_of is no older than ...
+            max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
         return result
