@@ -61,7 +61,7 @@ if not verdict.ok:
         print(failure.group, failure.status, failure.reason)
 ```
 
-A group passes only when its `status` is `fresh`, it carries `as_of`, and that clock is within `max_age`. `fresh` means tracked and clocked, not current enough for you. `unknown` fails: the read cannot date that group, and missing is never recent. `untracked` groups are listed in `verdict.untracked` and left out of the verdict. Pass `groups=["ranking", "volume"]` to judge only the groups you read; a named group the body does not carry fails as `missing`. The TypeScript (`assessDataQuality`) and Go (`AssessDataQuality`) SDKs apply the same rule.
+A group passes only when its `status` is `fresh` or `stale`, it carries `as_of`, and that clock is within `max_age`. Both mean tracked and clocked; `stale` adds that `as_of` is older than the writer's own refresh budget (the group's `max_age_s`), and your `max_age` takes that budget's place. Neither means current enough for you. Releases before 0.8.1 fail `stale`. `unknown` fails: the read cannot date that group, and missing is never recent. `untracked` groups are listed in `verdict.untracked` and left out of the verdict. Pass `groups=["ranking", "volume"]` to judge only the groups you read; a named group the body does not carry fails as `missing`. The TypeScript (`assessDataQuality`) and Go (`AssessDataQuality`) SDKs apply the same rule.
 
 ## Types
 
