@@ -6,13 +6,18 @@ Hand-written, kept outside the generated files (0xinsider/0xinsider#16965).
 that is old enough to act on, because the tolerance belongs to the caller.
 ``assess_data_quality`` applies one. It is a pure function over the response
 and makes no request. The TypeScript SDK (``assessDataQuality``) and the Go SDK
-(``AssessDataQuality``) carry the same rule under the same name.
+(``AssessDataQuality``) carry the same rule under the same name. A release
+that predates ``stale`` (0.8.0 and earlier) fails it as a status it does not
+recognize, which errs toward refusing a body.
 
 The rule:
 
-- A group passes only when its ``status`` is ``fresh``, it carries ``as_of``,
-  and that clock is within ``max_age`` of ``now``. ``fresh`` alone means
-  tracked and clocked, not current enough for you.
+- A group passes only when its ``status`` is ``fresh`` or ``stale``, it carries
+  ``as_of``, and that clock is within ``max_age`` of ``now``. Both statuses
+  mean tracked and clocked; ``stale`` adds that ``as_of`` is older than the
+  writer's own refresh budget (the group's ``max_age_s``), and your ``max_age``
+  takes that budget's place here, as the API's own ``max_age_s`` ceiling does
+  (0xinsider/0xinsider#32458). ``fresh`` alone is not current enough for you.
 - ``untracked`` groups are left out of the verdict: 0xinsider does not track
   them for this subject by design. They are listed in ``untracked`` so a caller
   that needs one can refuse the body.
@@ -50,7 +55,8 @@ class DataQualityFailure:
 @dataclass(frozen=True)
 class DataQualityAssessment:
     #: True when at least one group was judged and every judged group is fresh
-    #: and within ``max_age``.
+    #: or stale and within ``max_age``. A body with nothing to judge (every group
+    #: ``untracked``) is not ok: nothing in it could be dated.
     ok: bool
     #: Every judged group that did not pass, in response order.
     failing: list[DataQualityFailure] = field(default_factory=list)
@@ -141,10 +147,11 @@ def assess_data_quality(
         if clock is not None and (oldest is None or clock < oldest):
             oldest, oldest_as_of = clock, as_of
         common = {"group": str(entry.get("group")), "status": status, "as_of": as_of, "age": age}
-        if status != "fresh":
+        if status not in ("fresh", "stale"):
             failing.append(DataQualityFailure(reason=entry.get("reason") or f"status is {status}", **common))
         elif age is None:
-            failing.append(DataQualityFailure(reason="fresh but carries no as_of, so no age can be measured", **common))
+            reason = f"{status} but carries no as_of, so no age can be measured"
+            failing.append(DataQualityFailure(reason=reason, **common))
         elif age > max_age:
             failing.append(DataQualityFailure(reason=f"older than max_age ({max_age})", **common))
 
