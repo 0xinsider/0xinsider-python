@@ -12,6 +12,8 @@ from ._download import AsyncDownload, Download
 from ._response import ApiResponse
 from .types import (
     AccountIdentity,
+    BatchGetMarketCloseBody,
+    BatchGetMarketCloseResponse,
     BatchGetMarketFlowBody,
     BatchGetMarketFlowResponse,
     BatchGetMarketIntelResponse,
@@ -41,6 +43,7 @@ from .types import (
     GetInsiderRadarFlagResponse,
     GetLargeTradeResponse,
     GetMarketCandlesResponse,
+    GetMarketCloseResponse,
     GetMarketFlowResponse,
     GetMarketHoldersResponse,
     GetMarketIntelResponse,
@@ -58,6 +61,7 @@ from .types import (
     GetSportLeaderboardResponse,
     GetSuspiciousTradeResponse,
     GetTraderCategoryRecordsResponse,
+    GetTraderClvResponse,
     GetTraderContextResponse,
     GetTraderExportSnapshotResponse,
     GetTraderGradeAtResponse,
@@ -76,6 +80,7 @@ from .types import (
     ListLeaderboardLeaguesResponse,
     ListLeaderboardResponse,
     ListPositionsResponse,
+    ListPropsResponse,
     ListSmartMoneyFlowsResponse,
     ListSuspiciousTradesResponse,
     ListTrendingWalletsResponse,
@@ -116,12 +121,14 @@ OPERATIONS: dict[str, Operation] = {
     "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False, redirect=False),
     "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False, accept="text/markdown"),
     "getTraderGradeAt": Operation("GET", "/api/v1/trader/{address}/grade-at", streaming=False, redirect=False),
+    "getTraderClv": Operation("GET", "/api/v1/trader/{address}/clv", streaming=False, redirect=False),
     "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False, redirect=False),
     "batchGetTraders": Operation("POST", "/api/v1/traders/batch", streaming=False, redirect=False),
     "getPositionTimeline": Operation("GET", "/api/v1/trader/{address}/position-timeline", streaming=False, redirect=False),
     "getTraderCategoryRecords": Operation("GET", "/api/v1/trader/{address}/categories", streaming=False, redirect=False),
     "getTraderPnl": Operation("GET", "/api/v1/trader/{address}/pnl", streaming=False, redirect=False),
     "getPositionTimelineById": Operation("GET", "/api/v1/traders/{trader}/position-timeline", streaming=False, redirect=False),
+    "listProps": Operation("GET", "/api/v1/props", streaming=False, redirect=False),
     "listPositions": Operation("GET", "/api/v1/positions", streaming=False, redirect=False),
     "listLargePositions": Operation("GET", "/api/v1/large-positions", streaming=False, redirect=False),
     "listLargeTrades": Operation("GET", "/api/v1/large-trades", streaming=False, redirect=False),
@@ -160,9 +167,11 @@ OPERATIONS: dict[str, Operation] = {
     "getMarketFlow": Operation("GET", "/api/v1/market/{condition_id}/flow", streaming=False, redirect=False),
     "getMarketIntel": Operation("GET", "/api/v1/market/{condition_id}/intel", streaming=False, redirect=False),
     "batchGetMarketFlow": Operation("POST", "/api/v1/markets/flow/batch", streaming=False, redirect=False),
+    "batchGetMarketClose": Operation("POST", "/api/v1/markets/close/batch", streaming=False, redirect=False),
     "batchGetMarketIntel": Operation("POST", "/api/v1/markets/intel/batch", streaming=False, redirect=False),
     "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False, redirect=False),
     "getMarketCandles": Operation("GET", "/api/v1/market/{condition_id}/candles", streaming=False, redirect=False),
+    "getMarketClose": Operation("GET", "/api/v1/market/{condition_id}/close", streaming=False, redirect=False),
     "getMarketWalletsInOut": Operation("GET", "/api/v1/market/{condition_id}/wallets-in-out", streaming=False, redirect=False),
     "listSuspiciousTrades": Operation("GET", "/api/v1/suspicious-trades", streaming=False, redirect=False),
     "getSuspiciousTrade": Operation("GET", "/api/v1/suspicious-trades/{id}", streaming=False, redirect=False),
@@ -285,7 +294,7 @@ class OperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> GetTraderResponse: ...
@@ -295,7 +304,7 @@ class OperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> GetTraderResponse | NotModifiedResponse: ...
@@ -304,7 +313,7 @@ class OperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> GetTraderResponse | NotModifiedResponse:
@@ -321,7 +330,7 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
+            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust, breakdowns. breakdowns adds the profile's strategy measures ...
             max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: GetTraderResponse | NotModifiedResponse = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
@@ -384,6 +393,61 @@ class OperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: GetTraderGradeAtResponse | NotModifiedResponse = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: None = None,
+    ) -> GetTraderClvResponse: ...
+
+    @overload
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None,
+    ) -> GetTraderClvResponse | NotModifiedResponse: ...
+
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None = None,
+    ) -> GetTraderClvResponse | NotModifiedResponse:
+        """Get a trader's closing line value on large trades.
+
+        ``GET /api/v1/trader/{address}/clv`` (operationId ``getTraderClv``).
+
+        Closing line value (CLV) over one wallet's large trades in a window: the trades GET
+        /api/v1/large-trades/history?trader= returns for the same from, to, min_size and
+        category, each measured exactly as its clv object is. CLV is in cents per share against
+        the market's stored closing line (GET ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC3339 lower bound on the trade time. Defaults to 90 days before to.
+            to: Exclusive RFC3339 upper bound on the trade time. Defaults to now; must be after from, and at most 366 days after it.
+            min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+        """
+        result: GetTraderClvResponse | NotModifiedResponse = self._call("getTraderClv", path_params={"address": address}, query={"from": from_, "to": to, "min_size": min_size, "category": category}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -474,10 +538,10 @@ class OperationsMixin:
 
         ``GET /api/v1/trader/{address}/position-timeline`` (operationId ``getPositionTimeline``).
 
-        Returns stored Polymarket fills for one tracked trader in one market, newest first, with
-        outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
-        that date. The {address} segment ...
+        Returns every stored Polymarket fill for one tracked trader in one market, newest first,
+        with outcome-specific running_amount and running_avg_price including all earlier stored
+        fills before pagination. Fills come from the full fill ledger, the same rows the trade
+        export serves, at any date (#33245; ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -596,7 +660,7 @@ class OperationsMixin:
         Unified trader-timeline route (#4975). {trader} accepts all five identity shapes - 0x...
         wallet, username, trd_-prefixed trader id, bare integer id, and @username (a username
         lookup only, for all-digit usernames) - resolved by the single shared trader-identity
-        resolver. Returns stored Polymarket ...
+        resolver. Returns every stored ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -607,6 +671,86 @@ class OperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: None = None,
+    ) -> ListPropsResponse: ...
+
+    @overload
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None,
+    ) -> ListPropsResponse | NotModifiedResponse: ...
+
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPropsResponse | NotModifiedResponse:
+        """List player props across a league.
+
+        ``GET /api/v1/props`` (operationId ``listProps``).
+
+        Player props for the catalog's games of one league, one row per market, ordered by game
+        slug, stat, player and line. NFL files props on a game's -player-props and -first-td-
+        scorer child events and NBA on the game event; this reads both, so a caller does not
+        walk GET /api/v1/games and then each ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            league: Required. League tag as GET /api/v1/games coverage.leagues spells it, for example nfl or nba. Matched case-insensitively.
+            starts_after: RFC 3339 kickoff bound. A game with no published kickoff is excluded whenever either bound is set.
+            starts_before: RFC 3339 kickoff bound, inclusive.
+            player: Part of player.name, ignoring case and accents: jokic matches Nikola Jokić. A row with no player does not match.
+            stat: Provider sportsMarketType values to keep, case-insensitive, for example passing_yards or points. Repeat the parameter or send a comma-separated list. An ...
+            status: active (default), closed, or all. closed means the provider closed the market or it resolved.
+            max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
+            min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            limit: Page size. Out-of-range values are clamped to 1..200.
+            cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
+            expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
+        """
+        result: ListPropsResponse | NotModifiedResponse = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -720,6 +864,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -738,6 +883,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -755,6 +901,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -780,7 +927,8 @@ class OperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -788,7 +936,7 @@ class OperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -800,6 +948,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -818,6 +967,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -835,6 +985,7 @@ class OperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -860,7 +1011,8 @@ class OperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -868,7 +1020,7 @@ class OperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -882,6 +1034,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -903,6 +1056,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -923,6 +1077,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -952,6 +1107,7 @@ class OperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, username, or trd_-prefixed trader ID, resolved against the traders table. Unknown traders return an ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade), not at trade time. On a historical window it selects wallets by a grade they may have earned after the trade; ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -960,7 +1116,7 @@ class OperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListLargeTradeHistoryResponse | NotModifiedResponse = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradeHistoryResponse | NotModifiedResponse = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -974,6 +1130,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -995,6 +1152,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -1015,6 +1173,7 @@ class OperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -1044,6 +1203,7 @@ class OperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade.
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -1052,7 +1212,7 @@ class OperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1280,8 +1440,8 @@ class OperationsMixin:
 
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
-            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the effective category/strategy filters, and on a sorted ...
+            category: Filter by category: a sport or esports bucket, matched case-insensitively. League values fold into their sport (NBA and NCAAB into Basketball, NFL into ...
             strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
             sort: Order of the list, the sort columns of the site's leaderboard (/skill-leaderboard). rank (default) is the board's own order, the rank the site and the trader ...
             dir: Direction of sort. Omitted, each sort reads in its natural direction: rank 1 first for rank (asc), largest first for every other sort (desc). The opposite ...
@@ -1295,6 +1455,8 @@ class OperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayResponse: ...
 
@@ -1303,6 +1465,8 @@ class OperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayResponse | NotModifiedResponse: ...
 
@@ -1310,6 +1474,8 @@ class OperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayResponse | NotModifiedResponse:
         """Get today's or a past day's Pick of the Day.
@@ -1326,14 +1492,19 @@ class OperationsMixin:
 
         Query parameters:
             date: A product day (America/New_York) in YYYY-MM-DD format, on or before today. Omit it, or send today, for the current read. A past day with no published pick ...
+            view: full (default) is the whole recorded set: every pick with its holders, lead backer, sports context, thesis and entry_authorization, and the top-level copy of ...
+            pick_id: One entitled published pick of the day, by its stable decimal-string pick_id. The body carries that pick once, as picks[0], beside state, pick_date and ...
         """
-        result: GetPickOfTheDayResponse | NotModifiedResponse = self._call("getPickOfTheDay", path_params={}, query={"date": date}, if_none_match=if_none_match)
+        result: GetPickOfTheDayResponse | NotModifiedResponse = self._call("getPickOfTheDay", path_params={}, query={"date": date, "view": view, "pick_id": pick_id}, if_none_match=if_none_match)
         return result
 
     @overload
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayArchiveResponse: ...
 
@@ -1341,12 +1512,18 @@ class OperationsMixin:
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayArchiveResponse | NotModifiedResponse: ...
 
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayArchiveResponse | NotModifiedResponse:
         """Get the Pick of the Day track record.
@@ -1360,14 +1537,21 @@ class OperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every row with every field, plus days and hit_rate with its per-pick series. summary returns view, hit_rate without series, one page of short ...
+            limit: Rows per page of picks, 1 to 200, default 50. An integer outside that range is clamped into it, like every list limit, and X-Effective-Query reports the limit ...
+            cursor: The page.next_cursor of the previous page: the rows after it, newest first. A cursor is a position in the record, so a pick published while you page does not ...
         """
-        result: GetPickOfTheDayArchiveResponse | NotModifiedResponse = self._call("getPickOfTheDayArchive", path_params={}, query={}, if_none_match=if_none_match)
+        result: GetPickOfTheDayArchiveResponse | NotModifiedResponse = self._call("getPickOfTheDayArchive", path_params={}, query={"view": view, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayStatsResponse: ...
 
@@ -1375,12 +1559,16 @@ class OperationsMixin:
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayStatsResponse | NotModifiedResponse: ...
 
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayStatsResponse | NotModifiedResponse:
         """Get the Pick of the Day track-record breakdown.
@@ -1394,8 +1582,12 @@ class OperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every section. summary returns view, sections and every section except the five that grow with the record: series, days, categories, months ...
+            sections: Exactly the sections to return, in the body's order whatever the request order. Repeatable and comma-separated: hit_rate, series, market_expectations, ...
         """
-        result: GetPickOfTheDayStatsResponse | NotModifiedResponse = self._call("getPickOfTheDayStats", path_params={}, query={}, if_none_match=if_none_match)
+        result: GetPickOfTheDayStatsResponse | NotModifiedResponse = self._call("getPickOfTheDayStats", path_params={}, query={"view": view, "sections": sections}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1653,7 +1845,7 @@ class OperationsMixin:
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets. The ...
         """
         result: SearchMarketsResponse = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -2117,6 +2309,22 @@ class OperationsMixin:
         result: BatchGetMarketFlowResponse = self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
         return result
 
+    def batch_get_market_close(
+        self,
+        body: BatchGetMarketCloseBody,
+    ) -> BatchGetMarketCloseResponse:
+        """Batch market closing lines.
+
+        ``POST /api/v1/markets/close/batch`` (operationId ``batchGetMarketClose``).
+
+        Returns the closing line of 1-25 sports or esports markets in one request. Each ok
+        item's data is the body GET /api/v1/market/{condition_id}/close returns for that market:
+        status measured with both outcome legs, pending, or unavailable with unavailable_reason,
+        judged at one clock for the whole ...
+        """
+        result: BatchGetMarketCloseResponse = self._call("batchGetMarketClose", path_params={}, query={}, body=body)
+        return result
+
     def batch_get_market_intel(
         self,
         body: BatchGetMarketFlowBody,
@@ -2224,6 +2432,43 @@ class OperationsMixin:
             to: Inclusive upper bound as a URL-decoded unix timestamp in seconds; points after this timestamp are omitted. If from is also present, from must be less than or ...
         """
         result: GetMarketCandlesResponse | NotModifiedResponse = self._call("getMarketCandles", path_params={"condition_id": condition_id}, query={"resolution": resolution, "from": from_, "to": to}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetMarketCloseResponse: ...
+
+    @overload
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetMarketCloseResponse | NotModifiedResponse: ...
+
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetMarketCloseResponse | NotModifiedResponse:
+        """Get a market's closing line.
+
+        ``GET /api/v1/market/{condition_id}/close`` (operationId ``getMarketClose``).
+
+        The closing line of one sports or esports market: the price Polymarket's own price-
+        history series recorded for each outcome in the last minute bucket that ended at or
+        before kickoff (the market's game start time), read once after the market settles and
+        stored unchanged. outcomes[0] is the YES leg ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetMarketCloseResponse | NotModifiedResponse = self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -2374,7 +2619,7 @@ class OperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: None = None,
     ) -> ListGamesResponse: ...
 
@@ -2390,7 +2635,7 @@ class OperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None,
     ) -> ListGamesResponse | NotModifiedResponse: ...
 
@@ -2405,7 +2650,7 @@ class OperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None = None,
     ) -> ListGamesResponse | NotModifiedResponse:
         """List covered games.
@@ -2422,7 +2667,7 @@ class OperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague, cbb, cwbb. EuroLeague games use sport=Basketball and league=euroleague; ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -2480,7 +2725,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: None = None,
     ) -> ListGameMarketsResponse: ...
 
@@ -2493,7 +2738,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None,
     ) -> ListGameMarketsResponse | NotModifiedResponse: ...
 
@@ -2505,7 +2750,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None = None,
     ) -> ListGameMarketsResponse | NotModifiedResponse:
         """List a game's markets.
@@ -2734,6 +2979,7 @@ class OperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
@@ -2751,11 +2997,12 @@ class OperationsMixin:
             limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
-            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
+            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. For the ...
+            min_grade_at_trade: Only trades whose grade_at_trade, the grade the wallet held when the trade filled, is at this grade or better (S best). Only a trade whose grade at the fill is ...
             min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
-        result: GetEventReplaySinceResponse = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
+        result: GetEventReplaySinceResponse = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "min_size": min_size, "expand": expand})
         return result
 
     def list_webhooks(
@@ -3609,7 +3856,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3631,7 +3878,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3652,7 +3899,7 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -3765,7 +4012,7 @@ class ResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetTraderResponse]: ...
@@ -3775,7 +4022,7 @@ class ResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]: ...
@@ -3784,7 +4031,7 @@ class ResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]:
@@ -3801,7 +4048,7 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
+            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust, breakdowns. breakdowns adds the profile's strategy measures ...
             max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
@@ -3864,6 +4111,61 @@ class ResponseOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetTraderClvResponse]: ...
+
+    @overload
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a trader's closing line value on large trades.
+
+        ``GET /api/v1/trader/{address}/clv`` (operationId ``getTraderClv``).
+
+        Closing line value (CLV) over one wallet's large trades in a window: the trades GET
+        /api/v1/large-trades/history?trader= returns for the same from, to, min_size and
+        category, each measured exactly as its clv object is. CLV is in cents per share against
+        the market's stored closing line (GET ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC3339 lower bound on the trade time. Defaults to 90 days before to.
+            to: Exclusive RFC3339 upper bound on the trade time. Defaults to now; must be after from, and at most 366 days after it.
+            min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+        """
+        result: ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse] = self._call("getTraderClv", path_params={"address": address}, query={"from": from_, "to": to, "min_size": min_size, "category": category}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3954,10 +4256,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/position-timeline`` (operationId ``getPositionTimeline``).
 
-        Returns stored Polymarket fills for one tracked trader in one market, newest first, with
-        outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
-        that date. The {address} segment ...
+        Returns every stored Polymarket fill for one tracked trader in one market, newest first,
+        with outcome-specific running_amount and running_avg_price including all earlier stored
+        fills before pagination. Fills come from the full fill ledger, the same rows the trade
+        export serves, at any date (#33245; ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4076,7 +4378,7 @@ class ResponseOperationsMixin:
         Unified trader-timeline route (#4975). {trader} accepts all five identity shapes - 0x...
         wallet, username, trd_-prefixed trader id, bare integer id, and @username (a username
         lookup only, for all-digit usernames) - resolved by the single shared trader-identity
-        resolver. Returns stored Polymarket ...
+        resolver. Returns every stored ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -4087,6 +4389,86 @@ class ResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPropsResponse]: ...
+
+    @overload
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse]:
+        """List player props across a league.
+
+        ``GET /api/v1/props`` (operationId ``listProps``).
+
+        Player props for the catalog's games of one league, one row per market, ordered by game
+        slug, stat, player and line. NFL files props on a game's -player-props and -first-td-
+        scorer child events and NBA on the game event; this reads both, so a caller does not
+        walk GET /api/v1/games and then each ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            league: Required. League tag as GET /api/v1/games coverage.leagues spells it, for example nfl or nba. Matched case-insensitively.
+            starts_after: RFC 3339 kickoff bound. A game with no published kickoff is excluded whenever either bound is set.
+            starts_before: RFC 3339 kickoff bound, inclusive.
+            player: Part of player.name, ignoring case and accents: jokic matches Nikola Jokić. A row with no player does not match.
+            stat: Provider sportsMarketType values to keep, case-insensitive, for example passing_yards or points. Repeat the parameter or send a comma-separated list. An ...
+            status: active (default), closed, or all. closed means the provider closed the market or it resolved.
+            max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
+            min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            limit: Page size. Out-of-range values are clamped to 1..200.
+            cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
+            expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
+        """
+        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4200,6 +4582,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4218,6 +4601,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4235,6 +4619,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4260,7 +4645,8 @@ class ResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -4268,7 +4654,7 @@ class ResponseOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4280,6 +4666,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4298,6 +4685,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4315,6 +4703,7 @@ class ResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -4340,7 +4729,8 @@ class ResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -4348,7 +4738,7 @@ class ResponseOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4362,6 +4752,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4383,6 +4774,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4403,6 +4795,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4432,6 +4825,7 @@ class ResponseOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, username, or trd_-prefixed trader ID, resolved against the traders table. Unknown traders return an ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade), not at trade time. On a historical window it selects wallets by a grade they may have earned after the trade; ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -4440,7 +4834,7 @@ class ResponseOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4454,6 +4848,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4475,6 +4870,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4495,6 +4891,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -4524,6 +4921,7 @@ class ResponseOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade.
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -4532,7 +4930,7 @@ class ResponseOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4760,8 +5158,8 @@ class ResponseOperationsMixin:
 
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
-            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the effective category/strategy filters, and on a sorted ...
+            category: Filter by category: a sport or esports bucket, matched case-insensitively. League values fold into their sport (NBA and NCAAB into Basketball, NFL into ...
             strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
             sort: Order of the list, the sort columns of the site's leaderboard (/skill-leaderboard). rank (default) is the board's own order, the rank the site and the trader ...
             dir: Direction of sort. Omitted, each sort reads in its natural direction: rank 1 first for rank (asc), largest first for every other sort (desc). The opposite ...
@@ -4775,6 +5173,8 @@ class ResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayResponse]: ...
 
@@ -4783,6 +5183,8 @@ class ResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -4790,6 +5192,8 @@ class ResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse]:
         """Get today's or a past day's Pick of the Day.
@@ -4806,14 +5210,19 @@ class ResponseOperationsMixin:
 
         Query parameters:
             date: A product day (America/New_York) in YYYY-MM-DD format, on or before today. Omit it, or send today, for the current read. A past day with no published pick ...
+            view: full (default) is the whole recorded set: every pick with its holders, lead backer, sports context, thesis and entry_authorization, and the top-level copy of ...
+            pick_id: One entitled published pick of the day, by its stable decimal-string pick_id. The body carries that pick once, as picks[0], beside state, pick_date and ...
         """
-        result: ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDay", path_params={}, query={"date": date}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDay", path_params={}, query={"date": date, "view": view, "pick_id": pick_id}, if_none_match=if_none_match)
         return result
 
     @overload
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse]: ...
 
@@ -4821,12 +5230,18 @@ class ResponseOperationsMixin:
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse]: ...
 
     def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse]:
         """Get the Pick of the Day track record.
@@ -4840,14 +5255,21 @@ class ResponseOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every row with every field, plus days and hit_rate with its per-pick series. summary returns view, hit_rate without series, one page of short ...
+            limit: Rows per page of picks, 1 to 200, default 50. An integer outside that range is clamped into it, like every list limit, and X-Effective-Query reports the limit ...
+            cursor: The page.next_cursor of the previous page: the rows after it, newest first. A cursor is a position in the record, so a pick published while you page does not ...
         """
-        result: ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayArchive", path_params={}, query={}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayArchive", path_params={}, query={"view": view, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse]: ...
 
@@ -4855,12 +5277,16 @@ class ResponseOperationsMixin:
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse]: ...
 
     def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse]:
         """Get the Pick of the Day track-record breakdown.
@@ -4874,8 +5300,12 @@ class ResponseOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every section. summary returns view, sections and every section except the five that grow with the record: series, days, categories, months ...
+            sections: Exactly the sections to return, in the body's order whatever the request order. Repeatable and comma-separated: hit_rate, series, market_expectations, ...
         """
-        result: ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayStats", path_params={}, query={}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse] = self._call("getPickOfTheDayStats", path_params={}, query={"view": view, "sections": sections}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5133,7 +5563,7 @@ class ResponseOperationsMixin:
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets. The ...
         """
         result: ApiResponse[SearchMarketsResponse] = self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -5597,6 +6027,22 @@ class ResponseOperationsMixin:
         result: ApiResponse[BatchGetMarketFlowResponse] = self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
         return result
 
+    def batch_get_market_close(
+        self,
+        body: BatchGetMarketCloseBody,
+    ) -> ApiResponse[BatchGetMarketCloseResponse]:
+        """Batch market closing lines.
+
+        ``POST /api/v1/markets/close/batch`` (operationId ``batchGetMarketClose``).
+
+        Returns the closing line of 1-25 sports or esports markets in one request. Each ok
+        item's data is the body GET /api/v1/market/{condition_id}/close returns for that market:
+        status measured with both outcome legs, pending, or unavailable with unavailable_reason,
+        judged at one clock for the whole ...
+        """
+        result: ApiResponse[BatchGetMarketCloseResponse] = self._call("batchGetMarketClose", path_params={}, query={}, body=body)
+        return result
+
     def batch_get_market_intel(
         self,
         body: BatchGetMarketFlowBody,
@@ -5704,6 +6150,43 @@ class ResponseOperationsMixin:
             to: Inclusive upper bound as a URL-decoded unix timestamp in seconds; points after this timestamp are omitted. If from is also present, from must be less than or ...
         """
         result: ApiResponse[GetMarketCandlesResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketCandles", path_params={"condition_id": condition_id}, query={"resolution": resolution, "from": from_, "to": to}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetMarketCloseResponse]: ...
+
+    @overload
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a market's closing line.
+
+        ``GET /api/v1/market/{condition_id}/close`` (operationId ``getMarketClose``).
+
+        The closing line of one sports or esports market: the price Polymarket's own price-
+        history series recorded for each outcome in the last minute bucket that ended at or
+        before kickoff (the market's game start time), read once after the market settles and
+        stored unchanged. outcomes[0] is the YES leg ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5854,7 +6337,7 @@ class ResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListGamesResponse]: ...
 
@@ -5870,7 +6353,7 @@ class ResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -5885,7 +6368,7 @@ class ResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]:
         """List covered games.
@@ -5902,7 +6385,7 @@ class ResponseOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague, cbb, cwbb. EuroLeague games use sport=Basketball and league=euroleague; ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -5960,7 +6443,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListGameMarketsResponse]: ...
 
@@ -5973,7 +6456,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -5985,7 +6468,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse]:
         """List a game's markets.
@@ -6214,6 +6697,7 @@ class ResponseOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
@@ -6231,11 +6715,12 @@ class ResponseOperationsMixin:
             limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
-            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
+            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. For the ...
+            min_grade_at_trade: Only trades whose grade_at_trade, the grade the wallet held when the trade filled, is at this grade or better (S best). Only a trade whose grade at the fill is ...
             min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
-        result: ApiResponse[GetEventReplaySinceResponse] = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
+        result: ApiResponse[GetEventReplaySinceResponse] = self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "min_size": min_size, "expand": expand})
         return result
 
     def list_webhooks(
@@ -7089,7 +7574,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -7111,7 +7596,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -7132,7 +7617,7 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -7246,7 +7731,7 @@ class AsyncOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> GetTraderResponse: ...
@@ -7256,7 +7741,7 @@ class AsyncOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> GetTraderResponse | NotModifiedResponse: ...
@@ -7265,7 +7750,7 @@ class AsyncOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> GetTraderResponse | NotModifiedResponse:
@@ -7282,7 +7767,7 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
+            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust, breakdowns. breakdowns adds the profile's strategy measures ...
             max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: GetTraderResponse | NotModifiedResponse = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
@@ -7345,6 +7830,61 @@ class AsyncOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: GetTraderGradeAtResponse | NotModifiedResponse = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: None = None,
+    ) -> GetTraderClvResponse: ...
+
+    @overload
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None,
+    ) -> GetTraderClvResponse | NotModifiedResponse: ...
+
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None = None,
+    ) -> GetTraderClvResponse | NotModifiedResponse:
+        """Get a trader's closing line value on large trades.
+
+        ``GET /api/v1/trader/{address}/clv`` (operationId ``getTraderClv``).
+
+        Closing line value (CLV) over one wallet's large trades in a window: the trades GET
+        /api/v1/large-trades/history?trader= returns for the same from, to, min_size and
+        category, each measured exactly as its clv object is. CLV is in cents per share against
+        the market's stored closing line (GET ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC3339 lower bound on the trade time. Defaults to 90 days before to.
+            to: Exclusive RFC3339 upper bound on the trade time. Defaults to now; must be after from, and at most 366 days after it.
+            min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+        """
+        result: GetTraderClvResponse | NotModifiedResponse = await self._call("getTraderClv", path_params={"address": address}, query={"from": from_, "to": to, "min_size": min_size, "category": category}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7435,10 +7975,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/trader/{address}/position-timeline`` (operationId ``getPositionTimeline``).
 
-        Returns stored Polymarket fills for one tracked trader in one market, newest first, with
-        outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
-        that date. The {address} segment ...
+        Returns every stored Polymarket fill for one tracked trader in one market, newest first,
+        with outcome-specific running_amount and running_avg_price including all earlier stored
+        fills before pagination. Fills come from the full fill ledger, the same rows the trade
+        export serves, at any date (#33245; ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7557,7 +8097,7 @@ class AsyncOperationsMixin:
         Unified trader-timeline route (#4975). {trader} accepts all five identity shapes - 0x...
         wallet, username, trd_-prefixed trader id, bare integer id, and @username (a username
         lookup only, for all-digit usernames) - resolved by the single shared trader-identity
-        resolver. Returns stored Polymarket ...
+        resolver. Returns every stored ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7568,6 +8108,86 @@ class AsyncOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: GetPositionTimelineResponse | NotModifiedResponse = await self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: None = None,
+    ) -> ListPropsResponse: ...
+
+    @overload
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None,
+    ) -> ListPropsResponse | NotModifiedResponse: ...
+
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None = None,
+    ) -> ListPropsResponse | NotModifiedResponse:
+        """List player props across a league.
+
+        ``GET /api/v1/props`` (operationId ``listProps``).
+
+        Player props for the catalog's games of one league, one row per market, ordered by game
+        slug, stat, player and line. NFL files props on a game's -player-props and -first-td-
+        scorer child events and NBA on the game event; this reads both, so a caller does not
+        walk GET /api/v1/games and then each ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            league: Required. League tag as GET /api/v1/games coverage.leagues spells it, for example nfl or nba. Matched case-insensitively.
+            starts_after: RFC 3339 kickoff bound. A game with no published kickoff is excluded whenever either bound is set.
+            starts_before: RFC 3339 kickoff bound, inclusive.
+            player: Part of player.name, ignoring case and accents: jokic matches Nikola Jokić. A row with no player does not match.
+            stat: Provider sportsMarketType values to keep, case-insensitive, for example passing_yards or points. Repeat the parameter or send a comma-separated list. An ...
+            status: active (default), closed, or all. closed means the provider closed the market or it resolved.
+            max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
+            min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            limit: Page size. Out-of-range values are clamped to 1..200.
+            cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
+            expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
+        """
+        result: ListPropsResponse | NotModifiedResponse = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7681,6 +8301,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7699,6 +8320,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7716,6 +8338,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7741,7 +8364,8 @@ class AsyncOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -7749,7 +8373,7 @@ class AsyncOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7761,6 +8385,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7779,6 +8404,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7796,6 +8422,7 @@ class AsyncOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -7821,7 +8448,8 @@ class AsyncOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -7829,7 +8457,7 @@ class AsyncOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7843,6 +8471,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -7864,6 +8493,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -7884,6 +8514,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -7913,6 +8544,7 @@ class AsyncOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, username, or trd_-prefixed trader ID, resolved against the traders table. Unknown traders return an ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade), not at trade time. On a historical window it selects wallets by a grade they may have earned after the trade; ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -7921,7 +8553,7 @@ class AsyncOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListLargeTradeHistoryResponse | NotModifiedResponse = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradeHistoryResponse | NotModifiedResponse = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7935,6 +8567,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -7956,6 +8589,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -7976,6 +8610,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -8005,6 +8640,7 @@ class AsyncOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade.
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -8013,7 +8649,7 @@ class AsyncOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradeHistoryResponse | NotModifiedResponse = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -8241,8 +8877,8 @@ class AsyncOperationsMixin:
 
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
-            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the effective category/strategy filters, and on a sorted ...
+            category: Filter by category: a sport or esports bucket, matched case-insensitively. League values fold into their sport (NBA and NCAAB into Basketball, NFL into ...
             strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
             sort: Order of the list, the sort columns of the site's leaderboard (/skill-leaderboard). rank (default) is the board's own order, the rank the site and the trader ...
             dir: Direction of sort. Omitted, each sort reads in its natural direction: rank 1 first for rank (asc), largest first for every other sort (desc). The opposite ...
@@ -8256,6 +8892,8 @@ class AsyncOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayResponse: ...
 
@@ -8264,6 +8902,8 @@ class AsyncOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayResponse | NotModifiedResponse: ...
 
@@ -8271,6 +8911,8 @@ class AsyncOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayResponse | NotModifiedResponse:
         """Get today's or a past day's Pick of the Day.
@@ -8287,14 +8929,19 @@ class AsyncOperationsMixin:
 
         Query parameters:
             date: A product day (America/New_York) in YYYY-MM-DD format, on or before today. Omit it, or send today, for the current read. A past day with no published pick ...
+            view: full (default) is the whole recorded set: every pick with its holders, lead backer, sports context, thesis and entry_authorization, and the top-level copy of ...
+            pick_id: One entitled published pick of the day, by its stable decimal-string pick_id. The body carries that pick once, as picks[0], beside state, pick_date and ...
         """
-        result: GetPickOfTheDayResponse | NotModifiedResponse = await self._call("getPickOfTheDay", path_params={}, query={"date": date}, if_none_match=if_none_match)
+        result: GetPickOfTheDayResponse | NotModifiedResponse = await self._call("getPickOfTheDay", path_params={}, query={"date": date, "view": view, "pick_id": pick_id}, if_none_match=if_none_match)
         return result
 
     @overload
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayArchiveResponse: ...
 
@@ -8302,12 +8949,18 @@ class AsyncOperationsMixin:
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayArchiveResponse | NotModifiedResponse: ...
 
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayArchiveResponse | NotModifiedResponse:
         """Get the Pick of the Day track record.
@@ -8321,14 +8974,21 @@ class AsyncOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every row with every field, plus days and hit_rate with its per-pick series. summary returns view, hit_rate without series, one page of short ...
+            limit: Rows per page of picks, 1 to 200, default 50. An integer outside that range is clamped into it, like every list limit, and X-Effective-Query reports the limit ...
+            cursor: The page.next_cursor of the previous page: the rows after it, newest first. A cursor is a position in the record, so a pick published while you page does not ...
         """
-        result: GetPickOfTheDayArchiveResponse | NotModifiedResponse = await self._call("getPickOfTheDayArchive", path_params={}, query={}, if_none_match=if_none_match)
+        result: GetPickOfTheDayArchiveResponse | NotModifiedResponse = await self._call("getPickOfTheDayArchive", path_params={}, query={"view": view, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: None = None,
     ) -> GetPickOfTheDayStatsResponse: ...
 
@@ -8336,12 +8996,16 @@ class AsyncOperationsMixin:
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None,
     ) -> GetPickOfTheDayStatsResponse | NotModifiedResponse: ...
 
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None = None,
     ) -> GetPickOfTheDayStatsResponse | NotModifiedResponse:
         """Get the Pick of the Day track-record breakdown.
@@ -8355,8 +9019,12 @@ class AsyncOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every section. summary returns view, sections and every section except the five that grow with the record: series, days, categories, months ...
+            sections: Exactly the sections to return, in the body's order whatever the request order. Repeatable and comma-separated: hit_rate, series, market_expectations, ...
         """
-        result: GetPickOfTheDayStatsResponse | NotModifiedResponse = await self._call("getPickOfTheDayStats", path_params={}, query={}, if_none_match=if_none_match)
+        result: GetPickOfTheDayStatsResponse | NotModifiedResponse = await self._call("getPickOfTheDayStats", path_params={}, query={"view": view, "sections": sections}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -8614,7 +9282,7 @@ class AsyncOperationsMixin:
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets. The ...
         """
         result: SearchMarketsResponse = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -9078,6 +9746,22 @@ class AsyncOperationsMixin:
         result: BatchGetMarketFlowResponse = await self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
         return result
 
+    async def batch_get_market_close(
+        self,
+        body: BatchGetMarketCloseBody,
+    ) -> BatchGetMarketCloseResponse:
+        """Batch market closing lines.
+
+        ``POST /api/v1/markets/close/batch`` (operationId ``batchGetMarketClose``).
+
+        Returns the closing line of 1-25 sports or esports markets in one request. Each ok
+        item's data is the body GET /api/v1/market/{condition_id}/close returns for that market:
+        status measured with both outcome legs, pending, or unavailable with unavailable_reason,
+        judged at one clock for the whole ...
+        """
+        result: BatchGetMarketCloseResponse = await self._call("batchGetMarketClose", path_params={}, query={}, body=body)
+        return result
+
     async def batch_get_market_intel(
         self,
         body: BatchGetMarketFlowBody,
@@ -9185,6 +9869,43 @@ class AsyncOperationsMixin:
             to: Inclusive upper bound as a URL-decoded unix timestamp in seconds; points after this timestamp are omitted. If from is also present, from must be less than or ...
         """
         result: GetMarketCandlesResponse | NotModifiedResponse = await self._call("getMarketCandles", path_params={"condition_id": condition_id}, query={"resolution": resolution, "from": from_, "to": to}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> GetMarketCloseResponse: ...
+
+    @overload
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> GetMarketCloseResponse | NotModifiedResponse: ...
+
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> GetMarketCloseResponse | NotModifiedResponse:
+        """Get a market's closing line.
+
+        ``GET /api/v1/market/{condition_id}/close`` (operationId ``getMarketClose``).
+
+        The closing line of one sports or esports market: the price Polymarket's own price-
+        history series recorded for each outcome in the last minute bucket that ended at or
+        before kickoff (the market's game start time), read once after the market settles and
+        stored unchanged. outcomes[0] is the YES leg ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: GetMarketCloseResponse | NotModifiedResponse = await self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -9335,7 +10056,7 @@ class AsyncOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: None = None,
     ) -> ListGamesResponse: ...
 
@@ -9351,7 +10072,7 @@ class AsyncOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None,
     ) -> ListGamesResponse | NotModifiedResponse: ...
 
@@ -9366,7 +10087,7 @@ class AsyncOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None = None,
     ) -> ListGamesResponse | NotModifiedResponse:
         """List covered games.
@@ -9383,7 +10104,7 @@ class AsyncOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague, cbb, cwbb. EuroLeague games use sport=Basketball and league=euroleague; ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -9441,7 +10162,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: None = None,
     ) -> ListGameMarketsResponse: ...
 
@@ -9454,7 +10175,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None,
     ) -> ListGameMarketsResponse | NotModifiedResponse: ...
 
@@ -9466,7 +10187,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None = None,
     ) -> ListGameMarketsResponse | NotModifiedResponse:
         """List a game's markets.
@@ -9695,6 +10416,7 @@ class AsyncOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> GetEventReplaySinceResponse:
@@ -9712,11 +10434,12 @@ class AsyncOperationsMixin:
             limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
-            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
+            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. For the ...
+            min_grade_at_trade: Only trades whose grade_at_trade, the grade the wallet held when the trade filled, is at this grade or better (S best). Only a trade whose grade at the fill is ...
             min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
-        result: GetEventReplaySinceResponse = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
+        result: GetEventReplaySinceResponse = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "min_size": min_size, "expand": expand})
         return result
 
     async def list_webhooks(
@@ -10570,7 +11293,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -10592,7 +11315,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -10613,7 +11336,7 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -10726,7 +11449,7 @@ class AsyncResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetTraderResponse]: ...
@@ -10736,7 +11459,7 @@ class AsyncResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]: ...
@@ -10745,7 +11468,7 @@ class AsyncResponseOperationsMixin:
         self,
         address: str,
         *,
-        expand: list[Literal["strategy", "categories", "quant_metrics", "trust"]] | None = None,
+        expand: list[Literal["strategy", "categories", "quant_metrics", "trust", "breakdowns"]] | None = None,
         max_age_s: int | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse]:
@@ -10762,7 +11485,7 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
-            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust. quant_metrics is accepted and returns nothing since 2026-10-27.
+            expand: Include heavy fields and trust metadata. Repeatable: strategy, categories, trust, breakdowns. breakdowns adds the profile's strategy measures ...
             max_age_s: Opt into a whole-response freshness ceiling in seconds. The server returns 200 only when data_quality.status is fresh or stale and data_quality.as_of is no ...
         """
         result: ApiResponse[GetTraderResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTrader", path_params={"address": address}, query={"expand": expand, "max_age_s": max_age_s}, if_none_match=if_none_match)
@@ -10825,6 +11548,61 @@ class AsyncResponseOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetTraderClvResponse]: ...
+
+    @overload
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_trader_clv(
+        self,
+        address: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        min_size: float | None = None,
+        category: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a trader's closing line value on large trades.
+
+        ``GET /api/v1/trader/{address}/clv`` (operationId ``getTraderClv``).
+
+        Closing line value (CLV) over one wallet's large trades in a window: the trades GET
+        /api/v1/large-trades/history?trader= returns for the same from, to, min_size and
+        category, each measured exactly as its clv object is. CLV is in cents per share against
+        the market's stored closing line (GET ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC3339 lower bound on the trade time. Defaults to 90 days before to.
+            to: Exclusive RFC3339 upper bound on the trade time. Defaults to now; must be after from, and at most 366 days after it.
+            min_size: Minimum trade size in USD. The capture floor was 3,000 USD before 2026-07-06 and 10,000 USD from then (1,000 USD in earnings markets), so 10000 gives one size ...
+            category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
+        """
+        result: ApiResponse[GetTraderClvResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTraderClv", path_params={"address": address}, query={"from": from_, "to": to, "min_size": min_size, "category": category}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -10915,10 +11693,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/trader/{address}/position-timeline`` (operationId ``getPositionTimeline``).
 
-        Returns stored Polymarket fills for one tracked trader in one market, newest first, with
-        outcome-specific running_amount and running_avg_price including earlier stored fills
-        before pagination. Stored fills start 2026-07-17; the timeline returns no fill before
-        that date. The {address} segment ...
+        Returns every stored Polymarket fill for one tracked trader in one market, newest first,
+        with outcome-specific running_amount and running_avg_price including all earlier stored
+        fills before pagination. Fills come from the full fill ledger, the same rows the trade
+        export serves, at any date (#33245; ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11037,7 +11815,7 @@ class AsyncResponseOperationsMixin:
         Unified trader-timeline route (#4975). {trader} accepts all five identity shapes - 0x...
         wallet, username, trd_-prefixed trader id, bare integer id, and @username (a username
         lookup only, for all-digit usernames) - resolved by the single shared trader-identity
-        resolver. Returns stored Polymarket ...
+        resolver. Returns every stored ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11048,6 +11826,86 @@ class AsyncResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
         """
         result: ApiResponse[GetPositionTimelineResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPositionTimelineById", path_params={"trader": trader}, query={"condition_id": condition_id, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListPropsResponse]: ...
+
+    @overload
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_props(
+        self,
+        *,
+        league: str | None = None,
+        starts_after: str | None = None,
+        starts_before: str | None = None,
+        player: str | None = None,
+        stat: list[str] | None = None,
+        status: Literal["active", "closed", "all"] | None = None,
+        max_spread_c: float | None = None,
+        min_book_usd_within_2c: int | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        expand: list[Literal["quotes"]] | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse]:
+        """List player props across a league.
+
+        ``GET /api/v1/props`` (operationId ``listProps``).
+
+        Player props for the catalog's games of one league, one row per market, ordered by game
+        slug, stat, player and line. NFL files props on a game's -player-props and -first-td-
+        scorer child events and NBA on the game event; this reads both, so a caller does not
+        walk GET /api/v1/games and then each ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            league: Required. League tag as GET /api/v1/games coverage.leagues spells it, for example nfl or nba. Matched case-insensitively.
+            starts_after: RFC 3339 kickoff bound. A game with no published kickoff is excluded whenever either bound is set.
+            starts_before: RFC 3339 kickoff bound, inclusive.
+            player: Part of player.name, ignoring case and accents: jokic matches Nikola Jokić. A row with no player does not match.
+            stat: Provider sportsMarketType values to keep, case-insensitive, for example passing_yards or points. Repeat the parameter or send a comma-separated list. An ...
+            status: active (default), closed, or all. closed means the provider closed the market or it resolved.
+            max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
+            min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            limit: Page size. Out-of-range values are clamped to 1..200.
+            cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
+            expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
+        """
+        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11161,6 +12019,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11179,6 +12038,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11196,6 +12056,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11221,7 +12082,8 @@ class AsyncResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -11229,7 +12091,7 @@ class AsyncResponseOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11241,6 +12103,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11259,6 +12122,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11276,6 +12140,7 @@ class AsyncResponseOperationsMixin:
         min_size: float | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         min_market_volume_share: float | None = None,
         sort: Literal["recent", "market_volume_share"] | None = None,
@@ -11301,7 +12166,8 @@ class AsyncResponseOperationsMixin:
             cursor: Pagination cursor from previous response's next_cursor.
             min_size: Minimum trade size in USD.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
-            min_grade: Minimum trader grade as of today (trader.grade). A means S or A, B means S, A or B.
+            min_grade: Minimum trader grade now (trader.grade), the wallet's grade when this page is read, not when the trade filled. A wallet re-graded after a trade enters or ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             min_market_volume_share: Keep only trades whose market_volume_share is known and at least this. A fraction, not a percent: 0.01 is one percent of the market's traded volume. A trade ...
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
@@ -11309,7 +12175,7 @@ class AsyncResponseOperationsMixin:
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11323,6 +12189,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11344,6 +12211,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11364,6 +12232,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11393,6 +12262,7 @@ class AsyncResponseOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, username, or trd_-prefixed trader ID, resolved against the traders table. Unknown traders return an ...
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade as of today (trader.grade), not at trade time. On a historical window it selects wallets by a grade they may have earned after the trade; ...
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -11401,7 +12271,7 @@ class AsyncResponseOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11415,6 +12285,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11436,6 +12307,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11456,6 +12328,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         category: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         suspicious_only: bool | None = None,
         platform: Literal["polymarket", "all"] | None = None,
         from_: str | None = None,
@@ -11485,6 +12358,7 @@ class AsyncResponseOperationsMixin:
             trader: Trader wallet address, timestamp-suffixed wallet alias, or username resolved against the traders table. Unknown traders return an empty list.
             category: Filter by market category (case-insensitive). A canonical bucket name (e.g. Basketball) matches every provider member that folds into it (NBA, WNBA, NCAAB); a ...
             min_grade: Minimum trader grade.
+            min_grade_at_trade: Minimum grade the trader held when the trade filled (trader.grade_at_trade). Only rows whose trader.grade_at_trade_status is graded can match, so a trade ...
             suspicious_only: When true, return only rows with persisted suspicion_score >= 60. The filter is applied before SQL-backed limit + 1 pagination.
             platform: Filter by whale_alerts.platform. all is equivalent to omitted.
             from_: Inclusive RFC3339 lower bound on whale_alerts.traded_at.
@@ -11493,7 +12367,7 @@ class AsyncResponseOperationsMixin:
             sort: Order of the returned page. recent is newest first and is the default. market_volume_share ranks by each trade's share of its market's traded volume, biggest ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
         """
-        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradeHistoryResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTradeHistory", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "condition_id": condition_id, "trader": trader, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "platform": platform, "from": from_, "to": to, "min_market_volume_share": min_market_volume_share, "sort": sort, "event_slug": event_slug}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11721,8 +12595,8 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             limit: Maximum number of ranked traders to return. Out-of-range values are clamped to 1..100.
-            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the committed leaderboard generation and the effective ...
-            category: Filter by category: a sport or esports bucket. Values are matched to canonical category buckets: league values fold into their sport (NBA and NCAAB into ...
+            cursor: Opaque lbv1_ pagination cursor from a prior response. It binds the finite score/address boundary to the effective category/strategy filters, and on a sorted ...
+            category: Filter by category: a sport or esports bucket, matched case-insensitively. League values fold into their sport (NBA and NCAAB into Basketball, NFL into ...
             strategy: Filter by observed trading style. Current styles: two_sided, category_focused, high_activity, diversified, mixed, unclassified. Current styles count the ...
             sort: Order of the list, the sort columns of the site's leaderboard (/skill-leaderboard). rank (default) is the board's own order, the rank the site and the trader ...
             dir: Direction of sort. Omitted, each sort reads in its natural direction: rank 1 first for rank (asc), largest first for every other sort (desc). The opposite ...
@@ -11736,6 +12610,8 @@ class AsyncResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayResponse]: ...
 
@@ -11744,6 +12620,8 @@ class AsyncResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -11751,6 +12629,8 @@ class AsyncResponseOperationsMixin:
         self,
         *,
         date: str | None = None,
+        view: Literal["full", "summary"] | None = None,
+        pick_id: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse]:
         """Get today's or a past day's Pick of the Day.
@@ -11767,14 +12647,19 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             date: A product day (America/New_York) in YYYY-MM-DD format, on or before today. Omit it, or send today, for the current read. A past day with no published pick ...
+            view: full (default) is the whole recorded set: every pick with its holders, lead backer, sports context, thesis and entry_authorization, and the top-level copy of ...
+            pick_id: One entitled published pick of the day, by its stable decimal-string pick_id. The body carries that pick once, as picks[0], beside state, pick_date and ...
         """
-        result: ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDay", path_params={}, query={"date": date}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDay", path_params={}, query={"date": date, "view": view, "pick_id": pick_id}, if_none_match=if_none_match)
         return result
 
     @overload
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse]: ...
 
@@ -11782,12 +12667,18 @@ class AsyncResponseOperationsMixin:
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse]: ...
 
     async def get_pick_of_the_day_archive(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse]:
         """Get the Pick of the Day track record.
@@ -11801,14 +12692,21 @@ class AsyncResponseOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every row with every field, plus days and hit_rate with its per-pick series. summary returns view, hit_rate without series, one page of short ...
+            limit: Rows per page of picks, 1 to 200, default 50. An integer outside that range is clamped into it, like every list limit, and X-Effective-Query reports the limit ...
+            cursor: The page.next_cursor of the previous page: the rows after it, newest first. A cursor is a position in the record, so a pick published while you page does not ...
         """
-        result: ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayArchive", path_params={}, query={}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayArchiveResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayArchive", path_params={}, query={"view": view, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse]: ...
 
@@ -11816,12 +12714,16 @@ class AsyncResponseOperationsMixin:
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse]: ...
 
     async def get_pick_of_the_day_stats(
         self,
         *,
+        view: Literal["full", "summary"] | None = None,
+        sections: list[Literal["hit_rate", "series", "market_expectations", "outcome_stats", "days", "categories", "sports", "tiers", "months", "price_bands", "market_types", "total_sides", "streaks", "records", "voids"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse]:
         """Get the Pick of the Day track-record breakdown.
@@ -11835,8 +12737,12 @@ class AsyncResponseOperationsMixin:
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            view: full (default) is every section. summary returns view, sections and every section except the five that grow with the record: series, days, categories, months ...
+            sections: Exactly the sections to return, in the body's order whatever the request order. Repeatable and comma-separated: hit_rate, series, market_expectations, ...
         """
-        result: ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayStats", path_params={}, query={}, if_none_match=if_none_match)
+        result: ApiResponse[GetPickOfTheDayStatsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getPickOfTheDayStats", path_params={}, query={"view": view, "sections": sections}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -12094,7 +13000,7 @@ class AsyncResponseOperationsMixin:
             limit: Maximum number of matching markets to return. Out-of-range values are clamped to 1..100.
             cursor: Pagination cursor from previous response's next_cursor.
             status: Filter by market status. A market is closed once Polymarket has closed trading or it has resolved, and active otherwise; all returns both.
-            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets.
+            category: Filter by category. Sports and esports only (#27411): a category outside them returns 400 bad_request with param category and names the accepted buckets. The ...
         """
         result: ApiResponse[SearchMarketsResponse] = await self._call("searchMarkets", path_params={}, query={"q": q, "limit": limit, "cursor": cursor, "status": status, "category": category})
         return result
@@ -12558,6 +13464,22 @@ class AsyncResponseOperationsMixin:
         result: ApiResponse[BatchGetMarketFlowResponse] = await self._call("batchGetMarketFlow", path_params={}, query={}, body=body)
         return result
 
+    async def batch_get_market_close(
+        self,
+        body: BatchGetMarketCloseBody,
+    ) -> ApiResponse[BatchGetMarketCloseResponse]:
+        """Batch market closing lines.
+
+        ``POST /api/v1/markets/close/batch`` (operationId ``batchGetMarketClose``).
+
+        Returns the closing line of 1-25 sports or esports markets in one request. Each ok
+        item's data is the body GET /api/v1/market/{condition_id}/close returns for that market:
+        status measured with both outcome legs, pending, or unavailable with unavailable_reason,
+        judged at one clock for the whole ...
+        """
+        result: ApiResponse[BatchGetMarketCloseResponse] = await self._call("batchGetMarketClose", path_params={}, query={}, body=body)
+        return result
+
     async def batch_get_market_intel(
         self,
         body: BatchGetMarketFlowBody,
@@ -12665,6 +13587,43 @@ class AsyncResponseOperationsMixin:
             to: Inclusive upper bound as a URL-decoded unix timestamp in seconds; points after this timestamp are omitted. If from is also present, from must be less than or ...
         """
         result: ApiResponse[GetMarketCandlesResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketCandles", path_params={"condition_id": condition_id}, query={"resolution": resolution, "from": from_, "to": to}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: None = None,
+    ) -> ApiResponse[GetMarketCloseResponse]: ...
+
+    @overload
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None,
+    ) -> ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def get_market_close(
+        self,
+        condition_id: str,
+        *,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse]:
+        """Get a market's closing line.
+
+        ``GET /api/v1/market/{condition_id}/close`` (operationId ``getMarketClose``).
+
+        The closing line of one sports or esports market: the price Polymarket's own price-
+        history series recorded for each outcome in the last minute bucket that ended at or
+        before kickoff (the market's game start time), read once after the market settles and
+        stored unchanged. outcomes[0] is the YES leg ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+        """
+        result: ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -12815,7 +13774,7 @@ class AsyncResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListGamesResponse]: ...
 
@@ -12831,7 +13790,7 @@ class AsyncResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -12846,7 +13805,7 @@ class AsyncResponseOperationsMixin:
         window: Literal["all", "now"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "settlement"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse]:
         """List covered games.
@@ -12863,7 +13822,7 @@ class AsyncResponseOperationsMixin:
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as coverage.leagues spells it: nfl, epl, cs2, euroleague, cbb, cwbb. EuroLeague games use sport=Basketball and league=euroleague; ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
@@ -12921,7 +13880,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListGameMarketsResponse]: ...
 
@@ -12934,7 +13893,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -12946,7 +13905,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-        expand: list[Literal["sharp_money"]] | None = None,
+        expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse]:
         """List a game's markets.
@@ -13175,6 +14134,7 @@ class AsyncResponseOperationsMixin:
         trader: str | None = None,
         condition_id: str | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
+        min_grade_at_trade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         min_size: float | str | None = None,
         expand: list[Literal["trade"]] | None = None,
     ) -> ApiResponse[GetEventReplaySinceResponse]:
@@ -13192,11 +14152,12 @@ class AsyncResponseOperationsMixin:
             limit: Maximum durable public whale-trade events to return. Out-of-range values are clamped to 1..100.
             trader: Only this wallet's trades: a wallet address, trd_-prefixed trader id or username resolved against the traders table. Bound to the cursor: a cursor issued under ...
             condition_id: Only trades on this market: the raw provider condition_id or its mkt_-prefixed id. Bound to the cursor.
-            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. Bound to ...
+            min_grade: Only trades by wallets at this grade or better (S best), read from the wallet's newest ranking at request time; a wallet with no grade never passes. For the ...
+            min_grade_at_trade: Only trades whose grade_at_trade, the grade the wallet held when the trade filled, is at this grade or better (S best). Only a trade whose grade at the fill is ...
             min_size: Only trades of at least this USD amount. Decimal and scientific query spellings normalize exactly to cents, rounding half away from zero; maximum 1e15 USD. ...
             expand: Repeatable. trade adds the public trade read to every event (the object GET /api/v1/whale-trades/{id} returns for it), from one query per page, so a page of ...
         """
-        result: ApiResponse[GetEventReplaySinceResponse] = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_size": min_size, "expand": expand})
+        result: ApiResponse[GetEventReplaySinceResponse] = await self._call("getEventReplaySince", path_params={}, query={"cursor": cursor, "limit": limit, "trader": trader, "condition_id": condition_id, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "min_size": min_size, "expand": expand})
         return result
 
     async def list_webhooks(
@@ -14050,7 +15011,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -14072,7 +15033,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -14093,7 +15054,7 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,

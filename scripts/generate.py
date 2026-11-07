@@ -666,6 +666,27 @@ def generate(doc: dict) -> tuple[str, str, int]:
                     redirect=redirect,
                 )
             )
+    # Each webhook delivery body the document's `webhooks` names, so a receiver
+    # can annotate the JSON it verified and parsed: one `<Event>Event` per event
+    # type (`MarketSettledEvent`, its `data` a `MarketSettledData`) and the
+    # `WebhookEvent` union over all of them, which narrows on `type`. The API
+    # sends these, so their enums stay permissive like any response's.
+    webhook_events = []
+    for event_type, item in sorted((doc.get("webhooks") or {}).items()):
+        delivery = item.get("post") if isinstance(item, dict) else None
+        content = ((delivery or {}).get("requestBody") or {}).get("content") or {}
+        schema = (content.get("application/json") or {}).get("schema")
+        if not isinstance(schema, dict):
+            continue
+        if delivery.get("description") and not schema.get("description"):
+            schema = {**schema, "description": delivery["description"]}
+        webhook_events.append(types.type_of(schema, hint=f"{pascal(event_type)}Event", strict=False, pep604=False))
+    if webhook_events:
+        types._alias(
+            "WebhookEvent",
+            union(webhook_events, pep604=False),
+            "Any webhook delivery body, discriminated by its type key.",
+        )
     table = ",\n".join(
         f'    "{e["operation_id"]}": Operation("{e["method"]}", "{e["path"]}", '
         f"streaming={e['streaming']}, redirect={e['redirect']}"
