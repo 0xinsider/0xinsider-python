@@ -274,6 +274,8 @@ __all__ = [
     "ListLargeTradesResponse",
     "ListLeaderboardLeaguesResponse",
     "ListLeaderboardResponse",
+    "ListMarketTradesResponse",
+    "ListMarketTradesResponseCoverage",
     "ListPositionsResponse",
     "ListPositionsResponseSnapshot",
     "ListPropsResponse",
@@ -283,6 +285,7 @@ __all__ = [
     "ListPropsResponseDataItemOutcomesItemQuote",
     "ListPropsResponseDataItemOutcomesItemQuoteBookDepthWithin2c1",
     "ListPropsResponseDataItemPlayer",
+    "ListSettledMarketsResponse",
     "ListSmartMoneyFlowsResponse",
     "ListSuspiciousTradesResponse",
     "ListTrendingWalletsResponse",
@@ -331,6 +334,7 @@ __all__ = [
     "MarketTopHolder",
     "MarketTopHolders",
     "MarketTopHoldersTotals",
+    "MarketTrade",
     "MarketWalletsInOut",
     "MarketWalletsInOutNetBuyersItem",
     "MarketWalletsInOutSummary",
@@ -338,6 +342,8 @@ __all__ = [
     "OutcomeCandles",
     "PickHolder",
     "PickHolderCategoryWinRecord",
+    "PickHolderPriceEdge",
+    "PickHolderPriceEdgeHold",
     "PickLeadBacker",
     "PickOfTheDay",
     "PickOfTheDayArchive",
@@ -2614,8 +2620,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # True once the backed game's kickoff has passed (kickoff <= now). When true the snapshotted pre-game price is
     # no longer actionable. Absent for a legacy pick with no stored kickoff (treat as not-started).
     game_started: bool
-    # Whether the backed game is over according to the cached live scoreboard, read at serve time. Tells a
-    # finished game from one still in play before `outcome` settles. Omitted when the pick has no event slug or no
+    # Whether the backed game is over, from the game's scoreboard. Once the game is recorded as finished it stays
+    # true, on later reads and on past days. A pick settled `win` or `loss` reads true unless the live scoreboard
     # ...
     game_ended: bool
     # Settlement outcome of the backed side; 'pending' until the market resolves.
@@ -2821,8 +2827,9 @@ class _PickHolderRequired(TypedDict):
     name: str | None
     # All-time trader grade (S, A, B, C, D, F).
     grade: str | None
-    # The wallet's most recent recorded trade time, stamped at serve time from its current trader record rather
-    # than frozen with the pick. Always sent; null when no trade time is recorded. Format: date-time.
+    # The UTC day of the wallet's most recent recorded trade, served as that day's 00:00:00Z, stamped at serve
+    # time from its current trader record rather than frozen with the pick. It changes at most once a day per
+    # wallet, so ...
     last_traded_at: str | None
     shares: float
 
@@ -2858,9 +2865,9 @@ class PickHolder(_PickHolderRequired, total=False):
     # `not_enough_data` (the wallet is below the settled-market floor of 5 in the category), or `unavailable` (the
     # ...
     category_win_rate_status: Literal["measured", "not_enough_data", "unavailable", "untracked"] | str
-    # Whole days since this wallet's first trade, rounded down (3.6 days reads 3), so it changes once a day, not
-    # on every request, and the pick's ETag holds between requests. Stamped at serve time from the wallet's
-    # current ...
+    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
+    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
+    # a ...
     wallet_age_days: float | None
     # True when the wallet's first trade was under 30 days ago. Stamped at serve time from the wallet's current
     # trader record, never frozen with the pick. The five badge fields are present together, and only for a wallet
@@ -2878,6 +2885,21 @@ class PickHolder(_PickHolderRequired, total=False):
     # `@`. Link it as `https://x.com/<handle>`. Stamped at serve time from the wallet's current trader record,
     # never ...
     x_username: str | None
+    # The wallet's edge over the price it paid in the pick's canonical category (`category`): how often the side
+    # it bought won, minus the average price it paid, over its settled markets there of $20 or more at a known
+    # entry ...
+    category_price_edge: PickHolderPriceEdge
+    # The same edge over the markets of the game or league `category_win_rate_game` names alone: the edge the pick
+    # card prints beside a game or league win rate (for example `-17.1 pp` in the Premier League). Present only
+    # ...
+    category_scope_price_edge: PickHolderPriceEdge
+    # Why there is no `category_price_edge` for a wallet with a measured rate, with the rule's figures when it has
+    # them. Present only with `category_win_rate_status` = `measured`, and never beside `category_price_edge`. ...
+    category_price_edge_hold: PickHolderPriceEdgeHold
+    # Why there is no `category_scope_price_edge` beside a game or league rate, with the rule's figures when it
+    # has them. Present only beside `category_win_rate_game`, and never beside `category_scope_price_edge`. Absent
+    # ...
+    category_scope_price_edge_hold: PickHolderPriceEdgeHold
 
 
 class PickHolderCategoryWinRecord(TypedDict):
@@ -2892,6 +2914,37 @@ class PickHolderCategoryWinRecord(TypedDict):
     # Settled markets in the category that this wallet closed with a profit or a loss. A market resolved at zero
     # realized P&L is in neither count.
     decided: int
+
+
+class PickHolderPriceEdge(TypedDict):
+    """Edge over the price paid in one category, game or league: how often the side a wallet bought won,
+    minus the average price it paid, over its settled markets there of $20 or more at a known entry
+    price. Probabilities throughout: edge -0.171 is -17.1 percentage points. A market bought on both
+    sides counts by its shares: the winning side's share of the shares bought is its hit, the cost over
+    those shares its price. Figures from the daily record rebuild."""
+    # Settled markets of $20 or more at a known entry price that the edge is measured over.
+    markets: int
+    # Share of those markets whose bought side won, 0-1.
+    hit_rate: float
+    # Mean entry price paid over the same markets, 0-1. Its sample is these markets, so it can differ from
+    # `category_avg_price` and `category_scope_avg_price`.
+    avg_price: float
+    # hit_rate minus avg_price, full precision.
+    edge: float
+
+
+class _PickHolderPriceEdgeHoldRequired(TypedDict):
+    # category_loss: the edge ranks, and the wallet's realized P&L over the same markets is zero or below.
+    # too_few_markets: fewer than 30 counted markets. sample_mismatch: the share of the decided markets that made
+    # money at ...
+    hold: Literal["category_loss", "too_few_markets", "sample_mismatch", "no_markets"] | str
+
+
+class PickHolderPriceEdgeHold(_PickHolderPriceEdgeHoldRequired, total=False):
+    """An edge the holder row does not show, and why."""
+    # The rule's figures, as a shown edge carries them. Omitted for no_markets, and for too_few_markets when the
+    # wallet has fewer than 5 such markets.
+    record: PickHolderPriceEdge
 
 
 class _PickSportsContextRequired(TypedDict):
@@ -4488,6 +4541,77 @@ class ContentSearchResult(TypedDict):
     url: str
 
 
+class ListSettledMarketsResponse(TypedDict):
+    # Format: date-time.
+    complete_through: str
+    data: list[MarketSettledData]
+    has_more: bool
+    meta: ResponseMeta
+    next_cursor: str
+    object: str
+
+
+class MarketSettledData(TypedDict):
+    """`market_settled` data, also the MarketSettled frame on GET /api/v1/stream: a sports or esports game
+    market settled, sent once per settled state the first time 0xinsider records it. A market can settle
+    in more than one state: a resolved UMA question row with no winner yet, the same row with the winner
+    ConditionalTokens paid on chain, and the condition row with the provider's payouts; each is its own
+    event with its own settlement_id, except a state naming the winner an earlier event named, which is
+    not sent."""
+    # Polymarket condition ID of the market, lowercase.
+    condition_id: str
+    # The recorded state: one per market per settled state, never reused. Deduplicate on it, or on the event id.
+    # Format: int64.
+    settlement_id: int
+    # Polymarket event (game) slug, or null when the market stores none.
+    event_slug: str | None
+    # Polymarket game ID for the event as a string, the game_id of GET /api/v1/games, or null when the market
+    # stores none.
+    game_id: str | None
+    # The event slug league prefix (nba in nba-lal-gsw-2026-11-01), lowercase, read after a polyv2 copy prefix. A
+    # PGA Tour golf slug starts with the year, so its markets are pga, from their series. null when neither names
+    # a ...
+    league: str | None
+    # Polymarket sportsMarketType of the market (moneyline, spreads, totals, a prop type) verbatim, or null when
+    # the market stores none.
+    sports_market_type: str | None
+    # Outcome names, each at its outcome index: settlement.payouts and settlement.winning_outcome_index index into
+    # it. Empty when the market stores none; an outcome Polymarket labels blank is an empty string.
+    outcomes: list[str]
+    # Set on a Polymarket polyv2 copy of a game whose original event has a moneyline market: the original event
+    # slug, which GET /api/v1/games serves. Such a copy reaches a webhook only when its settlement_filters name
+    # its ...
+    copy_of_event_slug: str | None
+    # The settled state, the block GET /api/v1/games/{event_slug}/markets serves as settlement: status observed,
+    # oracle_status resolved, settled true. payouts is null on a resolved UMA question row, whose result and ...
+    settlement: MarketSettledDataSettlement
+
+
+class MarketSettledDataSettlement(TypedDict):
+    """The settled state, the block GET /api/v1/games/{event_slug}/markets serves as settlement: status
+    observed, oracle_status resolved, settled true. payouts is null on a resolved UMA question row,
+    whose result and winning_outcome_index come from the payout ConditionalTokens reported on chain
+    (null in an event sent before it paid), and set on the condition row that follows, sent as its own
+    event unless it names a winner already sent. observed_at is when 0xinsider first saw this state."""
+    # Format: date-time.
+    expected_settlement_time: str | None
+    # Format: date-time.
+    observed_at: str | None
+    oracle_status: str | None
+    payouts: list[int] | None
+    proposed_answer: Literal["outcome_0", "outcome_1", "split", "too_early"] | str | None
+    # Format: date-time.
+    resolved_at: str | None
+    result: Literal["outcome", "split"] | str | None
+    settled: bool | None
+    settlement_time_basis: str | None
+    status: Literal["observed", "not_posed", "unavailable"] | str
+    was_disputed: bool | None
+    winning_outcome_index: int | None
+    # Format: date-time.
+    oracle_updated_at: str | None
+
+
 class _ExploreMarketsResponseRequired(TypedDict):
     object: Literal["list"]
     data: list[ExploreEntry]
@@ -4838,9 +4962,9 @@ class MarketHolder(_MarketHolderRequired, total=False):
     # `Rainbow ...
     category_win_rate_game: str
     category_evidence: HolderCategoryEvidence
-    # Whole days since this wallet's first trade, rounded down (3.6 days reads 3), so it changes once a day, not
-    # on every request. The five badge fields are present together, only for a wallet that draws at least one
-    # badge.
+    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
+    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
+    # a ...
     wallet_age_days: float | None
     # True when the wallet's first trade was under 30 days ago.
     is_new_wallet: bool
@@ -5046,9 +5170,9 @@ class MarketTopHolder(_MarketTopHolderRequired, total=False):
     # file and under the floor of 5 decided markets in the category), `untracked` (0xinsider has no record of the
     # ...
     category_win_rate_status: Literal["measured", "not_enough_data", "unavailable", "untracked"] | str
-    # Whole days since this wallet's first trade, rounded down (3.6 days reads 3), so it changes once a day, not
-    # on every request. The five badge fields are present together, only for a wallet that draws at least one
-    # badge.
+    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
+    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
+    # a ...
     wallet_age_days: float | None
     # True when the wallet's first trade was under 30 days ago.
     is_new_wallet: bool
@@ -5485,6 +5609,8 @@ class MarketSnapshotSettlement(TypedDict):
     status: Literal["observed", "not_posed", "unavailable"] | str
     was_disputed: bool | None
     winning_outcome_index: int | None
+    # Format: date-time.
+    oracle_updated_at: str | None
 
 
 class GetMarketCandlesResponse(TypedDict):
@@ -5534,6 +5660,65 @@ class GetMarketCloseResponse(TypedDict):
     object: Literal["market_close"]
     data: MarketClose
     meta: ResponseMeta
+
+
+class ListMarketTradesResponse(TypedDict):
+    object: Literal["list"]
+    # Newest first by traded_at, then transaction_hash, then log_index.
+    data: list[MarketTrade]
+    # True when older fills in the window remain: send next_cursor for them.
+    has_more: bool
+    # Opaque mtr_v1_ cursor for the next page; null when has_more is false.
+    next_cursor: str | None
+    # The market's raw condition_id, lowercase.
+    condition_id: str
+    # What the record holds. A window outside it reads empty because it is outside the record, not because nothing
+    # traded.
+    coverage: ListMarketTradesResponseCoverage
+    meta: ResponseMeta
+
+
+class MarketTrade(TypedDict):
+    """One taker fill of 100 USD or more on a market, from the exchange's on-chain fill events."""
+    # {transaction_hash}:{log_index}: one fill event, listed once. Deduplicate on it across reads.
+    id: str
+    # The fill's block time, to the second. Format: date-time.
+    traded_at: str
+    # The taker's side: BUY took outcome shares, SELL gave them.
+    side: Literal["BUY", "SELL"] | str
+    # The traded outcome's label; null when the market names none.
+    outcome: str | None
+    # 0 for the first (Yes) outcome token, 1 for the second (No).
+    outcome_index: int
+    # The traded outcome token's id (decimal string); null when the market holds none for that outcome.
+    token_id: str | None
+    # Fill price per share, 0 to 1.
+    price: float
+    # Outcome shares filled.
+    shares: float
+    # USDC notional of the fill.
+    size_usd: float
+    # The taker's wallet, lowercase.
+    taker: str
+    # The fill's transaction, lowercase 0x hex.
+    transaction_hash: str
+    # The fill event's log index in its transaction.
+    log_index: int
+
+
+class ListMarketTradesResponseCoverage(TypedDict):
+    """What the record holds. A window outside it reads empty because it is outside the record, not because
+    nothing traded."""
+    # A fill smaller than this, in USD, is not stored: 100.
+    min_size_usd: int
+    # Where the record starts: the later of when recording began and 00:00 UTC on the day retention_days before
+    # today. No fill before this instant is served. Format: date-time.
+    recorded_from: str
+    # Every fill at or before this instant is in the record, and a first page serves none after it. It trails now
+    # by a few minutes. Format: date-time.
+    complete_through: str
+    # A stored fill is served at least this many days, then deleted.
+    retention_days: int
 
 
 class GetMarketWalletsInOutResponse(TypedDict):
@@ -5926,6 +6111,8 @@ class GameMarketSettlement(TypedDict):
     status: Literal["observed", "not_posed", "unavailable"] | str
     was_disputed: bool | None
     winning_outcome_index: int | None
+    # Format: date-time.
+    oracle_updated_at: str | None
 
 
 class _GameFreshnessRequired(TypedDict):
@@ -6234,6 +6421,8 @@ class ListGameMarketsResponseDataItemSettlement(TypedDict):
     status: Literal["observed", "not_posed", "unavailable"] | str
     was_disputed: bool | None
     winning_outcome_index: int | None
+    # Format: date-time.
+    oracle_updated_at: str | None
 
 
 class ListGameMarketsResponseDataItemTradingTerms(TypedDict):
@@ -6619,12 +6808,14 @@ class PriceMoveSubscriptionFilters(_PriceMoveSubscriptionFiltersRequired, total=
 
 class SettlementSubscriptionFilters(TypedDict, total=False):
     """Settings for market_settled; every set field must match. Optional: subscribing without it stores
-    {"sports_market_types": ["moneyline"]}, each game's winner market, and sending it without the event
-    is refused (400). A PATCH without it keeps the stored settings while the event stays subscribed;
-    removing the event clears them. Stored as the API normalized it: trimmed and deduplicated, leagues,
-    market types and condition IDs lowercased, and sports_market_types filled in when omitted."""
+    {"sports_market_types": ["moneyline"]}, every market Polymarket labels moneyline, and sending it
+    without the event is refused (400). That label is each head-to-head game's winner market, but in
+    golf and other field events Polymarket labels every player market moneyline (winner, make the cut,
+    round leader), so one tournament can send hundreds of states. Narrow it with leagues, which no
+    market outside the list matches, including one whose league is null (a golf event slug that starts
+    with a year, ..."""
     # Event slug league prefixes such as nba or epl, matched case-insensitively; any one matches. A polyv2 copy's
-    # league is read after its polyv2 prefix.
+    # league is read after its polyv2 prefix. PGA Tour golf, whose event slugs start with the year, is pga.
     leagues: list[str]
     # Polymarket sportsMarketType values such as moneyline, spreads, totals or a prop type, matched case-
     # insensitively; any one matches, and * matches every type. Omitted, it is ["moneyline"], or ["*"] when
@@ -6962,9 +7153,9 @@ class ReportPayload(TypedDict):
     # source date range. The grade is the current projection at snapshot materialization time, not a historical
     # grade at ...
     grade_distribution: list[ReportPayloadGradeDistributionItem] | None
-    # Which markets the report counts. sports_and_esports for a period that ends on or after 2026-10-21: totals,
-    # categories, top trades and the grade cohort cover sports and esports markets only. all_markets for an
-    # earlier ...
+    # Which markets the report counts. sports_and_esports: totals, categories, top trades and the grade cohort
+    # cover sports and esports markets only. Every period that ends on or after 2026-10-21 and every custom
+    # from/to ...
     market_scope: Literal["all_markets", "sports_and_esports"] | str
 
 
@@ -8364,11 +8555,16 @@ class EdgeHunterObservation(TypedDict):
     directional_confidence: float | None
     # Recorded side ordering score; higher values sort first.
     directional_rank_score: float
-    # 1-based rank within this observation cohort and snapshot.
+    # 1-based rank within this observation cohort and snapshot: directional_rank_score descending, then
+    # conviction_score descending, then category and condition_id. Admission decides which markets a response
+    # holds, not their ...
     rank: int
     # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
     # require sidecar readiness and fail closed with 503 instead.
     market_context: EdgeHunterMarketContext | None
+    # S, A and B graded wallets in the 0xinsider index holding either outcome of the market, as the stored market
+    # universe last counted them. Every most-held place ranks by this count: admission=most_held_48h and ...
+    indexed_graded_holders: int | None
 
 
 class EdgeHunterObservationDegradationReason(TypedDict):
@@ -8855,12 +9051,12 @@ class MarketPriceMovedDataBookDepthWithin2c1(TypedDict):
 
 class MarketSettledEvent(TypedDict):
     """Fires once per settled state when a sports or esports game market settles, the first time 0xinsider
-    records Polymarket's resolution of it: usually within a few minutes. A market can settle twice,
-    first as a resolved oracle question without payouts and then with them; each state fires once, with
-    its own settlement_id. Carries the game, its league, the market type, the outcome names and the
-    settlement object the game markets routes serve: payouts per share in micro-USDC, result (outcome or
-    split), the winning outcome index, whether it was disputed, and when it resolved. settlement_filters
-    ..."""
+    records Polymarket's resolution of it: usually within a few minutes. A market can settle in more
+    than one state: a resolved oracle question with no winner yet, the same question with the winner
+    Polymarket's ConditionalTokens contract paid on chain, and the provider's row with payouts; each
+    state fires once, with its own settlement_id, except one naming the winner an earlier state named.
+    Carries the game, its league, the market type, the outcome names and the settlement object the game
+    markets ..."""
     # Stable event id, identical across retries of the same logical event.
     id: str
     type: Literal["market_settled"]
@@ -8868,62 +9064,6 @@ class MarketSettledEvent(TypedDict):
     # is not the time of the attempt. Format: date-time.
     created_at: str
     data: MarketSettledData
-
-
-class MarketSettledData(TypedDict):
-    """`market_settled` data, also the MarketSettled frame on GET /api/v1/stream: a sports or esports game
-    market settled, sent once per settled state the first time 0xinsider records it. A market can settle
-    in two states, a resolved UMA question row without payouts and then the condition row with them;
-    each is its own event with its own settlement_id."""
-    # Polymarket condition ID of the market, lowercase.
-    condition_id: str
-    # The recorded state: one per market per settled state, never reused. Deduplicate on it, or on the event id.
-    # Format: int64.
-    settlement_id: int
-    # Polymarket event (game) slug, or null when the market stores none.
-    event_slug: str | None
-    # Polymarket game ID for the event as a string, the game_id of GET /api/v1/games, or null when the market
-    # stores none.
-    game_id: str | None
-    # The event slug league prefix (nba in nba-lal-gsw-2026-11-01), lowercase, read after a polyv2 copy prefix;
-    # null when the slug has none.
-    league: str | None
-    # Polymarket sportsMarketType of the market (moneyline, spreads, totals, a prop type) verbatim, or null when
-    # the market stores none.
-    sports_market_type: str | None
-    # Outcome names, each at its outcome index: settlement.payouts and settlement.winning_outcome_index index into
-    # it. Empty when the market stores none; an outcome Polymarket labels blank is an empty string.
-    outcomes: list[str]
-    # Set on a Polymarket polyv2 copy of a game whose original event has a moneyline market: the original event
-    # slug, which GET /api/v1/games serves. Such a copy reaches a webhook only when its settlement_filters name
-    # its ...
-    copy_of_event_slug: str | None
-    # The settled state, the block GET /api/v1/games/{event_slug}/markets serves as settlement: status observed,
-    # oracle_status resolved, settled true. payouts is null on a resolved UMA question row and set on the
-    # condition ...
-    settlement: MarketSettledDataSettlement
-
-
-class MarketSettledDataSettlement(TypedDict):
-    """The settled state, the block GET /api/v1/games/{event_slug}/markets serves as settlement: status
-    observed, oracle_status resolved, settled true. payouts is null on a resolved UMA question row and
-    set on the condition row that follows, which is sent as its own event. observed_at is when 0xinsider
-    first saw this state."""
-    # Format: date-time.
-    expected_settlement_time: str | None
-    # Format: date-time.
-    observed_at: str | None
-    oracle_status: str | None
-    payouts: list[int] | None
-    proposed_answer: Literal["outcome_0", "outcome_1", "split", "too_early"] | str | None
-    # Format: date-time.
-    resolved_at: str | None
-    result: Literal["outcome", "split"] | str | None
-    settled: bool | None
-    settlement_time_basis: str | None
-    status: Literal["observed", "not_posed", "unavailable"] | str
-    was_disputed: bool | None
-    winning_outcome_index: int | None
 
 
 class SharpMoneyFlowDetectedEvent(TypedDict):

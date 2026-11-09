@@ -79,8 +79,10 @@ from .types import (
     ListLargeTradesResponse,
     ListLeaderboardLeaguesResponse,
     ListLeaderboardResponse,
+    ListMarketTradesResponse,
     ListPositionsResponse,
     ListPropsResponse,
+    ListSettledMarketsResponse,
     ListSmartMoneyFlowsResponse,
     ListSuspiciousTradesResponse,
     ListTrendingWalletsResponse,
@@ -153,6 +155,7 @@ OPERATIONS: dict[str, Operation] = {
     "getCategoryLeaderboard": Operation("GET", "/api/v1/leaderboard/categories/{slug}", streaming=False, redirect=False),
     "searchMarkets": Operation("GET", "/api/v1/markets/search", streaming=False, redirect=False),
     "searchContent": Operation("GET", "/api/v1/content/search", streaming=False, redirect=False),
+    "listSettledMarkets": Operation("GET", "/api/v1/markets/settled", streaming=False, redirect=False),
     "exploreMarkets": Operation("GET", "/api/v1/markets/explore", streaming=False, redirect=False),
     "listSmartMoneyFlows": Operation("GET", "/api/v1/markets/smart-money-flows", streaming=False, redirect=False),
     "listSharpMoneyFlows": Operation("GET", "/api/v1/markets/sharp-money-flows", streaming=False, redirect=False),
@@ -172,6 +175,7 @@ OPERATIONS: dict[str, Operation] = {
     "getMarketSnapshot": Operation("GET", "/api/v1/market/{condition_id}/snapshot", streaming=False, redirect=False),
     "getMarketCandles": Operation("GET", "/api/v1/market/{condition_id}/candles", streaming=False, redirect=False),
     "getMarketClose": Operation("GET", "/api/v1/market/{condition_id}/close", streaming=False, redirect=False),
+    "listMarketTrades": Operation("GET", "/api/v1/market/{condition_id}/trades", streaming=False, redirect=False),
     "getMarketWalletsInOut": Operation("GET", "/api/v1/market/{condition_id}/wallets-in-out", streaming=False, redirect=False),
     "listSuspiciousTrades": Operation("GET", "/api/v1/suspicious-trades", streaming=False, redirect=False),
     "getSuspiciousTrade": Operation("GET", "/api/v1/suspicious-trades/{id}", streaming=False, redirect=False),
@@ -1872,6 +1876,62 @@ class OperationsMixin:
         return result
 
     @overload
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListSettledMarketsResponse: ...
+
+    @overload
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListSettledMarketsResponse | NotModifiedResponse: ...
+
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListSettledMarketsResponse | NotModifiedResponse:
+        """List settled game markets since a time.
+
+        ``GET /api/v1/markets/settled`` (operationId ``listSettledMarkets``).
+
+        Game markets Polymarket settled, as 0xinsider recorded them, oldest first by
+        (settlement.observed_at, settlement_id): one row per market per settled state, the
+        object the market_settled webhook delivers as data. It is the webhook's pull side: catch
+        up after downtime from since, or poll with ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            since: RFC 3339 time, required without cursor. Rows whose settlement.observed_at is at or after it. With cursor, the cursor's position replaces it.
+            sports_market_type: Comma-separated provider market types to keep, case-insensitive: moneyline, spreads, totals, a prop type; at most 64. Omitted: moneyline, or with cursor the ...
+            league: Comma-separated leagues to keep, as the rows' league reports them (nba, epl, or pga for PGA Tour golf); at most 32, each starting with a letter and holding no ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque stl_v1_ cursor from next_cursor. It replaces since and keeps the filters it was issued for: a sports_market_type or league sent with it must match them, ...
+        """
+        result: ListSettledMarketsResponse | NotModifiedResponse = self._call("listSettledMarkets", path_params={}, query={"since": since, "sports_market_type": sports_market_type, "league": league, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def explore_markets(
         self,
         *,
@@ -2469,6 +2529,61 @@ class OperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: GetMarketCloseResponse | NotModifiedResponse = self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListMarketTradesResponse: ...
+
+    @overload
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListMarketTradesResponse | NotModifiedResponse: ...
+
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListMarketTradesResponse | NotModifiedResponse:
+        """List a market's taker fills in a time window.
+
+        ``GET /api/v1/market/{condition_id}/trades`` (operationId ``listMarketTrades``).
+
+        One market's taker fills of 100 USD or more, newest first by (traded_at,
+        transaction_hash, log_index), from 0xinsider's own record of the exchange's on-chain
+        fills. Each fill appears once: its id is the transaction hash and the log index of its
+        fill event, so a walk can be deduplicated and joined ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC 3339 lower bound on traded_at. Omitted or earlier than coverage.recorded_from: the walk runs to the start of the record (coverage.recorded_from). ...
+            to: Exclusive RFC 3339 upper bound on traded_at. A first page ends at the earlier of to and coverage.complete_through. With cursor, it must match the cursor's.
+            limit: Page size. Out-of-range values are clamped to 1..500.
+            cursor: Opaque mtr_v1_ cursor from next_cursor. It continues the walk before the last fill of the previous page and keeps the market, from and to it was issued for: ...
+        """
+        result: ListMarketTradesResponse | NotModifiedResponse = self._call("listMarketTrades", path_params={"condition_id": condition_id}, query={"from": from_, "to": to, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3390,10 +3505,10 @@ class OperationsMixin:
 
         ``GET /api/v1/reports/resolutions`` (operationId ``getResolutionReport``).
 
-        One UTC day of resolved sports and esports markets: how often the side the profitable
-        (S, A and B grade) wallets held won, beside how often every qualifying wallet's side
-        won, one vote each. `markets` lists each market they held a position in, with the
-        consensus side, its confidence, and the full ...
+        One UTC day's resolved markets: how often the side the profitable (S, A and B grade)
+        wallets held won, beside how often every qualifying wallet's side won, one vote each.
+        `markets` lists each market they held a position in, with the consensus side, its
+        confidence, and the full roster of wallets, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -5590,6 +5705,62 @@ class ResponseOperationsMixin:
         return result
 
     @overload
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListSettledMarketsResponse]: ...
+
+    @overload
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse]:
+        """List settled game markets since a time.
+
+        ``GET /api/v1/markets/settled`` (operationId ``listSettledMarkets``).
+
+        Game markets Polymarket settled, as 0xinsider recorded them, oldest first by
+        (settlement.observed_at, settlement_id): one row per market per settled state, the
+        object the market_settled webhook delivers as data. It is the webhook's pull side: catch
+        up after downtime from since, or poll with ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            since: RFC 3339 time, required without cursor. Rows whose settlement.observed_at is at or after it. With cursor, the cursor's position replaces it.
+            sports_market_type: Comma-separated provider market types to keep, case-insensitive: moneyline, spreads, totals, a prop type; at most 64. Omitted: moneyline, or with cursor the ...
+            league: Comma-separated leagues to keep, as the rows' league reports them (nba, epl, or pga for PGA Tour golf); at most 32, each starting with a letter and holding no ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque stl_v1_ cursor from next_cursor. It replaces since and keeps the filters it was issued for: a sports_market_type or league sent with it must match them, ...
+        """
+        result: ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse] = self._call("listSettledMarkets", path_params={}, query={"since": since, "sports_market_type": sports_market_type, "league": league, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
     def explore_markets(
         self,
         *,
@@ -6187,6 +6358,61 @@ class ResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse] = self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListMarketTradesResponse]: ...
+
+    @overload
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """List a market's taker fills in a time window.
+
+        ``GET /api/v1/market/{condition_id}/trades`` (operationId ``listMarketTrades``).
+
+        One market's taker fills of 100 USD or more, newest first by (traded_at,
+        transaction_hash, log_index), from 0xinsider's own record of the exchange's on-chain
+        fills. Each fill appears once: its id is the transaction hash and the log index of its
+        fill event, so a walk can be deduplicated and joined ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC 3339 lower bound on traded_at. Omitted or earlier than coverage.recorded_from: the walk runs to the start of the record (coverage.recorded_from). ...
+            to: Exclusive RFC 3339 upper bound on traded_at. A first page ends at the earlier of to and coverage.complete_through. With cursor, it must match the cursor's.
+            limit: Page size. Out-of-range values are clamped to 1..500.
+            cursor: Opaque mtr_v1_ cursor from next_cursor. It continues the walk before the last fill of the previous page and keeps the market, from and to it was issued for: ...
+        """
+        result: ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listMarketTrades", path_params={"condition_id": condition_id}, query={"from": from_, "to": to, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7108,10 +7334,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/reports/resolutions`` (operationId ``getResolutionReport``).
 
-        One UTC day of resolved sports and esports markets: how often the side the profitable
-        (S, A and B grade) wallets held won, beside how often every qualifying wallet's side
-        won, one vote each. `markets` lists each market they held a position in, with the
-        consensus side, its confidence, and the full ...
+        One UTC day's resolved markets: how often the side the profitable (S, A and B grade)
+        wallets held won, beside how often every qualifying wallet's side won, one vote each.
+        `markets` lists each market they held a position in, with the consensus side, its
+        confidence, and the full roster of wallets, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -9309,6 +9535,62 @@ class AsyncOperationsMixin:
         return result
 
     @overload
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListSettledMarketsResponse: ...
+
+    @overload
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListSettledMarketsResponse | NotModifiedResponse: ...
+
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListSettledMarketsResponse | NotModifiedResponse:
+        """List settled game markets since a time.
+
+        ``GET /api/v1/markets/settled`` (operationId ``listSettledMarkets``).
+
+        Game markets Polymarket settled, as 0xinsider recorded them, oldest first by
+        (settlement.observed_at, settlement_id): one row per market per settled state, the
+        object the market_settled webhook delivers as data. It is the webhook's pull side: catch
+        up after downtime from since, or poll with ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            since: RFC 3339 time, required without cursor. Rows whose settlement.observed_at is at or after it. With cursor, the cursor's position replaces it.
+            sports_market_type: Comma-separated provider market types to keep, case-insensitive: moneyline, spreads, totals, a prop type; at most 64. Omitted: moneyline, or with cursor the ...
+            league: Comma-separated leagues to keep, as the rows' league reports them (nba, epl, or pga for PGA Tour golf); at most 32, each starting with a letter and holding no ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque stl_v1_ cursor from next_cursor. It replaces since and keeps the filters it was issued for: a sports_market_type or league sent with it must match them, ...
+        """
+        result: ListSettledMarketsResponse | NotModifiedResponse = await self._call("listSettledMarkets", path_params={}, query={"since": since, "sports_market_type": sports_market_type, "league": league, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def explore_markets(
         self,
         *,
@@ -9906,6 +10188,61 @@ class AsyncOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: GetMarketCloseResponse | NotModifiedResponse = await self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListMarketTradesResponse: ...
+
+    @overload
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListMarketTradesResponse | NotModifiedResponse: ...
+
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListMarketTradesResponse | NotModifiedResponse:
+        """List a market's taker fills in a time window.
+
+        ``GET /api/v1/market/{condition_id}/trades`` (operationId ``listMarketTrades``).
+
+        One market's taker fills of 100 USD or more, newest first by (traded_at,
+        transaction_hash, log_index), from 0xinsider's own record of the exchange's on-chain
+        fills. Each fill appears once: its id is the transaction hash and the log index of its
+        fill event, so a walk can be deduplicated and joined ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC 3339 lower bound on traded_at. Omitted or earlier than coverage.recorded_from: the walk runs to the start of the record (coverage.recorded_from). ...
+            to: Exclusive RFC 3339 upper bound on traded_at. A first page ends at the earlier of to and coverage.complete_through. With cursor, it must match the cursor's.
+            limit: Page size. Out-of-range values are clamped to 1..500.
+            cursor: Opaque mtr_v1_ cursor from next_cursor. It continues the walk before the last fill of the previous page and keeps the market, from and to it was issued for: ...
+        """
+        result: ListMarketTradesResponse | NotModifiedResponse = await self._call("listMarketTrades", path_params={"condition_id": condition_id}, query={"from": from_, "to": to, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -10827,10 +11164,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/reports/resolutions`` (operationId ``getResolutionReport``).
 
-        One UTC day of resolved sports and esports markets: how often the side the profitable
-        (S, A and B grade) wallets held won, beside how often every qualifying wallet's side
-        won, one vote each. `markets` lists each market they held a position in, with the
-        consensus side, its confidence, and the full ...
+        One UTC day's resolved markets: how often the side the profitable (S, A and B grade)
+        wallets held won, beside how often every qualifying wallet's side won, one vote each.
+        `markets` lists each market they held a position in, with the consensus side, its
+        confidence, and the full roster of wallets, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -13027,6 +13364,62 @@ class AsyncResponseOperationsMixin:
         return result
 
     @overload
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListSettledMarketsResponse]: ...
+
+    @overload
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_settled_markets(
+        self,
+        *,
+        since: str | None = None,
+        sports_market_type: str | None = None,
+        league: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse]:
+        """List settled game markets since a time.
+
+        ``GET /api/v1/markets/settled`` (operationId ``listSettledMarkets``).
+
+        Game markets Polymarket settled, as 0xinsider recorded them, oldest first by
+        (settlement.observed_at, settlement_id): one row per market per settled state, the
+        object the market_settled webhook delivers as data. It is the webhook's pull side: catch
+        up after downtime from since, or poll with ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            since: RFC 3339 time, required without cursor. Rows whose settlement.observed_at is at or after it. With cursor, the cursor's position replaces it.
+            sports_market_type: Comma-separated provider market types to keep, case-insensitive: moneyline, spreads, totals, a prop type; at most 64. Omitted: moneyline, or with cursor the ...
+            league: Comma-separated leagues to keep, as the rows' league reports them (nba, epl, or pga for PGA Tour golf); at most 32, each starting with a letter and holding no ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque stl_v1_ cursor from next_cursor. It replaces since and keeps the filters it was issued for: a sports_market_type or league sent with it must match them, ...
+        """
+        result: ApiResponse[ListSettledMarketsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listSettledMarkets", path_params={}, query={"since": since, "sports_market_type": sports_market_type, "league": league, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
+        return result
+
+    @overload
     async def explore_markets(
         self,
         *,
@@ -13624,6 +14017,61 @@ class AsyncResponseOperationsMixin:
         then returns ``NotModifiedResponse`` and your cached body is still current.
         """
         result: ApiResponse[GetMarketCloseResponse] | ApiResponse[NotModifiedResponse] = await self._call("getMarketClose", path_params={"condition_id": condition_id}, query={}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListMarketTradesResponse]: ...
+
+    @overload
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_market_trades(
+        self,
+        condition_id: str,
+        *,
+        from_: str | None = None,
+        to: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse]:
+        """List a market's taker fills in a time window.
+
+        ``GET /api/v1/market/{condition_id}/trades`` (operationId ``listMarketTrades``).
+
+        One market's taker fills of 100 USD or more, newest first by (traded_at,
+        transaction_hash, log_index), from 0xinsider's own record of the exchange's on-chain
+        fills. Each fill appears once: its id is the transaction hash and the log index of its
+        fill event, so a walk can be deduplicated and joined ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            from_: Inclusive RFC 3339 lower bound on traded_at. Omitted or earlier than coverage.recorded_from: the walk runs to the start of the record (coverage.recorded_from). ...
+            to: Exclusive RFC 3339 upper bound on traded_at. A first page ends at the earlier of to and coverage.complete_through. With cursor, it must match the cursor's.
+            limit: Page size. Out-of-range values are clamped to 1..500.
+            cursor: Opaque mtr_v1_ cursor from next_cursor. It continues the walk before the last fill of the previous page and keeps the market, from and to it was issued for: ...
+        """
+        result: ApiResponse[ListMarketTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listMarketTrades", path_params={"condition_id": condition_id}, query={"from": from_, "to": to, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -14545,10 +14993,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/reports/resolutions`` (operationId ``getResolutionReport``).
 
-        One UTC day of resolved sports and esports markets: how often the side the profitable
-        (S, A and B grade) wallets held won, beside how often every qualifying wallet's side
-        won, one vote each. `markets` lists each market they held a position in, with the
-        consensus side, its confidence, and the full ...
+        One UTC day's resolved markets: how often the side the profitable (S, A and B grade)
+        wallets held won, beside how often every qualifying wallet's side won, one vote each.
+        `markets` lists each market they held a position in, with the consensus side, its
+        confidence, and the full roster of wallets, ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
