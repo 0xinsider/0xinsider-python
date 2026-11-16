@@ -62,6 +62,11 @@ __all__ = [
     "CategoryLeader",
     "CategorySkillModelReadiness",
     "CategorySkillV2",
+    "Clv",
+    "ClvClose",
+    "ClvClv",
+    "ClvEntry",
+    "ClvOutcome",
     "Combo",
     "ComboCoverage",
     "ComboCoverageCursor",
@@ -94,9 +99,11 @@ __all__ = [
     "DataQualityGroup",
     "EdgeHunterBoard",
     "EdgeHunterBoardResponse",
+    "EdgeHunterBoardUnranked1",
     "EdgeHunterCategorySkill",
     "EdgeHunterFunnelReport",
     "EdgeHunterMarketContext",
+    "EdgeHunterMostHeld48hCutoff",
     "EdgeHunterObservation",
     "EdgeHunterObservationCoverage",
     "EdgeHunterObservationDegradationReason",
@@ -143,6 +150,14 @@ __all__ = [
     "ExportJobReadyEvent",
     "ExportSourceRange",
     "ExportVolumeReconciliation",
+    "FairPrice",
+    "FairPriceFair",
+    "FairPriceFee",
+    "FairPriceGame",
+    "FairPriceOutcome",
+    "FairPriceQuote",
+    "FairPriceQuoteBookDepthWithin2c1",
+    "FairPriceThresholds",
     "FreshnessFailure",
     "Game",
     "GameCompetitor",
@@ -158,17 +173,23 @@ __all__ = [
     "GameMarketPricePaired",
     "GameMarketPrices",
     "GameMarketProviderPrices",
+    "GameMarketQuote",
     "GameMarketSettlement",
     "GameSharpMoney",
+    "GameSharpMoneyAtKickoff1",
+    "GameSharpMoneyAtKickoff1OutcomesItem",
     "GameSharpMoneyOutcomesItem",
-    "GameSharpMoneyVerdict11",
-    "GameSharpMoneyVerdict12",
-    "GameSharpMoneyVerdict13",
-    "GameSharpMoneyVerdict14",
-    "GameSharpMoneyVerdict15",
-    "GameSharpMoneyVerdict16",
-    "GameSharpMoneyVerdict17",
-    "GameSharpMoneyVerdict18",
+    "GameSharpMoneySinceStart1",
+    "GameSharpMoneySinceStart1OutcomesItem",
+    "GameSharpMoneyVerdict",
+    "GameSharpMoneyVerdict1",
+    "GameSharpMoneyVerdict2",
+    "GameSharpMoneyVerdict3",
+    "GameSharpMoneyVerdict4",
+    "GameSharpMoneyVerdict5",
+    "GameSharpMoneyVerdict6",
+    "GameSharpMoneyVerdict7",
+    "GameSharpMoneyVerdict8",
     "GameStatus",
     "GameTournament",
     "GameTournamentLocation",
@@ -179,8 +200,10 @@ __all__ = [
     "GamesCoverage",
     "GetApiDiscoveryResponse",
     "GetCategoryLeaderboardResponse",
+    "GetClvResponse",
     "GetCoverageResponse",
     "GetEventReplaySinceResponse",
+    "GetFairPriceResponse",
     "GetGameHoldersResponse",
     "GetGameResponse",
     "GetGameSharpMoneyResponse",
@@ -208,6 +231,13 @@ __all__ = [
     "GetPickOfTheDayResponseData3ProofPendingPicksItem",
     "GetPickOfTheDayResponseData3ScheduledPicksItem",
     "GetPickOfTheDayStatsResponse",
+    "GetPickOfTheDayWalletMarketsResponse",
+    "GetPickOfTheDayWalletMarketsResponseData",
+    "GetPickOfTheDayWalletMarketsResponseDataListed1",
+    "GetPickOfTheDayWalletMarketsResponseDataListed2",
+    "GetPickOfTheDayWalletMarketsResponseDataListed3",
+    "GetPickOfTheDayWalletMarketsResponseDataMarketsItem",
+    "GetPickOfTheDayWalletMarketsResponseDataPrinted1",
     "GetPositionTimelineResponse",
     "GetReportsResponse",
     "GetResolutionReportResponse",
@@ -218,10 +248,13 @@ __all__ = [
     "GetTraderContextResponse",
     "GetTraderExportSnapshotResponse",
     "GetTraderGradeAtResponse",
+    "GetTraderMarketsResponse",
+    "GetTraderMarketsResponseDataItem",
     "GetTraderPnlResponse",
     "GetTraderResponse",
     "GetWhaleTradeResponse",
     "HolderCategoryEvidence",
+    "HoldersAsOf",
     "InsiderRadarFlagRaisedEvent",
     "LargeExportPolicy",
     "LargeExportPolicyAsyncJob",
@@ -274,6 +307,7 @@ __all__ = [
     "ListLargeTradesResponse",
     "ListLeaderboardLeaguesResponse",
     "ListLeaderboardResponse",
+    "ListMarketPriceMovesResponse",
     "ListMarketTradesResponse",
     "ListMarketTradesResponseCoverage",
     "ListPositionsResponse",
@@ -304,7 +338,6 @@ __all__ = [
     "MarketFlowMarket",
     "MarketFlowSharpMoney",
     "MarketFlowSharpMoneyTopPositionsItem",
-    "MarketFlowSmartMoney",
     "MarketHolder",
     "MarketHolderCategoryWinRecord",
     "MarketHoldersMarket",
@@ -341,6 +374,7 @@ __all__ = [
     "NotModifiedResponse",
     "OutcomeCandles",
     "PickHolder",
+    "PickHolderAfterRelease",
     "PickHolderCategoryWinRecord",
     "PickHolderPriceEdge",
     "PickHolderPriceEdgeHold",
@@ -353,6 +387,8 @@ __all__ = [
     "PickOfTheDayArchiveSummary",
     "PickOfTheDayArchiveSummaryHitRate",
     "PickOfTheDayArchiveSummaryPicksItem",
+    "PickOfTheDayAskComparison",
+    "PickOfTheDayAskComparisonAsk",
     "PickOfTheDayCommitmentPayload",
     "PickOfTheDayCommitmentPayloadV1",
     "PickOfTheDayCommitmentPayloadV2",
@@ -364,18 +400,21 @@ __all__ = [
     "PickOfTheDayLedgerSealedEntry",
     "PickOfTheDayLedgerUncommittedEntry",
     "PickOfTheDayLockedPicksItem",
+    "PickOfTheDayMarketExpectations",
+    "PickOfTheDayMarketExpectationsWindowsItem",
     "PickOfTheDayNoEntitledPicks",
+    "PickOfTheDayOutcomeStats",
+    "PickOfTheDayOutcomeStatsConcentration",
+    "PickOfTheDayOutcomeStatsDrawdown",
+    "PickOfTheDayOutcomeStatsProfitFactor",
+    "PickOfTheDayOutcomeStatsRollingItem",
+    "PickOfTheDayPublicSportsIdentity",
+    "PickOfTheDayPublicSportsIdentityNoTeam",
+    "PickOfTheDayPublicSportsIdentityYesTeam",
     "PickOfTheDayQualifyingExpert",
     "PickOfTheDayStats",
-    "PickOfTheDayStatsCategoriesItem",
-    "PickOfTheDayStatsDaysItem",
-    "PickOfTheDayStatsMarketExpectations",
-    "PickOfTheDayStatsMarketExpectationsWindowsItem",
-    "PickOfTheDayStatsOutcomeStats",
-    "PickOfTheDayStatsOutcomeStatsConcentration",
-    "PickOfTheDayStatsOutcomeStatsDrawdown",
-    "PickOfTheDayStatsOutcomeStatsProfitFactor",
-    "PickOfTheDayStatsOutcomeStatsRollingItem",
+    "PickOfTheDayStatsBucket",
+    "PickOfTheDayStatsDay",
     "PickOfTheDayStatsRecords",
     "PickOfTheDayStatsRecordsBestDay",
     "PickOfTheDayStatsRecordsBiggestWin",
@@ -386,7 +425,7 @@ __all__ = [
     "PickOfTheDayStatsSections",
     "PickOfTheDayStatsSectionsSeriesItem",
     "PickOfTheDayStatsStreaks",
-    "PickOfTheDayStatsVoidsItem",
+    "PickOfTheDayStatsVoid",
     "PickOfTheDayUncommittedPayload",
     "PickSportsContext",
     "PickSportsTeam",
@@ -401,6 +440,7 @@ __all__ = [
     "PositionTimelineEvent",
     "PositionTrader",
     "PotdEntryAuthorization",
+    "PriceMoveOutcomeAfter",
     "PriceMoveSubscriptionFilters",
     "ProofPendingPickSlot",
     "RedeliverWebhookDeliveryResponse",
@@ -423,6 +463,7 @@ __all__ = [
     "ScoreFormat",
     "SearchContentResponse",
     "SearchMarketsResponse",
+    "SettledMarketData",
     "SettlementSubscriptionFilters",
     "SharpMoneyFlowDetectedData",
     "SharpMoneyFlowDetectedEvent",
@@ -437,11 +478,16 @@ __all__ = [
     "SportLeaderboardLeague1",
     "SportLeaderboardRowsItem",
     "SportLeaderboardRowsItemPriceEdge1",
+    "StoredPriceMove",
     "SubmitWhaleDatasetBody",
     "SuspiciousTrade",
+    "SuspiciousTradeClv",
     "SuspiciousTradeFlaggedData",
     "SuspiciousTradeFlaggedEvent",
+    "SuspiciousTradeHedge1",
+    "SuspiciousTradeHedge1LegsItem",
     "SuspiciousTradeMarket",
+    "SuspiciousTradeResult",
     "SuspiciousTradeScores",
     "SuspiciousTradeTrader",
     "TennisPoints",
@@ -717,7 +763,9 @@ class Trader(_TraderRequired, total=False):
     score: float
     # Optional forecast score on the documented display scale. Null when unavailable.
     forecast_score: float
-    # Optional measured forecast context. Missing values remain unavailable rather than being inferred.
+    # Optional 0-1 share of forecast_score that the trader's own resolved-market record supports, to two decimal
+    # places. It rises toward 1 as more of the trader's markets resolve and never reaches it. Missing values
+    # remain ...
     forecast_evidence: float
     rank: int
     strategy: TraderStrategy
@@ -728,9 +776,9 @@ class Trader(_TraderRequired, total=False):
     # Deprecated since 2026-10-27 and never sent. These advanced risk and performance metrics covered every
     # Polymarket market of the wallet, and wallet figures cover sports and esports markets only (#29589). ...
     quant_metrics: TraderQuantMetrics
-    # When the wallet last traded: its most recent recorded trade, the same value the leaderboard entry's
-    # last_active carries (which re-reads it hourly). A cached body (meta.cached true) can lag a new trade by up
-    # to 60 ...
+    # When the wallet last traded: the later of its most recent recorded trade and its most recent trade seen on
+    # Polymarket's live trade stream, which carries the taking side of each match and is written every 30 seconds
+    # for ...
     last_active: str
     # When 0xinsider last completed a sync of the wallet (traders.last_synced), dated by the sync data_quality
     # group. Not when the wallet traded: read last_active for that. Format: date-time.
@@ -840,14 +888,7 @@ class ExactDecimal(TypedDict):
     basis: str
 
 
-class TraderPnlInScope(TypedDict):
-    """A wallet's sports and esports record (#27311). basis names the rule behind realized_pnl (#29370):
-    polymarket_sports_esports_v1 is Polymarket's own realized P&L for the wallet in its sports and
-    esports categories, plus the wallet's maker and taker rebates apportioned by its sports and esports
-    share of its Polymarket volume (by cost while Polymarket reports no overall volume) and the in-scope
-    part of any published neg-risk conversion correction; sports_esports_split_v1, used until both of
-    the wallet's category figures are confirmed, is Polymarket's published wallet-wide realized P&L
-    (with any ..."""
+class _TraderPnlInScopeRequired(TypedDict):
     # The rule behind realized_pnl: polymarket_sports_esports_v1 (Polymarket's sports and esports category figures
     # plus apportioned rebates) or sports_esports_split_v1 (the published realized figure split by cost). A new
     # ...
@@ -868,6 +909,23 @@ class TraderPnlInScope(TypedDict):
     markets_out_of_scope: int
     # When the record behind these figures was computed. Format: date-time.
     as_of: str
+
+
+class TraderPnlInScope(_TraderPnlInScopeRequired, total=False):
+    """A wallet's sports and esports record (#27311). basis names the rule behind realized_pnl (#29370):
+    polymarket_sports_esports_v1 is Polymarket's own realized P&L for the wallet in its sports and
+    esports categories, plus the wallet's maker and taker rebates apportioned by its sports and esports
+    share of its Polymarket volume (by cost while Polymarket reports no overall volume) and the in-scope
+    part of any published neg-risk conversion correction; sports_esports_split_v1, used until both of
+    the wallet's category figures are confirmed, is Polymarket's published wallet-wide realized P&L
+    (with any ..."""
+    # Additive (since 2026-11-11, #34333): sports and esports markets the wallet closed with a profit or a loss,
+    # the divisor of win_rate. A market that closed at zero P&L is in neither count, so it can be below ...
+    markets_decided: int
+    # Additive (since 2026-11-11, #34333): measured from 5 decided markets (markets_decided), not_enough_data
+    # below. It is the floor the 0xinsider leaderboards, profile and trade rows apply before they show a win rate,
+    # so one ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class TraderStats(TypedDict, total=False):
@@ -894,6 +952,16 @@ class TraderStats(TypedDict, total=False):
     total_volume: float
     # Additive lossless counterpart to `total_volume`, present exactly when it is.
     exact: TraderStatsExact
+    # Additive (since 2026-11-11, #34315): sports and esports markets the wallet closed with a profit or a loss,
+    # the divisor of win_rate. A market that closed at zero P&L is in neither count, so it can be below ...
+    markets_decided: int
+    # Additive (since 2026-11-11, #34315): decided sports and esports markets the wallet closed with a profit;
+    # win_rate is markets_won / markets_decided. Sent exactly when pnl.in_scope is, dated by the sports_record ...
+    markets_won: int
+    # Additive (since 2026-11-11, #34315): measured from 5 decided markets (markets_decided), not_enough_data
+    # below. It is the floor the 0xinsider leaderboards, profile and trade rows apply before they show a win rate,
+    # so one ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class TraderStatsExact(TypedDict):
@@ -1040,7 +1108,9 @@ class _TraderTrustRequired(TypedDict):
 
 
 class TraderTrust(_TraderTrustRequired, total=False):
-    """Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust."""
+    """Field-level trust metadata returned only when GET /api/v1/trader/{address} includes expand=trust. A
+    field served with a clock takes its data_quality group's verdict: freshness.status is that group's
+    fresh or stale, with its as_of and max_age_s, so the two never disagree (since 2026-11-15, #35613)."""
     # Deprecated since 2026-10-27 and never sent: it was present only with pnl.correction, which is retired
     # (#29830).
     pnl_correction: TrustMetadata
@@ -1189,11 +1259,13 @@ class TraderHourlyPerformance(TypedDict):
     market."""
     # One entry per UTC hour that has a settled market; an hour with none is absent.
     entries: list[TraderHourlyPerformanceEntriesItem]
-    # The hour with the highest win_rate. null when no entry exists.
+    # The hour with the highest win_rate. null when no entry exists. Picked over every hour, an hour of one
+    # decided market included: best_measured_hour is the pick behind the decided-market floor.
     best_hour: int | None
     # best_hour's win_rate, percentage 0-100. null exactly when best_hour is.
     best_win_rate: float | None
-    # The hour with the lowest win_rate. null when no entry exists.
+    # The hour with the lowest win_rate. null when no entry exists. Picked over every hour, an hour of one decided
+    # market included: worst_measured_hour is the pick behind the decided-market floor.
     worst_hour: int | None
     # worst_hour's win_rate, percentage 0-100. null exactly when worst_hour is.
     worst_win_rate: float | None
@@ -1202,6 +1274,22 @@ class TraderHourlyPerformance(TypedDict):
     # true when at least 12 hours have markets and every one of them has the same P&L sign, so the hour-to-hour
     # spread says little about timing.
     is_approximate: bool
+    # Additive (since 2026-11-11, #34355): the hour with the highest win_rate among entries whose win_rate_status
+    # is measured (5 or more decided markets), so one lucky market is never the best hour at 100%. The 0xinsider
+    # ...
+    best_measured_hour: int | None
+    # Additive (since 2026-11-11, #34355): best_measured_hour's win_rate, percentage 0-100. null exactly when
+    # best_measured_hour is.
+    best_measured_win_rate: float | None
+    # Additive (since 2026-11-11, #34355): best_measured_win_rate minus worst_measured_win_rate, percentage
+    # points. null exactly when best_measured_hour is.
+    measured_spread_pp: float | None
+    # Additive (since 2026-11-11, #34355): the hour with the lowest win_rate among entries whose win_rate_status
+    # is measured. Equal to best_measured_hour when one hour is measured. null exactly when best_measured_hour is.
+    worst_measured_hour: int | None
+    # Additive (since 2026-11-11, #34355): worst_measured_hour's win_rate, percentage 0-100. null exactly when
+    # worst_measured_hour is.
+    worst_measured_win_rate: float | None
 
 
 class TraderHourlyPerformanceEntriesItem(TypedDict):
@@ -1218,6 +1306,12 @@ class TraderHourlyPerformanceEntriesItem(TypedDict):
     total_pnl: float
     # total_pnl over markets, USD.
     avg_pnl: float
+    # Additive (since 2026-11-11, #34349): the hour's settled markets with a nonzero P&L, win_rate's divisor.
+    markets_decided: int
+    # Additive (since 2026-11-11, #34349): measured from 5 decided markets (markets_decided), not_enough_data
+    # below, the floor the 0xinsider profile applies before it shows an hour's win rate, so one lucky market never
+    # reads ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class TraderTimeBreakdowns(TypedDict):
@@ -1234,8 +1328,7 @@ class TraderTimeBreakdowns(TypedDict):
     insights: dict[str, str]
 
 
-class TraderTimeBreakdownBand(TypedDict):
-    """One band of a time breakdown."""
+class _TraderTimeBreakdownBandRequired(TypedDict):
     # The band's label.
     category_value: str
     # Markets with a realized P&L in the band.
@@ -1248,6 +1341,20 @@ class TraderTimeBreakdownBand(TypedDict):
     profit_factor: float | None
     # Realized P&L of the band's markets, USD.
     total_pnl: float | None
+
+
+class TraderTimeBreakdownBand(_TraderTimeBreakdownBandRequired, total=False):
+    """One band of a time breakdown."""
+    # Additive (since 2026-11-11, #34349): the band's resolved markets that made money, win_rate's numerator.
+    # Present on every band.
+    markets_won: int
+    # Additive (since 2026-11-11, #34349): the band's resolved markets with a nonzero P&L, win_rate's divisor.
+    # Present on every band.
+    markets_decided: int
+    # Additive (since 2026-11-11, #34349): measured from 5 decided markets (markets_decided), not_enough_data
+    # below, the floor the 0xinsider profile applies before it shows a band's win rate, so one lucky market never
+    # reads ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class TraderRiskMetrics(TypedDict):
@@ -1297,12 +1404,22 @@ class TraderEntryPriceAnalysis(TypedDict):
     why."""
     # One bucket per price band that has a market, in bucket_order.
     buckets: list[TraderEntryPriceBucket]
-    # The bucket with the highest win rate among buckets of at least 3 markets. null when no bucket has 3.
+    # The bucket with the highest win rate among buckets of at least 3 markets. null when no bucket has 3. The 3
+    # counts markets, not decided ones: best_measured_bucket is the pick behind the decided-market floor.
     best_bucket: str | None
-    # The bucket with the lowest win rate among buckets of at least 3 markets. null when no bucket has 3.
+    # The bucket with the lowest win rate among buckets of at least 3 markets. null when no bucket has 3. The 3
+    # counts markets, not decided ones: worst_measured_bucket is the pick behind the decided-market floor.
     worst_bucket: str | None
     # What the buckets cover (since 2026-11-03, #32671).
     coverage: TraderEntryPriceCoverage
+    # Additive (since 2026-11-11, #34355): the bucket with the highest win rate among buckets whose
+    # win_rate_status is measured (5 or more decided markets), so one lucky market is never the best range at
+    # 100%. The 0xinsider ...
+    best_measured_bucket: str | None
+    # Additive (since 2026-11-11, #34355): the bucket with the lowest win rate among buckets whose win_rate_status
+    # is measured. Equal to best_measured_bucket when one bucket is measured. null exactly when
+    # best_measured_bucket ...
+    worst_measured_bucket: str | None
 
 
 class TraderEntryPriceBucket(TypedDict):
@@ -1323,6 +1440,13 @@ class TraderEntryPriceBucket(TypedDict):
     total_pnl: AnalyticNumber
     # Mean realized P&L of a market in the band, USD.
     avg_pnl: AnalyticNumber
+    # Additive (since 2026-11-11, #34355): the band's markets with a nonzero P&L, win_rate's divisor. Present on
+    # every band.
+    markets_decided: int
+    # Additive (since 2026-11-11, #34355): measured from 5 decided markets (markets_decided), not_enough_data
+    # below, the floor the 0xinsider profile applies before it shows a band's win rate, so one lucky market never
+    # reads ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class _AnalyticIntegerRequired(TypedDict):
@@ -1478,6 +1602,31 @@ class TraderClvMeasuredMarketCi95Cents1(TypedDict):
     low: float
 
 
+class _GetTraderMarketsResponseRequired(TypedDict):
+    object: Literal["list"]
+    data: list[GetTraderMarketsResponseDataItem]
+    meta: ResponseMeta
+    has_more: bool
+
+
+class GetTraderMarketsResponse(_GetTraderMarketsResponseRequired, total=False):
+    next_cursor: str
+    total: int
+
+
+class GetTraderMarketsResponseDataItem(TypedDict):
+    category: str | None
+    condition_id: str
+    cost: ExactDecimal | None
+    # Format: date-time.
+    last_trade_at: str | None
+    realized_pnl: ExactDecimal | None
+    # Format: date-time.
+    resolved_at: str | None
+    status: str
+    title: str | None
+
+
 class GetTraderContextResponse(TypedDict):
     object: Literal["trader_context"]
     data: TraderContext
@@ -1620,7 +1769,7 @@ class ApiErrorBody(_ApiErrorBodyRequired, total=False):
     # ADDITIVE (#7209). The specific, actionable cause behind `code`, when there is one more specific than the
     # code itself. `code` keeps its published values, so existing clients are unaffected; new clients branch on
     # ...
-    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "market_out_of_scope", "fill_history_too_large", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "payment_overdue", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "cold_read_limited", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
+    reason: Literal["cursor_expired", "unknown_endpoint", "pick_not_released", "trader_not_tracked", "market_out_of_scope", "fill_history_too_large", "kickoff_roster_pending", "kickoff_roster_not_captured", "read_model_warming", "database_unavailable", "request_accounting_unavailable", "idempotency_in_progress", "webhook_delivery_in_progress", "webhook_secret_rotation_not_prepared", "webhook_secret_rotation_overlap_active", "sandbox_api_key", "api_key_in_query", "subscription_inactive", "payment_overdue", "monthly_quota_exceeded", "invalid_query", "unknown_query_parameter", "invalid_path", "invalid_body", "unsupported_media_type", "payload_too_large", "method_not_allowed", "ip_rate_limited", "ip_throttled", "cold_read_limited", "export_expired", "freshness_ceiling_unsatisfied", "max_plan_required", "endpoint_retired"] | str
 
 
 class _FreshnessFailureRequired(TypedDict):
@@ -1654,8 +1803,8 @@ class BatchResponseMeta(TypedDict):
 
 class BatchRateLimitMeta(TypedDict):
     basis: Literal["batch_items_per_minute"]
-    # The batch item budget per minute for the caller's plan: 2500 item units on Pro, 5000 on Max. The same number
-    # X-Batch-RateLimit-Limit reports.
+    # The batch item budget per minute for the caller's plan: 2500 item units on Pro, 10000 on Max. The same
+    # number X-Batch-RateLimit-Limit reports.
     limit: int
     remaining: int
     # Unix timestamp when the batch item window resets.
@@ -1723,8 +1872,8 @@ class TraderCategoryRecords(TypedDict):
     # rule to the raw counts.
     min_decided_for_win_rate: int
     # When the served records were last rebuilt (RFC3339, Z): the newest stamp among every row served, game and
-    # scope rows included, which the daily rebuild writes in one transaction. Null when the wallet has no record
-    # at ...
+    # scope rows included, which the daily rebuild, or the recount about an hour after a settlement, writes in one
+    # ...
     computed_at: str | None
     # One entry per canonical category with at least one decided market, ordered by decided descending then
     # category. A category with no decided market is omitted. The Esports entry carries its per-game records in
@@ -1772,7 +1921,7 @@ class TraderEsportsGameRecord(TypedDict):
     # Markets in this game the wallet closed with a profit.
     wins: int
     # Markets in this game it closed with a profit or a loss. A subset of the parent Esports record's decided: the
-    # two are read from the same daily rebuild.
+    # two are read from the same rebuild.
     decided: int
     # wins / decided in [0,1], truncated to four decimals. Null when status is not_enough_data.
     win_rate: float | None
@@ -1793,7 +1942,7 @@ class TraderCategoryScopeRecord(TypedDict):
     # Markets in this scope the wallet closed with a profit.
     wins: int
     # Markets in this scope it closed with a profit or a loss. A subset of the parent record's decided: the two
-    # are read from the same daily rebuild.
+    # are read from the same rebuild.
     decided: int
     # wins / decided in [0,1], truncated to four decimals. Null when status is not_enough_data.
     win_rate: float | None
@@ -1884,6 +2033,159 @@ class ListPropsResponseCoverage(TypedDict):
     rows_without_book: int | None
 
 
+class GetFairPriceResponse(TypedDict):
+    object: Literal["fair_price"]
+    data: FairPrice
+    meta: ResponseMeta
+
+
+class FairPrice(TypedDict):
+    """One game outcome's Polymarket fair price, with the checks that say whether it is fit to price a bet
+    against."""
+    # ok: two-sided, within max_spread_c, at or above min_book_usd_within_2c where the depth is known, confirmed
+    # current within 60 seconds. closed: the market closed or resolved, so there is no price to take. unavailable:
+    # no ...
+    status: Literal["ok", "wide_spread", "thin_book", "stale_quote", "closed", "unavailable"] | str
+    # Set exactly when status is unavailable. cache_miss: the cache holds no book for the outcome yet, and this
+    # read starts its live book, so a read a few seconds later may answer. cache_unavailable: the book cache could
+    # not ...
+    unavailable_reason: Literal["cache_miss", "cache_unavailable", "stream_capacity", "no_orderbook", "missing_provider_token_id", "one_sided_book", "empty_book", "other_outcome_unavailable"] | str | None
+    # Every check the quote failed, in status order; empty when none did. wide_spread: the spread is above
+    # max_spread_c. thin_book: a side holds less than min_book_usd_within_2c within 2 cents of the midpoint.
+    # stale_quote: ...
+    failed_checks: list[Literal["wide_spread", "thin_book", "stale_quote"] | str]
+    # The market's condition id.
+    condition_id: str
+    # The market's own event: the game's slug, or a child event's (a soccer game's spreads and totals sit under
+    # its -more-markets event). game.event_slug is always the game's.
+    event_slug: str
+    # moneyline, spread or total; null for another market type, priced by condition_id.
+    market_type: Literal["moneyline", "spread", "total"] | str | None
+    # The provider's sportsMarketType, verbatim: moneyline, spreads, totals or another type.
+    sports_market_type: str | None
+    # The provider's per-market display name, for example Albania on a 1X2 leg.
+    title: str | None
+    # The outcome's own handicap on a spread (-3.5), the total on a total (222.5); null on a moneyline.
+    line: float | None
+    # Whether the market is a leg of a soccer 1X2 game: fair.prob is then normalised over the three legs' Yes
+    # midpoints.
+    three_way: bool
+    # The priced outcome.
+    outcome: FairPriceOutcome
+    # The outcome's cached top of book.
+    quote: FairPriceQuote
+    # The taker fee a buy at quote.best_ask pays: fee per share = rate x (p x (1 - p))^exponent, with p the ask.
+    fee: FairPriceFee
+    # The fair probability and the odds it implies.
+    fair: FairPriceFair
+    # The game the market belongs to.
+    game: FairPriceGame
+    # The limits this answer was checked against.
+    thresholds: FairPriceThresholds
+    # When this answer was read. Format: date-time.
+    as_of: str
+
+
+class FairPriceOutcome(TypedDict):
+    """The priced outcome."""
+    # The provider's outcome index, 0 or 1.
+    index: int
+    # The provider's outcome label: Commanders, Over, or Yes on a 1X2 leg.
+    label: str | None
+    # The outcome's CLOB token id, a decimal string; null when the provider has none.
+    token_id: str | None
+
+
+class FairPriceQuote(TypedDict):
+    """The outcome's cached top of book."""
+    # The outcome's best bid, 0 to 1; null when the book holds no bids.
+    best_bid: float | None
+    # The outcome's best ask, 0 to 1; null when the book holds no asks.
+    best_ask: float | None
+    # (best_bid + best_ask) / 2; null without both sides.
+    mid: float | None
+    # best_ask less best_bid, in cents, to a hundredth of a cent; null without both sides.
+    spread_c: float | None
+    # USD resting within 2 cents of the midpoint on each side; null when the cache holds none, which is unknown,
+    # never 0, and fails no check.
+    book_depth_within_2c: FairPriceQuoteBookDepthWithin2c1 | None
+    # When best_bid or best_ask last changed: the CLOB frame, or CLOB books read, behind them. A quiet book keeps
+    # it for as long as it stands. Format: date-time.
+    observed_at: str | None
+    # Seconds from observed_at to as_of: how long the bid and ask have stood. stale_quote reads
+    # confirmed_age_seconds instead.
+    age_seconds: float | None
+    # The last instant the book is known to have been current: observed_at, or later when the live CLOB stream has
+    # since confirmed the unchanged book still matched. A dropped or stalled stream, a book the stream stopped ...
+    confirmed_at: str | None
+    # Seconds from confirmed_at to as_of. Above 60 fails stale_quote.
+    confirmed_age_seconds: float | None
+    # Who read the book: the CLOB stream or a CLOB REST read.
+    source: Literal["clob_stream", "clob_rest"] | str | None
+
+
+class FairPriceQuoteBookDepthWithin2c1(TypedDict):
+    # USD resting on bids at or above the midpoint less 0.02: each level's price times size.
+    bid_usd: float
+    # USD resting on asks at or below the midpoint plus 0.02: each level's price times size.
+    ask_usd: float
+
+
+class FairPriceFee(TypedDict):
+    """The taker fee a buy at quote.best_ask pays: fee per share = rate x (p x (1 - p))^exponent, with p
+    the ask."""
+    # observed: the market's own Gamma fee curve. disabled: the market's Gamma record says it charges no fee.
+    # assumed: no record in hand, so the 0.05 sports rate Polymarket's fee page documents, exponent 1.
+    basis: Literal["observed", "disabled", "assumed"] | str
+    # The taker fee rate; 0 when basis is disabled.
+    rate: float
+    # The fee curve's exponent.
+    exponent: float
+    # When the market's Gamma record was read; null when basis is assumed. Format: date-time.
+    observed_at: str | None
+    # The taker fee per share of a buy at quote.best_ask, in USD; null without an ask.
+    taker_fee_per_share: float | None
+    # best_ask plus taker_fee_per_share: what one share costs a taker, in USD; null without an ask.
+    taker_all_in_ask: float | None
+
+
+class FairPriceFair(TypedDict):
+    """The fair probability and the odds it implies."""
+    # The fair probability, 0 to 1: the outcome's midpoint normalised over the market's mutually exclusive
+    # outcomes; null without a midpoint.
+    prob: float | None
+    # The outcome's own midpoint, before normalising.
+    prob_mid: float | None
+    # 1 / prob: the shortest decimal odds that are not negative expected value at the fair probability.
+    decimal_odds: float | None
+    # The same price as American odds: (decimal_odds - 1) x 100 when decimal_odds is 2 or more, else -100 /
+    # (decimal_odds - 1).
+    american_odds: float | None
+    # two_way_mid: the outcome's midpoint over the sum of both outcomes' midpoints. three_way_mid: a 1X2 leg's Yes
+    # midpoint over the sum of the three Yes midpoints; its No is one less that.
+    method: Literal["two_way_mid", "three_way_mid"] | str
+
+
+class FairPriceGame(TypedDict):
+    """The game the market belongs to."""
+    # The game's event slug, the key of GET /api/v1/games/{event_slug}.
+    event_slug: str
+    # The stored kickoff; null when the mirror holds none. Format: date-time.
+    start: str | None
+    # Whether the kickoff had passed at as_of, so the price may be in play; null when the kickoff is unknown.
+    started: bool | None
+
+
+class FairPriceThresholds(TypedDict):
+    """The limits this answer was checked against."""
+    # The spread cap, in cents: the request's max_spread_c, default 3.
+    max_spread_c: float
+    # The depth floor per side, in USD: the request's min_book_usd_within_2c, default 500.
+    min_book_usd_within_2c: float
+    # The oldest book that still prices, in seconds: 60.
+    max_quote_age_seconds: int
+
+
 class _ListPositionsResponseRequired(TypedDict):
     object: Literal["list"]
     data: list[Position]
@@ -1960,8 +2262,12 @@ class _PositionTraderRequired(TypedDict):
     # Prefixed ID (`trd_...`).
     id: str
     address: str
-    # True when wallet_age_days is under the new-wallet threshold (30 days), which means 0xinsider first recorded
-    # the wallet in the last 30 days. False when wallet_age_days is absent. This public V1 field is first-seen ...
+    # Additive (since 2026-11-15, #35479): the wallet's first trade 0xinsider recorded, the same value as
+    # trader.first_trade_at on large-trade rows. Null until the wallet has one. Format: date-time.
+    first_trade_at: str | None
+    # True when first_trade_at is under 30 days old: the rule large-trade rows use and the wallets the site's New
+    # wallets view shows, so one wallet gets one answer. False when first_trade_at is null. Until 2026-11-15
+    # (#35479) ...
     is_new_wallet: bool
 
 
@@ -1982,10 +2288,17 @@ class PositionTrader(_PositionTraderRequired, total=False):
     # Sports and esports markets on the wallet's record, pnl.in_scope.markets on GET /api/v1/trader/{address}.
     # Since 2026-10-27 it no longer counts other markets (#29953). Absent when the wallet has no record.
     markets: int
-    # Days since the wallet's first-seen time. For a wallet 0xinsider first recorded on or after March 21, 2026,
-    # that is when 0xinsider recorded it. For a wallet recorded earlier, it is usually the wallet's first
-    # Polymarket ...
+    # Days since first_trade_at, to two decimals. Absent when first_trade_at is null. Until 2026-11-15 (#35479) it
+    # counted from when 0xinsider first recorded the wallet, which could be years after or before its first trade.
     wallet_age_days: float
+    # Additive (since 2026-11-11, #34333): sports and esports markets the wallet closed with a profit or a loss,
+    # the divisor of win_rate; pnl.in_scope.markets_decided on GET /api/v1/trader/{address}. Absent when the
+    # wallet ...
+    markets_decided: int
+    # Additive (since 2026-11-11, #34333): measured from 5 decided markets (markets_decided), not_enough_data
+    # below, the floor the 0xinsider profile and leaderboards apply before they show a win rate. Below it win_rate
+    # is ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class _PositionMarketRequired(TypedDict):
@@ -2111,6 +2424,9 @@ class _LargePositionTraderRequired(TypedDict):
 
 
 class LargePositionTrader(_LargePositionTraderRequired, total=False):
+    # The wallet's name as the large-trade rows give it (trader.username on GET /api/v1/large-trades), else its
+    # Polymarket pseudonym, and absent when the only name is the address itself. Profile text the wallet's owner
+    # sets: ...
     username: str
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     # Sports and esports win rate as a ratio from 0 to 1 (0.62 means 62%): wins over the decided sports and
@@ -2215,6 +2531,11 @@ class _LargeTradeTraderRequired(TypedDict):
     # moment. unknown: no record covers the moment, which is every trade before 2026-09-19T23:00Z and a trade that
     # ...
     grade_at_trade_status: Literal["graded", "ungraded", "unknown"] | str
+    # The wallet's first trade 0xinsider recorded. Null until the wallet has one. Format: date-time.
+    first_trade_at: str | None
+    # True when first_trade_at is under 30 days old, the wallets the site's New wallets view shows. Null when
+    # first_trade_at is null.
+    is_new_wallet: bool | None
 
 
 class LargeTradeTrader(_LargeTradeTraderRequired, total=False):
@@ -2522,6 +2843,10 @@ class LeaderboardEntry(_LeaderboardEntryRequired, total=False):
     # re-reads it hourly, so a new trade can take about an hour to show. It agrees with the activity filter: every
     # ...
     last_active: str
+    # Additive (since 2026-11-11, #34333): in_scope.win_rate_status, lifted to the row beside win_rate. measured
+    # from 5 decided markets (in_scope.markets_decided), not_enough_data below, the floor the 0xinsider
+    # leaderboard ...
+    win_rate_status: Literal["measured", "not_enough_data"] | str
 
 
 class _LeaderboardPriceEdgeRequired(TypedDict):
@@ -2617,8 +2942,9 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # True only before the pick's stored release instant (a pre-release embargo flag); effectively always false on
     # a served, already-published pick. To detect that the backed game has kicked off, use `game_started`.
     is_locked: bool
-    # True once the backed game's kickoff has passed (kickoff <= now). When true the snapshotted pre-game price is
-    # no longer actionable. Absent for a legacy pick with no stored kickoff (treat as not-started).
+    # True once the backed game has started (kickoff <= now). When true the snapshotted pre-game price is no
+    # longer actionable. It compares the start recorded with the pick, which can briefly trail a provider
+    # reschedule that ...
     game_started: bool
     # Whether the backed game is over, from the game's scoreboard. Once the game is recorded as finished it stays
     # true, on later reads and on past days. A pick settled `win` or `loss` reads true unless the live scoreboard
@@ -2630,25 +2956,30 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # as a label. Convenience only; outcome is the source value. NOTE: this is the win/loss STATUS, not the backed
     # ...
     outcome_display: str
-    # The backed side phrased as a bet: a team for a moneyline (e.g. "Portugal"), the handicap line for a spread
-    # (e.g. "Belgium (-2.5)"), or "{team} to advance" for a knockout advancement market (e.g. "Spain to advance").
+    # The backed side as a short label: a team for a moneyline (e.g. "Bengals"), the team and handicap for a
+    # spread (e.g. "Seahawks (-14.5)"), the line and side for a total (e.g. "O/U 38.5 (Under)"), or "{team} to
+    # advance" ...
     pick_outcome_label: str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the backed outcome; omitted when
     # unavailable (e.g. unsynced markets).
     token_id: str
-    # The backed side phrased as a bet (e.g. "Portugal to win").
+    # The backed side as the pick's headline reads it (e.g. "Bengals to win", "Seahawks (-14.5)", "O/U 38.5
+    # (Under)").
     position: str
-    # One-line summary of which side sharp money is backing. Required on every item in `picks`: a current-day
-    # published pick whose required holder proof is not safely readable is listed in `proof_pending_picks` instead
-    # of ...
+    # One-line summary of which side sharp money is backing. On a pick dated 2026-08-12 or later it counts the S
+    # and A grade wallets the pick lists on the backed side, the sharp_wallet_count value, and names those grades:
+    # "26 ...
     side_summary: str
-    # S/A wallet count on the backed side in the public V1 compatibility projection.
+    # S/A wallet count of the wallets the pick lists on the backed side, in the public V1 compatibility
+    # projection.
     sharp_wallet_count: int
     # Deprecated spelling of sharp_wallet_count with the same value.
     smart_wallet_count: int
-    # Best recorded S/A grade in the public V1 compatibility projection.
+    # Best recorded S/A grade in the public V1 compatibility projection. Absent when the pick lists no S or A
+    # grade wallet, for example a pick that lists only B grade wallets; display_holders lists every grade.
     top_grade: str
-    # Recorded sharp-money magnitude in USD when available.
+    # Recorded graded-flow magnitude in USD on the backed side. Absent when the recorded value is zero, and on
+    # every pick that carries lead_backer.
     sharp_usd: float
     # Deprecated spelling of sharp_usd with the same value.
     smart_usd: float
@@ -2703,7 +3034,9 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     unit_score: float
     # Backend-formatted signed unit score, present exactly when unit_score is present.
     unit_score_display: str
-    # Recorded sharp-money share as a 0..1 fraction when available. This is not a winning probability.
+    # Recorded sharp-money share as a 0..1 fraction. This is not a winning probability. Absent on every pick dated
+    # 2026-08-12 or later: from that date the recorded share includes B grade wallets, which this S and A
+    # projection ...
     sharp_pct: float
     # Recorded market-implied probability as a 0..1 fraction when available.
     market_pct: float
@@ -2712,8 +3045,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     qualifying_expert: PickOfTheDayQualifyingExpert
     # Public V1 S/A wallet count on the backed side, equal to sharp_wallet_count.
     traders: int
-    # Recorded aggregate backed-side position value in USD when available, not a live balance or entry cost. The
-    # display_holders roster can include additional wallets; use the returned aggregate rather than summing that
+    # Recorded aggregate backed-side position value in USD, not a live balance or entry cost. Absent on every pick
+    # dated 2026-08-12 or later: from that date the recorded value includes B grade wallets, which this S and A
     # ...
     backed_sharp_usd: float
     # Bounded S/A holder display projection from the recorded snapshot. Historical rows retain their recorded
@@ -2723,6 +3056,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # order. The roster can include wallets outside the recorded count and aggregate fields; do not derive ...
     display_holders: list[PickHolder]
     # S/A holder count for the public V1 compatibility projection. display_holders can include additional grades.
+    # sharp_positioned_usd and backed_side_share count every grade the pick lists, so a pick that lists only B
+    # grade ...
     holder_count: int
     # Display-ready explanation of the recorded pick. Render the returned text rather than reconstructing it from
     # holder counts or grades.
@@ -2747,8 +3082,9 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # Entitled published picks whose holder proof is unreadable, ordered by rank. Unauthorized ranks appear only
     # in locked_picks and cannot trigger proof warming. Read retry_at for the next read.
     proof_pending_picks: list[ProofPendingPickSlot]
-    # Optional full-response entry authorization. Missing or expired authorization cannot authorize an automated
-    # entry.
+    # Optional full-response entry authorization. The pick's release issues it once, only when a fresh check then
+    # finds the pick meets the selection standard in force at release and its current price still allows an entry.
+    # A ...
     entry_authorization: PotdEntryAuthorization
     # Unauthorized unresolved published or scheduled ranks. Contains no game, provider identity, price, or
     # identifying clock. Pro may upgrade to Max to open these ranks.
@@ -2762,9 +3098,74 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # Viewer-independent free selection designation. New rows store it explicitly; historic null storage uses the
     # original free slot.
     is_free_selection: bool
-    # Optional full-only lead wallet publication facts. Omitted on legacy picks or when the recorded evidence is
-    # unavailable.
+    # Optional full-only lead wallet publication facts: the profitable wallet whose position and record certified
+    # the pick when it was released. Many picks have no certified lead, and a pick released without one never
+    # gains ...
     lead_backer: PickLeadBacker
+    # On the top level of today's set read. The instant until which today's list of published picks can still
+    # grow: present while another pick can still be added to the day, absent once the day is final. Absent for a
+    # past ...
+    more_picks_until: str
+    # Display identity for the pick's game: the league and the two sides, with names, crests and records, and for
+    # a tennis player the headshot, tour and ranking. Sent on a pick whose sports identity resolved; absent ...
+    public_sports_identity: PickOfTheDayPublicSportsIdentity
+    # When the pick was published: the recorded instant, the same one the archive returns for it. release_at is
+    # the scheduled release. Sent on every pick; absent with the other pick fields on a state=none body. Format:
+    # ...
+    published_at: str
+    # When outcome was LAST written to a settled value (RFC3339 UTC), the same instant the archive and the
+    # commitment ledger return for the pick. It moves with a corrected market re-mapping an already-settled pick.
+    # Omitted ...
+    resolved_at: str
+    # When the backed game starts (RFC3339 UTC): the same instant the 0xinsider site shows for the pick, read from
+    # the provider's current schedule, so a rescheduled game shows its new start, else the start recorded with the
+    # ...
+    kickoff: str
+    # The Sharp side share the pick's page shows, from the same recorded value: of all the dollars graded wallets
+    # held in the market, on both sides, the part on the backed side, as a fraction from 0 to 1 (pick 2153 reads
+    # ...
+    backed_side_share: float
+    # The Sharp positioned value the pick's page shows, from the same recorded value: the dollars, in USD, that
+    # the wallets the pick counts held on the backed side, on the same grade basis as backed_side_share. When the
+    # ...
+    sharp_positioned_usd: float
+    # Every graded wallet (S, A or B) holding the backed side when the pick was selected, listed or not: the
+    # wallets whose money backed_side_share is the share of. display_holders lists some of them, so this can
+    # exceed ...
+    side_graded_wallet_count: int
+    # Those wallets' gross USD on the backed side when the pick was selected, sent only beside
+    # side_graded_wallet_count and only when above zero. It values every share at selection, so it can differ from
+    # sharp_positioned_usd. ...
+    side_graded_usd: float
+    # The pick's sealed pre-game commitment as 64 lowercase hex characters: the commitment_hash its entry in GET
+    # /api/v1/pick-of-the-day/ledger/{pick_id} and the public repository github.com/0xinsider/picks carry. Sent
+    # with ...
+    commitment_hash: str
+    # The game start the sealed commitment bound (RFC3339 UTC): the start the pick was released against, the
+    # kickoff its opened ledger payload carries. kickoff follows the provider's current schedule, so the two
+    # differ when ...
+    committed_kickoff: str
+    # The same instant as kickoff, under the name the 0xinsider site's own pick body uses. Sent whenever kickoff
+    # is. Additive and optional. Format: date-time.
+    game_start_time: str
+    # When the pick's release read of its listed wallets was taken (RFC3339 UTC): the first accepted read of the
+    # backed side's holders, stored once at release and never read again, keeping only the wallets display_holders
+    # ...
+    holders_observed_at: str
+    # The page of the public ledger file in github.com/0xinsider/picks that records this pick's product day; its
+    # history shows the commit that recorded the hash. Sent with commitment_hash. Additive and optional.
+    ledger_url: str
+    # When the daily wallet-record pass behind the listed wallets' records began (RFC3339 UTC), from the same
+    # stored release read as holders_observed_at and under the same conditions: the oldest a listed wallet's
+    # records can ...
+    records_as_of: str
+    # When the commitment was sealed (RFC3339 UTC), the sealed_at its ledger entry carries; always before
+    # committed_kickoff. Sent with commitment_hash. Additive and optional. Format: date-time.
+    sealed_at: str
+    # The backed market's Polymarket sports market type as recorded with the pick: moneyline, spreads, totals,
+    # map_handicap and others, the value the archive row returns for the pick. Omitted when the market states
+    # none. ...
+    sports_market_type: str
 
 
 class ScheduledPickSlot(TypedDict):
@@ -2865,10 +3266,10 @@ class PickHolder(_PickHolderRequired, total=False):
     # `not_enough_data` (the wallet is below the settled-market floor of 5 in the category), or `unavailable` (the
     # ...
     category_win_rate_status: Literal["measured", "not_enough_data", "unavailable", "untracked"] | str
-    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
-    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
-    # a ...
-    wallet_age_days: float | None
+    # Whole UTC calendar days since this wallet's first trade, as an integer (271, not 271.0): the number of UTC
+    # dates from the first trade's date to today, so a first trade at 23:00 UTC reads 1 an hour later. Every
+    # wallet's ...
+    wallet_age_days: int | None
     # True when the wallet's first trade was under 30 days ago. Stamped at serve time from the wallet's current
     # trader record, never frozen with the pick. The five badge fields are present together, and only for a wallet
     # that ...
@@ -2886,8 +3287,7 @@ class PickHolder(_PickHolderRequired, total=False):
     # never ...
     x_username: str | None
     # The wallet's edge over the price it paid in the pick's canonical category (`category`): how often the side
-    # it bought won, minus the average price it paid, over its settled markets there of $20 or more at a known
-    # entry ...
+    # it bought won, minus the average price it paid, over its settled markets there at a known entry price ...
     category_price_edge: PickHolderPriceEdge
     # The same edge over the markets of the game or league `category_win_rate_game` names alone: the edge the pick
     # card prints beside a game or league win rate (for example `-17.1 pp` in the Premier League). Present only
@@ -2900,6 +3300,10 @@ class PickHolder(_PickHolderRequired, total=False):
     # has them. Present only beside `category_win_rate_game`, and never beside `category_scope_price_edge`. Absent
     # ...
     category_scope_price_edge_hold: PickHolderPriceEdgeHold
+    # What this wallet did on the pick's market after the pick was released, read from the fills, merges, splits
+    # and redemptions 0xinsider stores. Sits beside the release `shares`, which never change. `state` is `held`,
+    # ...
+    after_release: PickHolderAfterRelease
 
 
 class PickHolderCategoryWinRecord(TypedDict):
@@ -2918,11 +3322,11 @@ class PickHolderCategoryWinRecord(TypedDict):
 
 class PickHolderPriceEdge(TypedDict):
     """Edge over the price paid in one category, game or league: how often the side a wallet bought won,
-    minus the average price it paid, over its settled markets there of $20 or more at a known entry
-    price. Probabilities throughout: edge -0.171 is -17.1 percentage points. A market bought on both
-    sides counts by its shares: the winning side's share of the shares bought is its hit, the cost over
-    those shares its price. Figures from the daily record rebuild."""
-    # Settled markets of $20 or more at a known entry price that the edge is measured over.
+    minus the average price it paid, over its settled markets there at a known entry price
+    (`every_size`). Probabilities throughout: edge -0.171 is -17.1 percentage points. A market bought on
+    both sides counts by its shares: the winning side's share of the shares bought is its hit, the cost
+    over those shares its price. Figures from the daily record rebuild."""
+    # Settled markets at a known entry price that the edge is measured over (`every_size`).
     markets: int
     # Share of those markets whose bought side won, 0-1.
     hit_rate: float
@@ -2931,6 +3335,9 @@ class PickHolderPriceEdge(TypedDict):
     avg_price: float
     # hit_rate minus avg_price, full precision.
     edge: float
+    # True when the figures count every settled market of every size; false or absent when they count markets of
+    # $20 or more (older or not yet recounted).
+    every_size: bool
 
 
 class _PickHolderPriceEdgeHoldRequired(TypedDict):
@@ -2947,14 +3354,61 @@ class PickHolderPriceEdgeHold(_PickHolderPriceEdgeHoldRequired, total=False):
     record: PickHolderPriceEdge
 
 
+class _PickHolderAfterReleaseRequired(TypedDict):
+    # End of the share-change window: the game's start once it has started, else `observed_at`. Trading during the
+    # game does not count. Format: date-time.
+    changes_through: str
+    # True once the facts are stored, 72 hours after settlement; they no longer change.
+    frozen: bool
+    # When the facts were read, to the minute, or when they were stored. Format: date-time.
+    observed_at: str
+    # End of the redemption window: settlement plus 72 hours once stored, else `observed_at`. Format: date-time.
+    redemptions_through: str
+    # `held`: no change to its backed shares before the game. `added`: bought more. `reduced`: sold or merged
+    # some. `exited`: left under one backed share. `redeemed`: redeemed backed shares after settlement.
+    # `unavailable`: ...
+    state: Literal["held", "added", "reduced", "exited", "redeemed", "unavailable"] | str
+
+
+class PickHolderAfterRelease(_PickHolderAfterReleaseRequired, total=False):
+    """What this wallet did on the pick's market after the pick was released, read from the fills, merges,
+    splits and redemptions 0xinsider stores. Sits beside the release `shares`, which never change.
+    `state` is `held`, `added`, `reduced` or `exited` for the time between release and the game's start,
+    then `redeemed` once the wallet redeemed backed shares after settlement. Read `unavailable` as
+    unknown, never as held. Present on `display_holders` items of a full pick; absent on teasers and on
+    payloads predating the field."""
+    # Time of the wallet's latest fill, merge or split on either outcome in the change window. Absent when it made
+    # none. Format: date-time.
+    last_change_at: str
+    # Net shares of the other outcome the wallet gained in the change window: positive when it bought the other
+    # side.
+    other_shares_change: float
+    # When the wallet's latest redemption of backed shares settled. Present beside `redeemed_shares`. Format:
+    # date-time.
+    redeemed_at: str
+    # Backed shares the wallet redeemed after the market settled, up to `redemptions_through`. Absent when it
+    # redeemed none.
+    redeemed_shares: float
+    # The release `shares` plus `shares_change`, never below zero.
+    shares_after: float
+    # Net backed shares gained in the change window: bought, minus sold and merged, plus split. Negative when the
+    # wallet cut its position.
+    shares_change: float
+    # Present only when `state` is `unavailable`. `read_failed`: the read failed or ran out of time, and a later
+    # request can answer. `wallet_not_indexed` or `market_not_indexed`: 0xinsider stores no fills of that wallet
+    # or on ...
+    unavailable_reason: Literal["read_failed", "wallet_not_indexed", "market_not_indexed"] | str
+
+
 class _PickSportsContextRequired(TypedDict):
     # League or competition display name (e.g. "Premier League").
     league_name: str | None
     # League logo URL (provider-owned).
     league_logo: str | None
-    # The team mapped to the market's YES outcome, or the parent-event home/first team when event_matchup is true.
+    # The team mapped to the market's YES outcome, or the game's first team when event_matchup is true. To lay the
+    # two teams out in the game's order, read side_order.
     yes_team: PickSportsTeam | None
-    # The team mapped to the market's NO outcome, or the parent-event away/second team when event_matchup is true.
+    # The team mapped to the market's NO outcome, or the game's second team when event_matchup is true.
     no_team: PickSportsTeam | None
     # Always present. True when the two teams are the parent-event match identity for a teamless binary leg (e.g.
     # a draw, totals, or prop market), not the market's own outcomes.
@@ -2975,16 +3429,21 @@ class PickSportsContext(_PickSportsContextRequired, total=False):
     # matched to a matchup team, e.g. Belgium for "Will Belgium win?"), i.e. the winner on a Yes resolution.
     # Omitted for ...
     event_subject_team: PickSportsTeam
-    # The two teams as a single whole-game label, joined "<home> – <away>" (en-dash) in provider display order
-    # (e.g. "Portugal – Uzbekistan"). Composed server-side from the provider team names (no title/slug parsing).
-    # Present ...
+    # Which of yes_team and no_team the game lists first, in Polymarket's order for the event (the order of its
+    # title: the away team first in US leagues, the home team first in soccer). yes_first when yes_team is the
+    # first ...
+    side_order: Literal["yes_first", "no_first"] | str
+    # The two teams as a single whole-game label, joined "<first> – <second>" (en-dash) in the game's order, the
+    # order side_order names (e.g. "LA Clippers – Phoenix Suns"), so every pick on one game carries the same
+    # title. ...
     matchup_title: str
 
 
 class _PickSportsTeamRequired(TypedDict):
     # Team display label as it appears on the market outcome (e.g. "Portugal").
     label: str | None
-    # Abbreviated team label (e.g. "POR").
+    # The team's abbreviation in upper case (e.g. "POR"), the same on every market of the game. A competitor
+    # Polymarket gives no abbreviation can carry its name here instead.
     short_label: str | None
     # The name to show for this team or competitor, the same on every surface (e.g. "UCF Knights", "Oklahoma City
     # Thunder", "Portugal"). `label` keeps the market outcome's own spelling.
@@ -3197,6 +3656,97 @@ class PickLeadBacker(_PickLeadBackerRequired, total=False):
     net_position_usd: float
 
 
+class _PickOfTheDayPublicSportsIdentityRequired(TypedDict):
+    # True when yes_team and no_team are the parent game's two sides in display order, on a Yes/No market whose
+    # own outcomes name no team (a draw, a total, a prop); they then say nothing about which side Yes backs. False
+    # when ...
+    event_matchup: bool
+
+
+class PickOfTheDayPublicSportsIdentity(_PickOfTheDayPublicSportsIdentityRequired, total=False):
+    """Display identity for the pick's game: the league and the two sides, with names, crests and records,
+    and for a tennis player the headshot, tour and ranking. Sent on a pick whose sports identity
+    resolved; absent otherwise. It carries no market, event or provider identifier. An image value that
+    starts with / is a path relative to https://0xinsider.com."""
+    # League crest: an absolute https URL, or a path relative to https://0xinsider.com for a crest 0xinsider
+    # serves.
+    league_logo: str
+    # League or competition name.
+    league_name: str
+    # The side the market's No outcome names; when event_matchup is true, the parent game's second side in display
+    # order.
+    no_team: PickOfTheDayPublicSportsIdentityNoTeam
+    # Which of yes_team and no_team the game lists first, the same value as sports_context.side_order:
+    # Polymarket's order for the event (the order of its title: the away team first in US leagues, the home team
+    # first in ...
+    side_order: Literal["yes_first", "no_first"] | str
+    # The side the market's Yes outcome names; when event_matchup is true, the parent game's first side in display
+    # order.
+    yes_team: PickOfTheDayPublicSportsIdentityYesTeam
+
+
+class PickOfTheDayPublicSportsIdentityNoTeam(TypedDict, total=False):
+    """The side the market's No outcome names; when event_matchup is true, the parent game's second side in
+    display order."""
+    # Full display name of the team or player.
+    full_name: str
+    # Tennis player photo as a path relative to https://0xinsider.com, for example /api/tennis/headshots/...;
+    # prefix that origin to fetch it. Absent when no photo is on file.
+    headshot: str
+    # Revision of the headshot image; it changes when the photo changes. Present only with headshot.
+    headshot_revision: int
+    # Display name of the team or player.
+    label: str
+    # Team crest: an absolute https URL, or a path relative to https://0xinsider.com for a crest 0xinsider serves.
+    # Absent when no specific crest is on file.
+    logo: str
+    # True when the logo artwork disappears on a dark background. Sent only when true.
+    logo_mark_dark: bool
+    # True when the logo artwork disappears on a light background. Sent only when true.
+    logo_mark_light: bool
+    # True when logo_mark_dark and logo_mark_light were measured from this logo. Sent only when true; when absent,
+    # their absence makes no claim about the artwork.
+    logo_mark_measured: bool
+    ranking: TennisRanking
+    # Win-loss record as the provider reports it.
+    record: str
+    # Short display name, such as an abbreviation.
+    short_label: str
+    # Tennis tour of the player: atp, wta or itf. Sent for a tennis player whether or not a headshot is on file.
+    tour: str
+
+
+class PickOfTheDayPublicSportsIdentityYesTeam(TypedDict, total=False):
+    """The side the market's Yes outcome names; when event_matchup is true, the parent game's first side in
+    display order."""
+    # Full display name of the team or player.
+    full_name: str
+    # Tennis player photo as a path relative to https://0xinsider.com, for example /api/tennis/headshots/...;
+    # prefix that origin to fetch it. Absent when no photo is on file.
+    headshot: str
+    # Revision of the headshot image; it changes when the photo changes. Present only with headshot.
+    headshot_revision: int
+    # Display name of the team or player.
+    label: str
+    # Team crest: an absolute https URL, or a path relative to https://0xinsider.com for a crest 0xinsider serves.
+    # Absent when no specific crest is on file.
+    logo: str
+    # True when the logo artwork disappears on a dark background. Sent only when true.
+    logo_mark_dark: bool
+    # True when the logo artwork disappears on a light background. Sent only when true.
+    logo_mark_light: bool
+    # True when logo_mark_dark and logo_mark_light were measured from this logo. Sent only when true; when absent,
+    # their absence makes no claim about the artwork.
+    logo_mark_measured: bool
+    ranking: TennisRanking
+    # Win-loss record as the provider reports it.
+    record: str
+    # Short display name, such as an abbreviation.
+    short_label: str
+    # Tennis tour of the player: atp, wta or itf. Sent for a tennis player whether or not a headshot is on file.
+    tour: str
+
+
 class _PickOfTheDayNoEntitledPicksRequired(TypedDict):
     # Only locked ranks are published for this account.
     state: Literal["none"]
@@ -3224,6 +3774,10 @@ class PickOfTheDayNoEntitledPicks(_PickOfTheDayNoEntitledPicksRequired, total=Fa
     # Rank-ordered entitled selections that have not released. Every row retains release_at and kickoff;
     # unauthorized scheduled ranks appear only in identity-free locked_picks.
     scheduled_picks: list[ScheduledPickSlot]
+    # The instant until which today's list of published picks can still grow: present while another pick can still
+    # be added to the day, absent once the day is final. A later pick is possible, not promised. Format: date-
+    # time.
+    more_picks_until: str
 
 
 class _GetPickOfTheDayResponseData3Required(TypedDict):
@@ -3240,6 +3794,8 @@ class GetPickOfTheDayResponseData3(_GetPickOfTheDayResponseData3Required, total=
     locked_picks: list[GetPickOfTheDayResponseData3LockedPicksItem]
     proof_pending_picks: list[GetPickOfTheDayResponseData3ProofPendingPicksItem]
     scheduled_picks: list[GetPickOfTheDayResponseData3ScheduledPicksItem]
+    # Format: date-time.
+    more_picks_until: str
 
 
 class GetPickOfTheDayResponseData3LockedPicksItem(TypedDict):
@@ -3262,6 +3818,9 @@ class GetPickOfTheDayResponseData3PicksItem(_GetPickOfTheDayResponseData3PicksIt
     event_slug: str
     game_ended: bool
     game_started: bool
+    # The full pick's holder_count: the S and A grade wallets the pick lists on the backed side.
+    # sharp_positioned_usd and backed_side_share count every grade the pick lists, so a pick that lists only B
+    # grade wallets reads 0 ...
     holder_count: int
     matchup: str
     outcome: str
@@ -3272,8 +3831,21 @@ class GetPickOfTheDayResponseData3PicksItem(_GetPickOfTheDayResponseData3PicksIt
     return_usd: float
     stake_usd: float
     token_id: str
+    # The full pick's top_grade: the best S or A grade the pick lists on the backed side. Absent when the pick
+    # lists no S or A grade wallet, for example a pick that lists only B grade wallets.
     top_grade: str
     unit_score: float
+    # When the backed game starts (RFC3339 UTC): the full pick's kickoff. Format: date-time.
+    kickoff: str
+    # The full pick's backed_side_share: the Sharp side share the pick's page shows, the part of the graded
+    # wallets' dollars in the market that sat on the backed side when the pick was selected, as a fraction from 0
+    # to 1 ...
+    backed_side_share: float
+    # The full pick's sharp_positioned_usd: the Sharp positioned value the pick's page shows, the dollars the
+    # pick's counted graded wallets held on the backed side, in USD, recorded for the pick and not updated after.
+    sharp_positioned_usd: float
+    # The full pick's sports_market_type.
+    sports_market_type: str
 
 
 class _GetPickOfTheDayResponseData3ProofPendingPicksItemRequired(TypedDict):
@@ -3364,8 +3936,9 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # The backed side's outcome label. Omitted for a still-pending pick when the request is not from an
     # authenticated Pro key.
     pick_outcome_label: str
-    # Recorded top grade on the backed side in the public V1 compatibility projection. Omitted when unavailable.
-    # Historical values remain recorded snapshots.
+    # Recorded best S or A grade on the backed side in the public V1 compatibility projection. Omitted when
+    # unavailable, including on a pick that lists no S or A grade wallet. Historical values remain recorded
+    # snapshots.
     top_grade: str
     # Pre-formatted settlement status for display: "Win" / "Loss" / "Void" / "Pending" -- the outcome enum above
     # as a label, from the same formatter the pick payload's outcome_display uses. Convenience only; outcome is
@@ -3429,6 +4002,38 @@ class PickOfTheDayArchiveEntry(_PickOfTheDayArchiveEntryRequired, total=False):
     # True for an unauthorized unresolved row. Game identity, category, image, publication clock and all backed
     # facts are omitted.
     backed_side_locked: bool
+    # The single-pick read's backed_side_share for the same pick: the Sharp side share the pick's page shows, the
+    # part of the graded wallets' dollars in the market that sat on the backed side when the pick was selected, as
+    # a ...
+    backed_side_share: float
+    # The backed market's Polymarket condition_id, the one the single-pick read serves as
+    # entry_authorization.condition_id. Present on every row whose backed side this key opens. Additive and
+    # optional.
+    condition_id: str
+    # When the backed game starts (RFC3339 UTC): the start recorded with the pick. The single-pick read (GET
+    # /api/v1/pick-of-the-day?pick_id=) serves the same instant unless the provider moved the game after
+    # publication, ...
+    kickoff: str
+    # The single-pick read's sharp_positioned_usd for the same pick: the Sharp positioned value the pick's page
+    # shows, the dollars the pick's counted graded wallets held on the backed side, in USD, recorded for the pick
+    # and ...
+    sharp_positioned_usd: float
+    # The single-pick read's sharp_wallet_count for the same pick: S/A wallet count of the wallets the pick lists
+    # on the backed side, in the public V1 compatibility projection. Absent where the single-pick read omits it
+    # and ...
+    sharp_wallet_count: int
+    # The single-pick read's side_graded_usd for the same pick: those wallets' gross USD on the backed side when
+    # the pick was selected, sent only beside side_graded_wallet_count and only when above zero. Not a live
+    # balance or ...
+    side_graded_usd: float
+    # The single-pick read's side_graded_wallet_count for the same pick: every graded wallet (S, A or B) holding
+    # the backed side when the pick was selected, listed or not. Sent on picks recorded under the current S, A and
+    # B ...
+    side_graded_wallet_count: int
+    # The backed market's Polymarket sports market type as recorded with the pick: moneyline, spreads, totals,
+    # map_handicap, both_teams_to_score and others. Present when the row's backed side is open and the market
+    # states a ...
+    sports_market_type: str
 
 
 class _PickOfTheDayArchiveDayRequired(TypedDict):
@@ -3526,6 +4131,7 @@ class _PickOfTheDayHitRateRequired(TypedDict):
     # and void picks add no point). A non-valued decided row carries cumulative profit forward while advancing hit
     # ...
     series: list[PickOfTheDayHitRateSeriesItem]
+    priced_decided: int
 
 
 class PickOfTheDayHitRate(_PickOfTheDayHitRateRequired, total=False):
@@ -3552,6 +4158,10 @@ class PickOfTheDayHitRate(_PickOfTheDayHitRateRequired, total=False):
     # Backend-formatted signed average in percentage points, for example "+0.4 pp"; a value that rounds to zero
     # reads "0.0 pp". Present when clv_avg_pp is present.
     clv_avg_pp_display: str
+    edge_display: str
+    edge_pp: float
+    priced_in_display: str
+    priced_in_pct: float
 
 
 class PickOfTheDayHitRateSeriesItem(TypedDict):
@@ -3605,6 +4215,7 @@ class _PickOfTheDayArchiveSummaryHitRateRequired(TypedDict):
     void: int
     win_rate_display: str
     wins: int
+    priced_decided: int
 
 
 class PickOfTheDayArchiveSummaryHitRate(_PickOfTheDayArchiveSummaryHitRateRequired, total=False):
@@ -3617,6 +4228,10 @@ class PickOfTheDayArchiveSummaryHitRate(_PickOfTheDayArchiveSummaryHitRateRequir
     clv_coverage_pct: float
     unit_score: float
     unit_score_display: str
+    edge_display: str
+    edge_pp: float
+    priced_in_display: str
+    priced_in_pct: float
 
 
 class _PickOfTheDayArchiveSummaryPicksItemRequired(TypedDict):
@@ -3636,6 +4251,8 @@ class PickOfTheDayArchiveSummaryPicksItem(_PickOfTheDayArchiveSummaryPicksItemRe
     matchup: str
     pick_outcome_label: str
     required_tier: str
+    # The best S or A grade the pick lists on the backed side. Absent when it lists no S or A grade wallet, and on
+    # a locked row.
     top_grade: str
     unit_score: float
 
@@ -3647,23 +4264,24 @@ class GetPickOfTheDayStatsResponse(TypedDict):
 
 
 class PickOfTheDayStats(TypedDict):
-    categories: list[PickOfTheDayStatsCategoriesItem]
-    days: list[PickOfTheDayStatsDaysItem]
+    categories: list[PickOfTheDayStatsBucket]
+    days: list[PickOfTheDayStatsDay]
     hit_rate: PickOfTheDayHitRate
-    market_expectations: PickOfTheDayStatsMarketExpectations
-    market_types: list[PickOfTheDayStatsCategoriesItem]
-    months: list[PickOfTheDayStatsCategoriesItem]
-    outcome_stats: PickOfTheDayStatsOutcomeStats
-    price_bands: list[PickOfTheDayStatsCategoriesItem]
+    market_expectations: PickOfTheDayMarketExpectations
+    market_types: list[PickOfTheDayStatsBucket]
+    months: list[PickOfTheDayStatsBucket]
+    outcome_stats: PickOfTheDayOutcomeStats
+    price_bands: list[PickOfTheDayStatsBucket]
     records: PickOfTheDayStatsRecords
-    sports: list[PickOfTheDayStatsCategoriesItem]
+    sports: list[PickOfTheDayStatsBucket]
     streaks: PickOfTheDayStatsStreaks
-    tiers: list[PickOfTheDayStatsCategoriesItem]
-    total_sides: list[PickOfTheDayStatsCategoriesItem]
-    voids: list[PickOfTheDayStatsVoidsItem]
+    tiers: list[PickOfTheDayStatsBucket]
+    total_sides: list[PickOfTheDayStatsBucket]
+    voids: list[PickOfTheDayStatsVoid]
+    ask_comparison: PickOfTheDayAskComparison
 
 
-class _PickOfTheDayStatsCategoriesItemRequired(TypedDict):
+class _PickOfTheDayStatsBucketRequired(TypedDict):
     clv_measured: int
     key: str
     label: str
@@ -3678,7 +4296,7 @@ class _PickOfTheDayStatsCategoriesItemRequired(TypedDict):
     wins: int
 
 
-class PickOfTheDayStatsCategoriesItem(_PickOfTheDayStatsCategoriesItemRequired, total=False):
+class PickOfTheDayStatsBucket(_PickOfTheDayStatsBucketRequired, total=False):
     canonical_category: str
     clv_avg_display: str
     clv_avg_pct: float
@@ -3698,7 +4316,7 @@ class PickOfTheDayStatsCategoriesItem(_PickOfTheDayStatsCategoriesItemRequired, 
     win_rate_pct: float
 
 
-class _PickOfTheDayStatsDaysItemRequired(TypedDict):
+class _PickOfTheDayStatsDayRequired(TypedDict):
     # Format: date.
     date: str
     losses: int
@@ -3708,7 +4326,7 @@ class _PickOfTheDayStatsDaysItemRequired(TypedDict):
     wins: int
 
 
-class PickOfTheDayStatsDaysItem(_PickOfTheDayStatsDaysItemRequired, total=False):
+class PickOfTheDayStatsDay(_PickOfTheDayStatsDayRequired, total=False):
     net_profit_display: str
     net_profit_usd: float
     sweep: Literal["win", "loss"] | str
@@ -3716,15 +4334,15 @@ class PickOfTheDayStatsDaysItem(_PickOfTheDayStatsDaysItemRequired, total=False)
     unit_score_display: str
 
 
-class PickOfTheDayStatsMarketExpectations(TypedDict):
+class PickOfTheDayMarketExpectations(TypedDict):
     # Format: date.
     as_of_date: str
     price_basis: str
     timezone: str
-    windows: list[PickOfTheDayStatsMarketExpectationsWindowsItem]
+    windows: list[PickOfTheDayMarketExpectationsWindowsItem]
 
 
-class PickOfTheDayStatsMarketExpectationsWindowsItem(TypedDict):
+class PickOfTheDayMarketExpectationsWindowsItem(TypedDict):
     clv_avg_display: str | None
     clv_avg_pct: float | None
     clv_avg_pp: float | None
@@ -3751,14 +4369,14 @@ class PickOfTheDayStatsMarketExpectationsWindowsItem(TypedDict):
     wins_z_display: str | None
 
 
-class PickOfTheDayStatsOutcomeStats(TypedDict):
-    concentration: PickOfTheDayStatsOutcomeStatsConcentration
-    drawdown: PickOfTheDayStatsOutcomeStatsDrawdown
-    profit_factor: PickOfTheDayStatsOutcomeStatsProfitFactor
-    rolling: list[PickOfTheDayStatsOutcomeStatsRollingItem]
+class PickOfTheDayOutcomeStats(TypedDict):
+    concentration: PickOfTheDayOutcomeStatsConcentration
+    drawdown: PickOfTheDayOutcomeStatsDrawdown
+    profit_factor: PickOfTheDayOutcomeStatsProfitFactor
+    rolling: list[PickOfTheDayOutcomeStatsRollingItem]
 
 
-class PickOfTheDayStatsOutcomeStatsConcentration(TypedDict):
+class PickOfTheDayOutcomeStatsConcentration(TypedDict):
     positive_wins: int
     remaining_valued_decided: int
     removed_wins: int
@@ -3770,7 +4388,7 @@ class PickOfTheDayStatsOutcomeStatsConcentration(TypedDict):
     valued_decided: int
 
 
-class PickOfTheDayStatsOutcomeStatsDrawdown(TypedDict):
+class PickOfTheDayOutcomeStatsDrawdown(TypedDict):
     completed_days: int
     current_days_below_peak: int | None
     current_drawdown_display: str | None
@@ -3790,7 +4408,7 @@ class PickOfTheDayStatsOutcomeStatsDrawdown(TypedDict):
     through_date: str | None
 
 
-class PickOfTheDayStatsOutcomeStatsProfitFactor(TypedDict):
+class PickOfTheDayOutcomeStatsProfitFactor(TypedDict):
     display: str | None
     gross_loss_usd: float | None
     gross_profit_usd: float | None
@@ -3799,7 +4417,7 @@ class PickOfTheDayStatsOutcomeStatsProfitFactor(TypedDict):
     valued_decided: int
 
 
-class PickOfTheDayStatsOutcomeStatsRollingItem(TypedDict):
+class PickOfTheDayOutcomeStatsRollingItem(TypedDict):
     # Format: date.
     from_date: str | None
     losses: int
@@ -3901,18 +4519,34 @@ class PickOfTheDayStatsStreaks(_PickOfTheDayStatsStreaksRequired, total=False):
     current_display: str
 
 
-class _PickOfTheDayStatsVoidsItemRequired(TypedDict):
+class _PickOfTheDayStatsVoidRequired(TypedDict):
     # Format: date.
     pick_date: str
     pick_id: str
     pick_rank: int
 
 
-class PickOfTheDayStatsVoidsItem(_PickOfTheDayStatsVoidsItemRequired, total=False):
+class PickOfTheDayStatsVoid(_PickOfTheDayStatsVoidRequired, total=False):
     backed_price: float
     backed_side: str
     category: str
     matchup: str
+
+
+class PickOfTheDayAskComparison(TypedDict):
+    ask: PickOfTheDayAskComparisonAsk
+    # Format: date.
+    from_date: str | None
+    from_date_display: str | None
+    midpoint: PickOfTheDayAskComparisonAsk
+    valued_decided: int
+
+
+class PickOfTheDayAskComparisonAsk(TypedDict):
+    roi_display: str | None
+    roi_pct: float | None
+    units: float | None
+    units_display: str | None
 
 
 class _PickOfTheDayStatsSectionsRequired(TypedDict):
@@ -3923,21 +4557,22 @@ class _PickOfTheDayStatsSectionsRequired(TypedDict):
 class PickOfTheDayStatsSections(_PickOfTheDayStatsSectionsRequired, total=False):
     """The stats with `view=summary` or `sections`: only the named sections, listed in `sections`.
     `view=summary` names every section except `series`, `days`, `categories`, `months` and `voids`."""
-    categories: list[PickOfTheDayStatsCategoriesItem]
-    days: list[PickOfTheDayStatsDaysItem]
+    categories: list[PickOfTheDayStatsBucket]
+    days: list[PickOfTheDayStatsDay]
     hit_rate: PickOfTheDayArchiveSummaryHitRate
-    market_expectations: PickOfTheDayStatsMarketExpectations
-    market_types: list[PickOfTheDayStatsCategoriesItem]
-    months: list[PickOfTheDayStatsCategoriesItem]
-    outcome_stats: PickOfTheDayStatsOutcomeStats
-    price_bands: list[PickOfTheDayStatsCategoriesItem]
+    market_expectations: PickOfTheDayMarketExpectations
+    market_types: list[PickOfTheDayStatsBucket]
+    months: list[PickOfTheDayStatsBucket]
+    outcome_stats: PickOfTheDayOutcomeStats
+    price_bands: list[PickOfTheDayStatsBucket]
     records: PickOfTheDayStatsRecords
     series: list[PickOfTheDayStatsSectionsSeriesItem]
-    sports: list[PickOfTheDayStatsCategoriesItem]
+    sports: list[PickOfTheDayStatsBucket]
     streaks: PickOfTheDayStatsStreaks
-    tiers: list[PickOfTheDayStatsCategoriesItem]
-    total_sides: list[PickOfTheDayStatsCategoriesItem]
-    voids: list[PickOfTheDayStatsVoidsItem]
+    tiers: list[PickOfTheDayStatsBucket]
+    total_sides: list[PickOfTheDayStatsBucket]
+    voids: list[PickOfTheDayStatsVoid]
+    ask_comparison: PickOfTheDayAskComparison
 
 
 class PickOfTheDayStatsSectionsSeriesItem(TypedDict):
@@ -4040,6 +4675,10 @@ class PickOfTheDayLedgerOpenedEntry(TypedDict):
     # provider_game_cancelled: Polymarket marked the game Cancelled while the pick was pending.
     # published_after_kickoff: the pick was ...
     withdrawal_reason: Literal["provider_game_cancelled", "published_after_kickoff", None] | str | None
+    # When the site withdrew this pick from its track record, or null when the pick counts. Set beside
+    # withdrawal_reason by the same write and never without it, so a reader can tell a correction made after the
+    # pick settled ...
+    withdrawn_at: str | None
     # Frozen matchup, for a reader.
     matchup: str
     # Frozen canonical sport bucket (for example Basketball or MMA), not the exact public league identity; the
@@ -4159,6 +4798,10 @@ class PickOfTheDayLedgerUncommittedEntry(_PickOfTheDayLedgerUncommittedEntryRequ
     # when the pick counts. provider_game_cancelled: Polymarket marked the game Cancelled while the pick was
     # pending. ...
     withdrawal_reason: Literal["provider_game_cancelled", "published_after_kickoff", None] | str | None
+    # Omitted while the pick is pending; once it settles, when the site withdrew it from its track record, or null
+    # when the pick counts. Set beside withdrawal_reason by the same write and never without it, so a reader can
+    # ...
+    withdrawn_at: str | None
     # Frozen matchup, for a reader.
     matchup: str
     # Frozen canonical sport bucket (for example Basketball or MMA), not the exact public league identity; the
@@ -4246,9 +4889,9 @@ class TrendingWallet(_TrendingWalletRequired, total=False):
     # Both-sides traded volume over the window in SHARES, from the Polymarket leaderboard row, whose own schema
     # states the figure is never USD. Omitted when the row carried none.
     window_volume_shares: float
-    # All-time trader grade; a separate axis from streak_tier. Led by realized profit on sports and esports
-    # markets (the money actually banked, about 95 percent of the grade; since 2026-10-22, the sports and esports
-    # share of ...
+    # All-time trader grade; a separate axis from streak_tier. A grade ranks realized profit on settled sports and
+    # esports markets against other graded wallets (since 2026-10-22, the sports and esports share of the wallet's
+    # ...
     grade: Literal["S", "A", "B", "C", "D", "F"] | str
     # Hot-streak tier (trailing-7d cross-sectional percentile). Omitted when there is no recent activity.
     streak_tier: Literal["hot", "rising", "neutral", "cooling", "cold"] | str
@@ -4544,7 +5187,7 @@ class ContentSearchResult(TypedDict):
 class ListSettledMarketsResponse(TypedDict):
     # Format: date-time.
     complete_through: str
-    data: list[MarketSettledData]
+    data: list[SettledMarketData]
     has_more: bool
     meta: ResponseMeta
     next_cursor: str
@@ -4585,6 +5228,10 @@ class MarketSettledData(TypedDict):
     # The settled state, the block GET /api/v1/games/{event_slug}/markets serves as settlement: status observed,
     # oracle_status resolved, settled true. payouts is null on a resolved UMA question row, whose result and ...
     settlement: MarketSettledDataSettlement
+    # The Polymarket protocol the market settles and redeems on, Gamma's market version: v1 (ConditionalTokens) or
+    # v2 (the Protocol V2 modules: the new markets from 2026-11-09 and the polyv2 copies). Read from the condition
+    # ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketSettledDataSettlement(TypedDict):
@@ -4610,6 +5257,11 @@ class MarketSettledDataSettlement(TypedDict):
     winning_outcome_index: int | None
     # Format: date-time.
     oracle_updated_at: str | None
+
+
+# One GET /api/v1/markets/settled row: the market_settled webhook's data, MarketSettledData, protocol_version
+# included. Kept as its own name for clients generated since SDK 0.45.0.
+SettledMarketData = MarketSettledData
 
 
 class _ExploreMarketsResponseRequired(TypedDict):
@@ -4716,8 +5368,8 @@ class ExploreMarket(TypedDict):
     smart_score: float | None
     smart_count: int | None
     # The outcome graded money leans toward RELATIVE TO THE PRICE: named only when the graded money's share of a
-    # side diverges from that side's price-implied share by at least 10 points, with at least $500 on the leaning
-    # side ...
+    # side sits well past that side's price-implied share, enough graded money backs the leaning side that a few
+    # small ...
     smart_label: str | None
     # When the oldest stored smart-money wallet behind this split (smart_score, smart_count and smart_label) last
     # finished syncing. Graded wallets sync on different schedules, so this is often hours or days ago. Some
@@ -4909,6 +5561,12 @@ class _GetMarketHoldersResponseRequired(TypedDict):
 class GetMarketHoldersResponse(_GetMarketHoldersResponseRequired, total=False):
     # Absent on the last page.
     next_cursor: str
+    # When the daily pass behind the rows' category win records and price edges began: the oldest any row's record
+    # or edge can be. A row whose wallet was recounted since carries its own, later `category_records_as_of`;
+    # every ...
+    category_records_as_of: str
+    as_of: HoldersAsOf
+    data_quality: DataQuality
 
 
 class _MarketHolderRequired(TypedDict):
@@ -4930,9 +5588,12 @@ class _MarketHolderRequired(TypedDict):
     # All-time trader grade. This route lists the S/A/B cohort only, the same cohort a Pick of the Day roster
     # lists.
     grade: Literal["S", "A", "B", None] | str | None
-    # Shares held on `side`, from the complete provider scan.
+    # Net shares on `side`, from the complete provider scan. For a wallet holding both outcomes, its shares on
+    # `side` minus `other_outcome_shares`.
     shares: float
-    # Polymarket's own currentValue for this leg, in USD. Null when the snapshot predates the value map.
+    # What `shares` is worth, in USD: Polymarket's own currentValue for this leg. For a wallet holding both
+    # outcomes it is scaled to the net shares, at Polymarket's per-share value for the same position, so it never
+    # exceeds ...
     current_value_usd: float | None
     # The wallet's last recorded trade anywhere, null when unknown. Format: date-time.
     last_traded_at: str | None
@@ -4961,11 +5622,29 @@ class MarketHolder(_MarketHolderRequired, total=False):
     # `CS2`, `Dota 2`, `Valorant`, `Call of Duty`, `Honor of Kings`, `Mobile Legends: Bang Bang`, `Overwatch`,
     # `Rainbow ...
     category_win_rate_game: str
+    # The wallet's edge over the price it paid in the market's canonical category (`market.category`), the figure
+    # the event page's Top holders row and GET /api/v1/market/{condition_id}/top-holders print for this wallet,
+    # from ...
+    category_price_edge: PickHolderPriceEdge
+    # The same edge over the markets of the game or league `category_win_rate_game` names alone. Present only
+    # beside `category_win_rate_game`; otherwise, beside a game or league rate, `category_scope_price_edge_hold`
+    # says ...
+    category_scope_price_edge: PickHolderPriceEdge
+    # Why there is no `category_price_edge` for a wallet with a measured rate, with the rule's figures when it has
+    # them: the reason the page prints in place of the edge. Present only with `category_win_rate_status` = ...
+    category_price_edge_hold: PickHolderPriceEdgeHold
+    # Why there is no `category_scope_price_edge` beside a game or league rate, with the rule's figures when it
+    # has them. Present only beside `category_win_rate_game`, and never beside `category_scope_price_edge`.
+    category_scope_price_edge_hold: PickHolderPriceEdgeHold
+    # When this wallet's category record was recounted, sent only when that is later than the payload's
+    # `category_records_as_of`: a wallet's record is also recounted about an hour after its markets settle,
+    # between daily ...
+    category_records_as_of: str
     category_evidence: HolderCategoryEvidence
-    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
-    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
-    # a ...
-    wallet_age_days: float | None
+    # Whole UTC calendar days since this wallet's first trade, as an integer (271, not 271.0): the number of UTC
+    # dates from the first trade's date to today, so a first trade at 23:00 UTC reads 1 an hour later. Every
+    # wallet's ...
+    wallet_age_days: int | None
     # True when the wallet's first trade was under 30 days ago.
     is_new_wallet: bool
     # Distinct markets the wallet has traded.
@@ -5043,9 +5722,11 @@ class MarketHoldersTotals(TypedDict):
     no_count: int
     yes_shares: float
     no_shares: float
-    # Polymarket currentValue summed over the graded wallets netting YES.
+    # The rows' current_value_usd summed over the graded wallets netting YES: a wallet holding both outcomes
+    # counts at its net shares' value.
     yes_usd: float
-    # Polymarket currentValue summed over the graded wallets netting NO.
+    # The rows' current_value_usd summed over the graded wallets netting NO: a wallet holding both outcomes counts
+    # at its net shares' value.
     no_usd: float
     yes_grades: MarketHoldersSideGrades
     no_grades: MarketHoldersSideGrades
@@ -5062,15 +5743,37 @@ class MarketHoldersSideGrades(TypedDict):
 
 
 class MarketHoldersSideGradeUsd(TypedDict):
-    """Polymarket currentValue in USD per grade on one side, over the same wallets as that side's usd
-    total. Each value is rounded to the cent after summing, so s + a + b can differ from the side total
-    by up to 2 cents."""
+    """The rows' current_value_usd per grade on one side, over the same wallets and values as that side's
+    usd total. Each value is rounded to the cent after summing, so s + a + b can differ from the side
+    total by up to 2 cents."""
     # USD held by S-grade wallets netting this side.
     s: float
     # USD held by A-grade wallets netting this side.
     a: float
     # USD held by B-grade wallets netting this side.
     b: float
+
+
+class HoldersAsOf(TypedDict):
+    """The instant a stored kickoff roster stands at, with each of its clocks (#34064). Present only on
+    as_of=kickoff; every clock is before kickoff_at."""
+    # Always kickoff.
+    basis: Literal["kickoff"]
+    # When the roster was computed and stored. Its grades, badges and category records were read at this instant.
+    # Format: date-time.
+    captured_at: str
+    # The kickoff the roster stands at: the market's scheduled game start when the roster was stored, or its start
+    # now when that moved earlier since. A game moved to a later start is captured again for the new one. Format:
+    # ...
+    kickoff_at: str
+    # When the provider holder walk behind the holders and their shares finished, the same instant as
+    # scan.fetched_at. It can be up to about 4 hours before kickoff. Format: date-time.
+    population_fetched_at: str
+    # snapshot: a complete holder walk, with the provider's display names. census: the pregame census, which keeps
+    # no names, so every holder's name is null.
+    population_source: Literal["snapshot", "census"] | str
+    # When that walk started; null when its copy did not record it. Format: date-time.
+    population_started_at: str | None
 
 
 class GetMarketTopHoldersResponse(TypedDict):
@@ -5096,8 +5799,9 @@ class _MarketTopHoldersRequired(TypedDict):
 
 
 class MarketTopHolders(_MarketTopHoldersRequired, total=False):
-    # When the daily pass behind the rows' category win records began. Absent when the market has no category or
-    # the read answered no row. Format: date-time.
+    # When the daily pass behind the rows' category win records and price edges began: the oldest any row's record
+    # or edge can be. A row whose wallet was recounted since carries its own, later `category_records_as_of`;
+    # every ...
     category_records_as_of: str
     # When this holder sample was built. Format: date-time.
     computed_at: str
@@ -5170,10 +5874,23 @@ class MarketTopHolder(_MarketTopHolderRequired, total=False):
     # file and under the floor of 5 decided markets in the category), `untracked` (0xinsider has no record of the
     # ...
     category_win_rate_status: Literal["measured", "not_enough_data", "unavailable", "untracked"] | str
-    # Whole UTC calendar days since this wallet's first trade: the number of UTC dates from the first trade's date
-    # to today, so a first trade at 23:00 UTC reads 1 an hour later. Every wallet's age changes at 00:00 UTC, once
-    # a ...
-    wallet_age_days: float | None
+    # The wallet's edge over the price it paid in the market's canonical category (`market.category`), the figure
+    # the event page's Top holders row prints for this wallet, from the same computation: how often the side it
+    # ...
+    category_price_edge: PickHolderPriceEdge
+    # The same edge over the markets of the game or league `category_win_rate_game` names alone: the edge the page
+    # prints beside a game or league win rate (for example `+1.7 pp` in CS2). Present only beside ...
+    category_scope_price_edge: PickHolderPriceEdge
+    # Why there is no `category_price_edge` for a wallet with a measured rate, with the rule's figures when it has
+    # them: the reason the page prints in place of the edge (for example `too few markets`). Present only with ...
+    category_price_edge_hold: PickHolderPriceEdgeHold
+    # Why there is no `category_scope_price_edge` beside a game or league rate, with the rule's figures when it
+    # has them. Present only beside `category_win_rate_game`, and never beside `category_scope_price_edge`.
+    category_scope_price_edge_hold: PickHolderPriceEdgeHold
+    # Whole UTC calendar days since this wallet's first trade, as an integer (271, not 271.0): the number of UTC
+    # dates from the first trade's date to today, so a first trade at 23:00 UTC reads 1 an hour later. Every
+    # wallet's ...
+    wallet_age_days: int | None
     # True when the wallet's first trade was under 30 days ago.
     is_new_wallet: bool
     # Distinct markets the wallet has traded.
@@ -5182,6 +5899,10 @@ class MarketTopHolder(_MarketTopHolderRequired, total=False):
     is_bot: bool
     # The wallet's X handle without the @, when linked.
     x_username: str | None
+    # When this wallet's category record was recounted, sent only when that is later than the
+    # `category_records_as_of` beside the rows: a wallet's record is also recounted about an hour after its
+    # markets settle, between daily ...
+    category_records_as_of: str
 
 
 class MarketTopHoldersTotals(TypedDict):
@@ -5211,7 +5932,7 @@ class MarketFlow(TypedDict):
     sharp_money: MarketFlowSharpMoney
     # Deprecated alias of sharp_money; byte-identical. Sunset 2027-02-01 (#29352): removed from V1 on that date;
     # read sharp_money.
-    smart_money: MarketFlowSmartMoney
+    smart_money: MarketFlowSharpMoney
     timeframe: str
 
 
@@ -5226,11 +5947,8 @@ class MarketFlowMarket(TypedDict):
 
 
 class MarketFlowSharpMoney(TypedDict):
-    """Outcome-aware flow from all tracked whale trades in the window, without a grade filter. BUY YES and
-    SELL NO add net exposure; BUY NO and SELL YES subtract it. Gross buy/sell volumes count both
-    outcomes. Top positions are separately graded. Direction uses unrounded net: negative is NO,
-    otherwise YES; the zero tie-break is not conviction. Canonical; smart_money is a deprecated byte-
-    identical alias."""
+    """One market's outcome-aware large-trade flow in the window and its top graded positions: the shape of
+    MarketFlow's sharp_money and of its deprecated alias smart_money."""
     net_flow_usd: float
     direction: Literal["YES", "NO"] | str
     # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
@@ -5261,29 +5979,6 @@ class MarketFlowSharpMoneyTopPositionsItem(TypedDict):
     # (e.g. unsynced markets).
     token_id: str | None
     size_usd: float
-
-
-class MarketFlowSmartMoney(TypedDict):
-    """Deprecated alias of sharp_money; byte-identical. Sunset 2027-02-01 (#29352): removed from V1 on that
-    date; read sharp_money."""
-    net_flow_usd: float
-    direction: Literal["YES", "NO"] | str
-    # The Polymarket CLOB token id (ERC1155 asset id, decimal string) for the net-flow direction outcome; null
-    # when unavailable (e.g. unsynced markets).
-    token_id: str | None
-    # Canonical key since #16304 (Polymarket's noun is large trade); whale_trade_count is its deprecated spelling,
-    # emitted beside it with the same value until its sunset on 2027-02-01 (#29352).
-    large_trade_count: int
-    # Deprecated spelling of large_trade_count, emitted beside it with the same value. Sunset 2027-02-01 (#29352):
-    # removed from V1 on that date; read large_trade_count.
-    whale_trade_count: int
-    buy_volume_usd: float
-    sell_volume_usd: float
-    top_positions: list[MarketFlowSharpMoneyTopPositionsItem]
-    # Age of the oldest stored position snapshot behind top_positions: the minimum wallet sync clock over the
-    # positions this body publishes. The roster is a stored read rather than a live one, and graded wallets sit on
-    # ...
-    oldest_snapshot_as_of: str | None
 
 
 class GetMarketIntelResponse(TypedDict):
@@ -5485,6 +6180,8 @@ class MarketSnapshotTopOfBook(_MarketSnapshotTopOfBookRequired, total=False):
     # USD (price times size) on asks at or below the midpoint plus 0.02, from the whole book, rounded to the cent.
     # The props filter min_book_usd_within_2c compares the unrounded sums, which expand=quotes serves as ...
     ask_depth_usdc: float
+    # Set when status is unavailable. cache_miss: we hold no book for the outcome yet. On an open market this read
+    # starts its live book, and a read 1 second later usually has it; on a closed market no book is started. ...
     reason: str
 
 
@@ -5619,15 +6316,28 @@ class GetMarketCandlesResponse(TypedDict):
     meta: ResponseMeta
 
 
-class MarketCandles(TypedDict):
-    """Provider-first bucketed OHLC price candles for a market's outcome tokens, derived from our stored
-    copy of the Polymarket CLOB prices-history series (covers open and resolved markets)."""
+class _MarketCandlesRequired(TypedDict):
     # Market condition id the candles were read for.
     condition_id: str
     # Bucketing granularity that produced these candles.
-    resolution: Literal["1d", "1w"] | str
+    resolution: Literal["5m", "1h", "1d", "1w"] | str
     # One entry per present provider token (YES first, then NO); empty when no tokens have been fetched yet.
     outcomes: list[OutcomeCandles]
+
+
+class MarketCandles(_MarketCandlesRequired, total=False):
+    """Provider-first bucketed OHLC price candles for a market's outcome tokens (open and resolved
+    markets): 5m and 1h from Polymarket's /v2/prices-history buckets, 1d and 1w from our stored copy of
+    its price history."""
+    # 5m and 1h only: the first bucket start the read covers, unix seconds. Every candle has t at or after it.
+    # Format: int64.
+    window_start: int
+    # 5m and 1h only: the end of the covered window, unix seconds, exclusive. Every candle has t before it. A
+    # bucket inside the window with no candle had no Polymarket price; nothing is filled in. Format: int64.
+    window_end: int
+    # 5m and 1h only: when Polymarket's series was read. A window that reaches the present, or holds a
+    # provisional_minutes candle, is re-read after at most 60 seconds. Format: date-time.
+    observed_at: str
 
 
 class OutcomeCandles(TypedDict):
@@ -5640,11 +6350,9 @@ class OutcomeCandles(TypedDict):
     candles: list[Candle]
 
 
-class Candle(TypedDict):
-    """One bucketed OHLC price candle. Prices are in provider [0, 1] units, truncated to 4 decimals at the
-    rendering edge."""
-    # Bucket-start unix epoch (seconds): UTC midnight for 1d, the ISO-week Monday's UTC midnight for 1w. Format:
-    # int64.
+class _CandleRequired(TypedDict):
+    # Bucket-start unix epoch (seconds): the five-minute or hour boundary for 5m and 1h, UTC midnight for 1d, the
+    # ISO-week Monday's UTC midnight for 1w. Format: int64.
     t: int
     # Open price in provider [0, 1] units (first observed point in the bucket).
     o: float
@@ -5656,10 +6364,114 @@ class Candle(TypedDict):
     c: float
 
 
+class Candle(_CandleRequired, total=False):
+    """One bucketed OHLC price candle. Prices are in provider [0, 1] units: truncated to 4 decimals at 1d
+    and 1w, unrounded at 5m and 1h. At 5m and 1h, basis says which Polymarket series the candle comes
+    from: provider_bucket is Polymarket's own bucket price, so open, high, low and close are equal;
+    provisional_minutes is built from Polymarket's 60-second prices in a bucket it has not published
+    yet."""
+    # 5m and 1h only; absent at 1d and 1w. provider_bucket: Polymarket's own five-minute or hourly bucket, one
+    # price, so o=h=l=c. provisional_minutes: a bucket after Polymarket's newest published one, in a window that
+    # ended ...
+    basis: Literal["provider_bucket", "provisional_minutes"] | str
+
+
 class GetMarketCloseResponse(TypedDict):
     object: Literal["market_close"]
     data: MarketClose
     meta: ResponseMeta
+
+
+class GetClvResponse(TypedDict):
+    object: Literal["clv"]
+    data: Clv
+    meta: ResponseMeta
+
+
+class Clv(TypedDict):
+    # Polymarket condition id.
+    condition_id: str
+    # measured: clv carries the figures. in_play: placed_at is at or after kickoff, so the pre-game close does not
+    # grade it. pending: no close is stored yet. unavailable: no close will grade it; see unavailable_reason.
+    status: Literal["measured", "in_play", "pending", "unavailable"] | str
+    # Set exactly when status is unavailable: the close's own unavailable_reason (GET
+    # /api/v1/market/{condition_id}/close), or anchor_stale when kickoff moved more than six hours after the close
+    # was captured.
+    unavailable_reason: Literal["no_observation_in_lookback", "provider_empty_window", "provider_invalid_contract", "capture_window_closed", "no_game_start_time", "not_one_sided_resolution", "not_captured", "close_token_mismatch", "anchor_stale", "outcome_unknown"] | str | None
+    outcome: ClvOutcome
+    # Both outcomes of the market, the first (YES) then the second (NO).
+    outcomes: list[ClvOutcome]
+    # Which way the entry traded the outcome. A sell is measured as the buy of the other outcome.
+    side: Literal["buy", "sell"] | str
+    # The price the caller got.
+    entry: ClvEntry
+    # The stored close of the outcome, as GET /api/v1/market/{condition_id}/close serves it.
+    close: ClvClose
+    # The CLV figures, set exactly when status is measured; every field null otherwise. Gross of fees.
+    clv: ClvClv
+    # The CLV definition, clv@v1, the large trades' own.
+    basis_version: str
+
+
+class ClvOutcome(TypedDict):
+    """One outcome of the market."""
+    # Provider outcome index: 0 is the YES leg, 1 the NO leg.
+    index: int
+    # The outcome's label.
+    label: str | None
+
+
+class ClvEntry(TypedDict):
+    """The price the caller got."""
+    # For a buy, the break-even probability of the bet, 0 to 1: the Polymarket price paid, or 1 divided by the
+    # decimal odds. For a sell, the price received.
+    price: float
+    # The odds as sent, when the entry was sportsbook odds; null for a price entry.
+    from_odds: str | None
+    # The format from_odds was read in; null for a price entry.
+    format: Literal["american", "decimal"] | str | None
+    # The bought side's decimal odds: the total return per 1 staked.
+    decimal_odds: float
+    # When the bet was placed, as sent; null when not sent, which is read as a bet placed before kickoff. Format:
+    # date-time.
+    placed_at: str | None
+
+
+class ClvClose(TypedDict):
+    """The stored close of the outcome, as GET /api/v1/market/{condition_id}/close serves it."""
+    # The close endpoint's status for the market.
+    status: Literal["measured", "pending", "unavailable"] | str
+    # Set exactly when close.status is unavailable.
+    unavailable_reason: Literal["no_observation_in_lookback", "provider_empty_window", "provider_invalid_contract", "capture_window_closed", "no_game_start_time", "not_one_sided_resolution", "not_captured", "close_token_mismatch", "anchor_stale", "outcome_unknown"] | str | None
+    # The outcome's closing price, 0 to 1, whenever a close is stored: the stored YES price, or 1 minus it for the
+    # NO leg. null otherwise, never 0.
+    price: float | None
+    # The market's kickoff as stored now. Format: date-time.
+    game_start_time: str | None
+    # The instant the close was measured at: the kickoff when it was captured. Format: date-time.
+    close_anchor_at: str | None
+    # true when kickoff has moved more than the 6-hour lookback since the close was captured. null without a
+    # stored close.
+    anchor_stale: bool | None
+    # Start of the provider bucket the close is. Format: date-time.
+    observed_at: str | None
+    # Provider endpoint and grain, e.g. polymarket_data_v2_prices_history@minute-window-v1.
+    source: str | None
+
+
+class ClvClv(TypedDict):
+    """The CLV figures, set exactly when status is measured; every field null otherwise. Gross of fees."""
+    # Price entries only: the close minus the price paid (a sell: the price received minus the close), in cents
+    # per share. null for an odds entry.
+    cents: float | None
+    # The close probability minus the entry's break-even probability, in percentage points. Positive beat the
+    # close.
+    points: float | None
+    # The entry's decimal odds over the close's decimal odds, minus 1, in percent.
+    price_pct: float | None
+    # The entry's decimal odds times the close probability, minus 1, in percent: the expected return per unit
+    # staked if the close was fair. Equal to price_pct against a Polymarket close.
+    ev_at_close_pct: float | None
 
 
 class ListMarketTradesResponse(TypedDict):
@@ -5719,6 +6531,161 @@ class ListMarketTradesResponseCoverage(TypedDict):
     complete_through: str
     # A stored fill is served at least this many days, then deleted.
     retention_days: int
+
+
+class _ListMarketPriceMovesResponseRequired(TypedDict):
+    object: Literal["list"]
+    # Newest episode first by episode_started_at, then move_id. Can hold fewer than limit moves, even none, while
+    # has_more is true.
+    data: list[StoredPriceMove]
+    # True when older moves may remain: send next_cursor for them. A page reads a fixed share of the history, so
+    # follow next_cursor until has_more is false rather than stopping at a short page.
+    has_more: bool
+    meta: ResponseMeta
+
+
+class ListMarketPriceMovesResponse(_ListMarketPriceMovesResponseRequired, total=False):
+    # Opaque pm_v1_ cursor for the next page; absent when has_more is false.
+    next_cursor: str
+    total: int
+
+
+class MarketPriceMovedData(TypedDict):
+    """`market_price_moved` data, also the MarketPriceMoved frame on GET /api/v1/stream: a sports or
+    esports market's outcome-0 midpoint moved a whole-cent level over one window. Prices are decimal
+    strings at full precision. A missing value is null with its *_unavailable_reason."""
+    best_ask: str
+    best_bid: str
+    concurrent_sharp_flow: MarketPriceMovedDataConcurrentSharpFlow1 | None
+    concurrent_sharp_flow_unavailable_reason: Literal["read_failed"] | None
+    condition_id: str
+    # Format: date-time.
+    detected_at: str
+    direction: Literal["up", "down"] | str
+    event_slug: str | None
+    from_price: str
+    game_state: MarketPriceMovedDataGameState1 | None
+    game_state_unavailable_reason: Literal["no_event_slug", "no_game_state", "read_failed"] | str | None
+    gap_before: bool
+    label: str | None
+    league: str | None
+    level_cents: int
+    market_slug: str | None
+    move_cents: str
+    # Format: date-time.
+    observed_at: str | None
+    outcome_index: int
+    # Where the game stood at detected_at. in_play: its live state reports it live. pre_game: its live state is
+    # neither live nor ended, or it has no live state yet and the market's scheduled start (the games endpoints'
+    # ...
+    phase: Literal["pre_game", "in_play", "unknown"] | str
+    previous_level_cents: int
+    source: str
+    spread_cents: str
+    to_price: str
+    window_seconds: int
+    # Format: date-time.
+    window_start: str
+    # Why book_depth_within_2c is null, and null when it is present. no_book: no full order book has arrived for
+    # the market since tracking began, only quotes. book_changed: the best bid or ask moved after the latest full
+    # ...
+    book_depth_unavailable_reason: Literal["no_book", "book_changed", "band_not_covered"] | str | None
+    # USD resting within 2 cents of outcome 0's midpoint on each side at detected_at, or null with
+    # book_depth_unavailable_reason.
+    book_depth_within_2c: MarketPriceMovedDataBookDepthWithin2c1 | None
+
+
+class MarketPriceMovedDataConcurrentSharpFlow1(TypedDict):
+    detected: bool
+    grade_floor: Literal["S", "A", "B", "C", "D", "F"] | str
+    net_flow_usd: float
+    ranked_large_trades: int
+    # Large trades on the market in the same window at any grade, ungraded wallets included. ranked_large_trades
+    # is the part of them at grade_floor or better.
+    large_trades_in_window: int | None
+
+
+class MarketPriceMovedDataGameState1(TypedDict):
+    clock: str | None
+    ended: bool
+    live: bool | None
+    period: str | None
+    scores: list[LiveSportsScoreEntry]
+    status: str | None
+    # Format: date-time.
+    updated_at: str
+
+
+class _LiveSportsScoreEntryRequired(TypedDict):
+    # Team name, ordered for the league (away first where the league reads that way).
+    team: str
+    # This side's score as the provider sends it.
+    score: str
+
+
+class LiveSportsScoreEntry(_LiveSportsScoreEntryRequired, total=False):
+    """One side's score line inside a `live_sports_updated` pulse."""
+    # Esports series only: this side's current-map score. Absent on other sports.
+    map_score: str
+
+
+class MarketPriceMovedDataBookDepthWithin2c1(TypedDict):
+    # USD resting on asks priced at or below the midpoint plus 0.02 (price times size), as a decimal string.
+    ask_usd: str
+    # USD resting on bids priced at or above the midpoint minus 0.02 (price times size), as a decimal string.
+    bid_usd: str
+    # When we received the full order book the sums come from. Its best bid and ask are the event's best_bid and
+    # best_ask; deeper levels may have changed since. Format: date-time.
+    book_observed_at: str
+
+
+class StoredPriceMove(MarketPriceMovedData):
+    """One stored price move: the market_price_moved payload of the episode's largest step, unchanged, plus
+    move_id, episode_started_at and outcome_after."""
+    # Stable id of the stored move: mv_ and a number.
+    move_id: str
+    # When the episode opened, the order of every page. detected_at is the step this item holds, the episode's
+    # largest so far. Format: date-time.
+    episode_started_at: str
+    outcome_after: PriceMoveOutcomeAfter
+
+
+class PriceMoveOutcomeAfter(TypedDict):
+    """What outcome 0's midpoint did after the move, read from the live order book: two-sided with a spread
+    of 10 cents or less. Each checkpoint is measured (mid and its read time), unavailable
+    (unavailable_reason), or pending. Null never means 0."""
+    # pending: a checkpoint is not due yet, or due and not read yet. final: every checkpoint is measured or
+    # unavailable, and nothing here changes again.
+    status: Literal["pending", "final"] | str
+    # Outcome 0's midpoint at the first read at or after detected_at + 15 minutes, as a decimal string; null until
+    # measured or when unavailable.
+    mid_15m: str | None
+    # When the 15-minute midpoint was read. Format: date-time.
+    mid_15m_at: str | None
+    # Whether the 15-minute midpoint kept at least half of the move; null when not measured.
+    held_15m: bool | None
+    # no_quote: no two-sided quote with a spread of 10 cents or less at the checkpoint (an empty or one-sided
+    # book, a settled market). missed: no read landed within 5 minutes of the checkpoint.
+    mid_15m_unavailable_reason: Literal["no_quote", "missed", None] | str | None
+    # As mid_15m, at detected_at + 60 minutes.
+    mid_60m: str | None
+    # When the 60-minute midpoint was read. Format: date-time.
+    mid_60m_at: str | None
+    # Whether the 60-minute midpoint kept at least half of the move; null when not measured.
+    held_60m: bool | None
+    # As mid_15m_unavailable_reason.
+    mid_60m_unavailable_reason: Literal["no_quote", "missed", None] | str | None
+    # As mid_15m, at the market's scheduled kickoff, for a pre-game move only.
+    mid_kickoff: str | None
+    # When the kickoff midpoint was read. Format: date-time.
+    mid_kickoff_at: str | None
+    # Whether the kickoff midpoint kept at least half of the move; null when not measured and for every move that
+    # was not pre-game.
+    held_kickoff: bool | None
+    # no_quote and missed as for mid_15m_unavailable_reason. not_pre_game: the move was in play or its phase
+    # unknown, so it has no kickoff checkpoint. no_scheduled_start: the market had no scheduled kickoff after the
+    # move.
+    mid_kickoff_unavailable_reason: Literal["no_quote", "missed", "not_pre_game", "no_scheduled_start", None] | str | None
 
 
 class GetMarketWalletsInOutResponse(TypedDict):
@@ -5799,6 +6766,27 @@ class SuspiciousTrade(TypedDict):
     evidence: Any
     # Stored trade timestamp. Format: date-time.
     created_at: str
+    # Closing line value against the market's stored close (GET /api/v1/market/{condition_id}/close), the same
+    # object large trades carry. Always present; status says whether it is measured.
+    clv: SuspiciousTradeClv
+    # How the market settled for the trade's side. A flag is a lead, not a verdict; this is what followed it.
+    result: SuspiciousTradeResult
+    # What else the wallet holds that pays if the flagged outcome loses: the hedge the Suspicious trades page
+    # shows. Only outcomes that cannot win together with the flagged one count: the other outcome of the same
+    # market, and ...
+    hedge: SuspiciousTradeHedge1 | None
+    # The traded outcome's label (for example "Yes", "No" or a team name), from the trade's trusted outcome index
+    # against the market. Null when the index is not trusted or the market has no label for it.
+    outcome: str | None
+    # Fill price of the traded outcome, from 0 to 1.
+    price: float
+    # Trade direction: BUY or SELL, or UNKNOWN when the stored side is neither.
+    side: str
+    # USD notional of the fill. Null when the trade stored none.
+    size_usd: float | None
+    # When the trade filled. The same instant as created_at; a flag scored after the fill still carries the fill
+    # time. Format: date-time.
+    traded_at: str
 
 
 class SuspiciousTradeTrader(TypedDict):
@@ -5807,22 +6795,117 @@ class SuspiciousTradeTrader(TypedDict):
     username: str | None
 
 
-class SuspiciousTradeMarket(TypedDict):
+class _SuspiciousTradeMarketRequired(TypedDict):
     id: str
     condition_id: str
     # Canonical market question when available.
     title: str | None
 
 
+class SuspiciousTradeMarket(_SuspiciousTradeMarketRequired, total=False):
+    # The market's slug, the field a large trade carries. Omitted when the market has none.
+    slug: str
+
+
 class SuspiciousTradeScores(TypedDict):
-    # Null because the live scorer does not record this component.
+    # Deprecated: always null, because the live scorer records no timing component. How long before kickoff the
+    # trade filled is clv.close_anchor_at minus created_at.
     timing: float | None
-    # Null because the live scorer does not record this component.
+    # Deprecated: always null, because the live scorer records no edge component. The trade's edge over the
+    # closing line is clv.clv_cents.
     edge: float | None
     # Numeric evidence.size when recorded; otherwise null.
     size: float | None
     # Numeric evidence.fresh when recorded; otherwise null.
     fresh_wallet: float | None
+
+
+class SuspiciousTradeClv(TypedDict):
+    """Closing line value against the market's stored close (GET /api/v1/market/{condition_id}/close), the
+    same object large trades carry. Always present; status says whether it is measured."""
+    # The CLV definition, clv@v1.
+    basis_version: str
+    # The anchor pre_kickoff was judged against: the stored close's anchor, else the market's kickoff. Format:
+    # date-time.
+    close_anchor_at: str | None
+    # The traded outcome's closing price, 0 to 1, whenever a usable close is stored and the outcome is known, in
+    # play included.
+    close_price: float | None
+    # Cents per share, positive when the trade beat the close: buy is (close_price - price) * 100, sell is (price
+    # - close_price) * 100. Gross of fees. Computed from the trade's exact stored price; price on the wire is
+    # rounded ...
+    clv_cents: float | None
+    # Whether the trade filled before close_anchor_at. null when the market has no anchor.
+    pre_kickoff: bool | None
+    # measured: clv_cents is set. in_play: traded at or after the close anchor (kickoff), no CLV is defined.
+    # pending: traded before kickoff and the market's close is not stored yet. unavailable: see
+    # unavailable_reason.
+    status: Literal["measured", "in_play", "pending", "unavailable"] | str
+    # Set exactly when status is unavailable. The market's reasons (see MarketClose.unavailable_reason), plus
+    # anchor_stale (the kickoff moved after the close was captured) and outcome_unknown (the traded outcome is not
+    # known ...
+    unavailable_reason: Literal["no_observation_in_lookback", "provider_empty_window", "provider_invalid_contract", "capture_window_closed", "no_game_start_time", "not_one_sided_resolution", "not_captured", "close_token_mismatch", "anchor_stale", "outcome_unknown"] | str | None
+    # clv_cents - taker_fee_cents: the CLV after the fee the fill paid, cents per share. Set exactly when both are
+    # set.
+    clv_after_fees_cents: float | None
+    # The fee the fill paid as taker, cents per share, from the exchange's on-chain record of the fill (the
+    # OrderFilled event in its Polygon receipt); the trader is its taker. Polymarket charges only takers, so a
+    # buy's fee ...
+    taker_fee_cents: float | None
+
+
+class SuspiciousTradeResult(TypedDict):
+    """How the market settled for the trade's side. A flag is a lead, not a verdict; this is what followed
+    it."""
+    # won: the trade's side won at settlement, a buy whose outcome won or a sell whose outcome lost. lost: the
+    # opposite. void: the market resolved to neither side (cancelled or 50-50). pending: the market has not
+    # resolved to ...
+    status: Literal["won", "lost", "void", "pending", "unknown"] | str
+    # When the market resolved. Set when status is won, lost or void. Format: date-time.
+    resolved_at: str | None
+    # What the fill made or lost at settlement, in USDC: shares times (payout - price) for a buy, shares times
+    # (price - payout) for a sell, the payout 1 for the winning outcome and 0 for a losing one. Gross of fees and
+    # of ...
+    pnl_usdc: float | None
+
+
+class SuspiciousTradeHedge1(TypedDict):
+    """A fact about positions, never a verdict."""
+    # Which positions were measured. `live`: the wallet's current positions, while they can still show the hedge.
+    # `at_flag`: the positions frozen when the trade was flagged, served once the current ones cannot (the market
+    # ...
+    basis: Literal["live", "at_flag"] | str
+    # Each opposing position, largest cost first. Empty unless `state` is `hedged`.
+    legs: list[SuspiciousTradeHedge1LegsItem]
+    # The legs' total cost in USD: `0` for `none`, null when a leg's entry price is unknown or nothing was
+    # measured.
+    opposing_usd: float | None
+    # When Polymarket listed the positions measured. For `unknown` with `stale`, the last listing, too old to
+    # measure from (null on a flag recorded before that time was kept). Null for every other state. Format: date-
+    # time.
+    positions_at: str | None
+    # `hedged`: holds at least one leg. `none`: holds no leg. `unknown`: see `unknown_reason`, and never read it
+    # as `none`. `sell`: the flagged trade is a sell, which takes no side, so nothing is measured.
+    state: Literal["hedged", "none", "unknown", "sell"] | str
+    # Set exactly when `state` is `unknown`. `not_loaded`: no position listing for the wallet. `stale`: the last
+    # listing is older than the freshness bound. `market_decided`: the flagged market resolved or closed. ...
+    unknown_reason: Literal["not_loaded", "stale", "market_decided", "read_failed", "not_recorded"] | str | None
+
+
+class SuspiciousTradeHedge1LegsItem(TypedDict):
+    # The leg's market.
+    condition_id: str
+    # The leg's outcome index in that market, 0 or 1 in Polymarket's outcome order (0 is Yes on a Yes/No market).
+    outcome_index: int
+    # Where the money is, in the market's words: the outcome's name ("Raptors"), the market for a generic Yes
+    # ("Draw (Real Madrid CF vs. Sevilla FC)"), or "No on" the market for a generic No.
+    place: str
+    # True for the other outcome of the flagged market itself.
+    same_market: bool
+    # Shares held. Null only when the amount has no finite number.
+    shares: float | None
+    # Shares times the wallet's average entry price, in USD. Null when Polymarket gave no entry price.
+    usd: float | None
 
 
 class GetSuspiciousTradeResponse(TypedDict):
@@ -5892,9 +6975,9 @@ class Game(_GameRequired, total=False):
     # The esports series length, for example Bo3. Omitted for everything else.
     series_format: str
     sharp_money: GameSharpMoney
-    # The game's traded volume, the figure the sports board carries for it, with its source, basis, unit and
-    # observation clock. A client can rank or filter games by volume.value. Omitted when the board carries no
-    # volume for ...
+    # The game's traded volume, with its source, basis, unit and observation clock. A client can rank or filter
+    # games by volume.value. A live or upcoming game carries the figure the sports board holds for it. A game read
+    # from ...
     volume: GameVolume
     # A tennis game's tournament edition: its tier, city and country, venue time zone and official dates, from
     # 0xinsider's reviewed registry, the same facts the game's page states. Omitted outside tennis, on a finished
@@ -5927,16 +7010,21 @@ class GameStatus(_GameStatusRequired, total=False):
     # a ...
     match_status: Literal["scheduled", "in_progress", "halftime", "penalty_shootout", "delayed", "suspended", "final", "final_overtime", "final_shootout", "awarded", "forfeit", "not_necessary", "postponed", "cancelled", "unknown"] | str
     # The live-score feed's status string, verbatim. Omitted when no live-score frame carries one. This API never
-    # puts a label of its own here, such as Scheduled for a listed game.
+    # puts a label of its own here, such as Scheduled for a listed game. Omitted with match_status on an ended
+    # game ...
     provider_status: str
-    # The provider's period label, for example Q3, End Q2 or T5. Omitted when the provider sent none.
+    # The period as readers read it, for example Q3, End Q2 or T5: the provider's period label, except in women's
+    # college basketball (league cwbb), whose feed names its four quarters with the men's halves vocabulary; there
+    # ...
     period: str
     # The game clock as the provider spells it, never reformatted. Omitted when the provider sent none.
     clock: str
     # Whether the game is in play. It is the provider's own in-play flag, except that three cases read false: a
-    # game the provider reports suspended (period SUS), a game rescheduled to a later kickoff, and a tennis match
-    # that ...
+    # game the provider reports suspended (period SUS), a game rescheduled to a later kickoff, and a game that the
+    # ...
     live: bool
+    # The live-score feed's period string, verbatim. Omitted when the provider sent none.
+    provider_period: str
 
 
 class _GameCompetitorRequired(TypedDict):
@@ -5997,6 +7085,10 @@ class GameMarket(_GameMarketRequired, total=False):
     # serves, from the same per-game store. Always present on GET /api/v1/games/{event_slug}; on GET /api/v1/games
     # ...
     settlement: GameMarketSettlement
+    # Polymarket's top of book for this market's YES outcome (outcome_yes), on traded and untraded markets alike;
+    # on a market nobody has traded, where prices reads incomplete, it is the only price the game carries. Omitted
+    # ...
+    yes_quote: GameMarketQuote
 
 
 class GameMarketPrices(TypedDict):
@@ -6115,6 +7207,25 @@ class GameMarketSettlement(TypedDict):
     oracle_updated_at: str | None
 
 
+class _GameMarketQuoteRequired(TypedDict):
+    # The highest resting bid for the YES outcome, 0 to 1. null when Polymarket reports no bid.
+    best_bid: float | None
+    # The lowest resting ask for the YES outcome, 0 to 1. null when Polymarket reports no ask.
+    best_ask: float | None
+    # Always gamma: the Polymarket Gamma API.
+    source: Literal["gamma"]
+
+
+class GameMarketQuote(_GameMarketQuoteRequired, total=False):
+    """The YES outcome's best bid and best ask as Polymarket reports them (Gamma bestBid and bestAsk),
+    verbatim; no midpoint is computed from them. In a binary market the NO outcome's book mirrors this
+    one (its bid is 1 minus this ask). Per-outcome CLOB books with depth are on GET
+    /api/v1/games/{event_slug}/markets?expand=quotes."""
+    # When 0xinsider read the sports board body this quote came from, never a provider-authored timestamp. Omitted
+    # when that read has no clock. Format: date-time.
+    observed_at: str
+
+
 class _GameFreshnessRequired(TypedDict):
     # What produced this game: live or upcoming, the board half that carried it, or stored, the stored record of a
     # finished game that has left the board (GET /api/v1/games/{event_slug}, and GET /api/v1/games with a finished
@@ -6146,7 +7257,9 @@ class GameFreshness(_GameFreshnessRequired, total=False):
     source_observed_at: str
     # Age of source_observed_at in seconds, capped at 600. Omitted past the cap or with no anchor.
     source_age_seconds: int
-    # When this game's live-score frame was observed. Omitted when there is no frame. Format: date-time.
+    # When this game's score was last observed. A write that observed no score, such as recording the end of a
+    # game the live-score feed stopped reporting, does not move it; a game ended that way before November 15, 2026
+    # reads ...
     scores_observed_at: str
     # The provider's own frame clock. Omitted when the frame carries none. Format: date-time.
     scores_source_at: str
@@ -6169,14 +7282,17 @@ class GameCoverage(TypedDict):
 
 
 class GameSharpMoney(TypedDict):
-    """Event-level sharp money for one game. Every aggregate field is null unless status is computed; null
-    means unknown, never zero."""
+    """Event-level sharp money for one game. Every aggregate field is null unless status is computed,
+    except lifecycle and at_kickoff, which describe the game; null means unknown, never zero."""
     allocation: Literal["exact", "degraded"] | str | None
     # Format: date-time.
     computed_at: str | None
     event_slug: str
     holders_partial: bool | None
-    lifecycle: Literal["live", "settled", "indeterminate"] | str | None
+    # live: before the game started (before its scheduled start and before it was reported live), the only
+    # lifecycle whose outcomes carry pct and a leader. in_play: past its scheduled start, or reported live, and
+    # not over, a ...
+    lifecycle: Literal["live", "settled", "indeterminate", "ended", "in_play"] | str | None
     # Format: date-time.
     money_as_of: str | None
     object: str
@@ -6185,7 +7301,14 @@ class GameSharpMoney(TypedDict):
     total_usd: float | None
     trader_count: int | None
     unallocated_usd: float | None
-    verdict: GameSharpMoneyVerdict11 | GameSharpMoneyVerdict12 | GameSharpMoneyVerdict13 | GameSharpMoneyVerdict14 | GameSharpMoneyVerdict15 | GameSharpMoneyVerdict16 | GameSharpMoneyVerdict17 | GameSharpMoneyVerdict18 | None
+    verdict: GameSharpMoneyVerdict | None
+    # The split as the site last recorded it before the game started (before its scheduled start and before it was
+    # reported live), valued at the prices of that moment, while lifecycle is in_play, ended or settled, so ...
+    at_kickoff: GameSharpMoneyAtKickoff1 | None
+    # What S, A and B grade wallets bought on a game's moneyline since its start, by side, in dollars, while
+    # lifecycle is in_play. since is the earlier of scheduled_at and the first live score, so a scheduled_at later
+    # than ...
+    since_start: GameSharpMoneySinceStart1 | None
 
 
 class GameSharpMoneyOutcomesItem(TypedDict):
@@ -6200,41 +7323,83 @@ class GameSharpMoneyOutcomesItem(TypedDict):
     wallets: MarketHoldersSideGrades
 
 
-class GameSharpMoneyVerdict11(TypedDict):
+class GameSharpMoneyVerdict1(TypedDict):
     kind: Literal["no_sharp_money"]
 
 
-class GameSharpMoneyVerdict12(TypedDict):
+class GameSharpMoneyVerdict2(TypedDict):
     kind: Literal["all_on"]
     label: str
 
 
-class GameSharpMoneyVerdict13(TypedDict):
+class GameSharpMoneyVerdict3(TypedDict):
     kind: Literal["split"]
 
 
-class GameSharpMoneyVerdict14(TypedDict):
+class GameSharpMoneyVerdict4(TypedDict):
     kind: Literal["leans"]
     label: str
     pct: int
 
 
-class GameSharpMoneyVerdict15(TypedDict):
+class GameSharpMoneyVerdict5(TypedDict):
     kind: Literal["unavailable"]
 
 
-class GameSharpMoneyVerdict16(TypedDict):
+class GameSharpMoneyVerdict6(TypedDict):
     divergence_pts: int
     kind: Literal["leans_over_price"]
     label: str
 
 
-class GameSharpMoneyVerdict17(TypedDict):
+class GameSharpMoneyVerdict7(TypedDict):
     kind: Literal["no_clear_lean"]
 
 
-class GameSharpMoneyVerdict18(TypedDict):
+class GameSharpMoneyVerdict8(TypedDict):
     kind: Literal["withheld"]
+
+
+GameSharpMoneyVerdict = Union[GameSharpMoneyVerdict1, GameSharpMoneyVerdict2, GameSharpMoneyVerdict3, GameSharpMoneyVerdict4, GameSharpMoneyVerdict5, GameSharpMoneyVerdict6, GameSharpMoneyVerdict7, GameSharpMoneyVerdict8]
+
+
+class GameSharpMoneyAtKickoff1(TypedDict):
+    # Format: date-time.
+    as_of: str
+    outcomes: list[GameSharpMoneyAtKickoff1OutcomesItem]
+    total_usd: float
+    trader_count: int
+    verdict: GameSharpMoneyVerdict
+
+
+class GameSharpMoneyAtKickoff1OutcomesItem(TypedDict):
+    is_leader: bool
+    label: str
+    pct: int
+    side: Literal["home", "draw", "away"] | str | None
+    usd: float
+
+
+class GameSharpMoneySinceStart1(TypedDict):
+    # Format: date-time.
+    as_of: str
+    bought_usd: float
+    # Format: date-time.
+    last_trade_at: str | None
+    outcomes: list[GameSharpMoneySinceStart1OutcomesItem]
+    # Format: date-time.
+    since: str
+    trader_count: int
+    verdict: GameSharpMoneyVerdict
+
+
+class GameSharpMoneySinceStart1OutcomesItem(TypedDict):
+    avg_buy_price: float | None
+    bought_usd: float
+    is_leader: bool
+    label: str
+    pct: int
+    side: Literal["home", "draw", "away"] | str | None
 
 
 class _GameVolumeRequired(TypedDict):
@@ -6250,9 +7415,10 @@ class _GameVolumeRequired(TypedDict):
 
 
 class GameVolume(_GameVolumeRequired, total=False):
-    """A game's traded volume as Polymarket reports it, read by the sports board with no request-time
-    provider call. A one-side taker share count, the number Polymarket's own pages print behind a dollar
-    sign, not the cash that changed hands."""
+    """A game's traded volume as Polymarket reports it, read by the sports board or, for a game read from
+    its stored record, summed from its markets' stored volumes, with no request-time provider call. A
+    one-side taker share count, the number Polymarket's own pages print behind a dollar sign, not the
+    cash that changed hands."""
     # taker_shares: cumulative one-side taker volume in shares. One share pays $1 at settlement, so this is not
     # cash traded. Omitted only on a figure observed before units were recorded; never assume cash.
     unit: Literal["taker_shares"]
@@ -6548,9 +7714,7 @@ class BatchGameHoldersItem(_BatchGameHoldersItemRequired, total=False):
     error: ApiErrorBody
 
 
-class GameHoldersItem(TypedDict):
-    """One market of a game holders batch: GET /api/v1/market/{condition_id}/holders unfiltered and cut to
-    the batch limit."""
+class _GameHoldersItemRequired(TypedDict):
     # The roster's top holders by current value, at most limit.
     data: list[MarketHolder]
     # More graded holders than limit: page them on GET /api/v1/market/{condition_id}/holders.
@@ -6561,13 +7725,24 @@ class GameHoldersItem(TypedDict):
     scan: MarketHoldersScan
     totals: MarketHoldersTotals
     # When this roster was computed. A fresh cached roster is at most 60 seconds old; a stale one at most 15
-    # minutes. Format: date-time.
+    # minutes. On as_of=kickoff it is the capture, as_of.captured_at. Format: date-time.
     computed_at: str
     # true when the roster came from the cache.
     cached: bool
     # true when the market had no fresh roster at the batch deadline and this is the last roster published for it,
     # up to 15 minutes old (read computed_at). The fresh one is still computing, so a read a few seconds later ...
     stale: bool
+
+
+class GameHoldersItem(_GameHoldersItemRequired, total=False):
+    """One market of a game holders batch: GET /api/v1/market/{condition_id}/holders unfiltered and cut to
+    the batch limit."""
+    # When the daily pass behind the rows' category win records and price edges began: the oldest any row's record
+    # or edge can be. A row recounted since carries its own. Absent when no row of the roster carries a price edge
+    # ...
+    category_records_as_of: str
+    as_of: HoldersAsOf
+    data_quality: DataQuality
 
 
 class GetInsiderRadarFlagResponse(TypedDict):
@@ -7586,7 +8761,7 @@ class UsageData(TypedDict):
 
 class UsageDataRateLimit(TypedDict):
     used: int
-    # The per-minute window's limit for the caller's plan: 100 requests on Pro, 200 on Max. The same number
+    # The per-minute window's limit for the caller's plan: 100 requests on Pro, 400 on Max. The same number
     # RateLimit-Limit reports on a counted request.
     limit: int
     remaining: int
@@ -7828,6 +9003,67 @@ class GetPickOfTheDayLedgerEntryResponse(TypedDict):
     meta: ResponseMeta
 
 
+class GetPickOfTheDayWalletMarketsResponse(TypedDict):
+    object: Literal["pick_of_the_day_wallet_markets"]
+    data: GetPickOfTheDayWalletMarketsResponseData
+    meta: ResponseMeta
+
+
+class GetPickOfTheDayWalletMarketsResponseData(TypedDict):
+    address: str
+    # Format: date-time.
+    as_of: str
+    basis: Literal["at_release", "current"] | str
+    category: str
+    has_more: bool
+    listed: GetPickOfTheDayWalletMarketsResponseDataListed1 | GetPickOfTheDayWalletMarketsResponseDataListed2 | GetPickOfTheDayWalletMarketsResponseDataListed3
+    markets: list[GetPickOfTheDayWalletMarketsResponseDataMarketsItem]
+    name: str | None
+    next_cursor: str | None
+    pick_id: int
+    printed: GetPickOfTheDayWalletMarketsResponseDataPrinted1 | None
+    sample: Literal["edge", "record"] | str
+    scope: str | None
+    within: Literal["scope", "category"] | str
+
+
+class GetPickOfTheDayWalletMarketsResponseDataListed1(TypedDict):
+    markets: int
+    matches_printed: bool | None
+    status: Literal["counted"]
+    won: float
+    won_share: float | None
+
+
+class GetPickOfTheDayWalletMarketsResponseDataListed2(TypedDict):
+    status: Literal["counting"]
+
+
+class GetPickOfTheDayWalletMarketsResponseDataListed3(TypedDict):
+    status: Literal["unavailable"]
+
+
+class GetPickOfTheDayWalletMarketsResponseDataMarketsItem(TypedDict):
+    condition_id: str
+    polymarket_url: str | None
+    price_paid: float | None
+    realized_pnl_usd: float | None
+    result: Literal["won", "lost", "split", "profit", "loss"] | str
+    # Format: date-time.
+    settled_at: str | None
+    side: Literal["yes", "no", "both"] | str | None
+    side_name: str | None
+    stake_usd: float | None
+    title: str | None
+    won_share: float
+
+
+class GetPickOfTheDayWalletMarketsResponseDataPrinted1(TypedDict):
+    markets: int
+    won: float
+    won_share: float | None
+
+
 class CreateWebhookVerificationAttemptRequest(TypedDict):
     # The original one-time token returned by webhook creation or a URL change. Sent only in the request body and
     # signed receiver challenge.
@@ -7973,6 +9209,17 @@ class _ComboLegMarketRequired(TypedDict):
     pick_price_age_days: int | None
     # Unmodified provider leg status when available.
     provider_leg_status: str | None
+    # Kickoff stored on the local market, in UTC. Null when the leg has no local market or the market has no
+    # kickoff. Format: date-time.
+    game_start_time: str | None
+    # True only when that kickoff's calendar date is before today in UTC. False on the kickoff's own date and
+    # false when there is no kickoff. True does not mean the game is over: a game that kicks off late in the UTC
+    # day is ...
+    kickoff_date_passed: bool
+    # Whether the game this market belongs to has ended, from the same stored game state GET
+    # /api/v1/games/{event_slug} reads. A market in a child event, such as a soccer game's more-markets event,
+    # reads its parent game. ...
+    game_ended: bool | None
 
 
 class ComboLegMarket(_ComboLegMarketRequired, total=False):
@@ -8148,6 +9395,9 @@ class EdgeHunterBoard(TypedDict):
     # Ranked rows after normalized selections and grade filtering, before the view-specific limit cap.
     total: int
     rows: list[EdgeHunterRow]
+    # Markets the window and selection evaluated without a row, by reason. Every one drew a large trade from an S,
+    # A or B wallet in the last 24 hours, as every row did, so total plus the three counts is every market ...
+    unranked: EdgeHunterBoardUnranked1 | None
 
 
 class EdgeHunterRow(TypedDict):
@@ -8294,6 +9544,15 @@ class EdgeHunterMarketContext(TypedDict):
     metadata_updated_at: str | None
 
 
+class EdgeHunterBoardUnranked1(TypedDict):
+    # A side is backed, but no wallet on it is at or above min_grade.
+    below_grade_floor: int
+    # No S, A or B wallet holds either side now.
+    no_graded_holders: int
+    # Graded money on the two sides is too evenly split to back a side.
+    split_holder_pile: int
+
+
 class EdgeHunterSelection(TypedDict, total=False):
     """Normalized requested selection axes. Only requested axes appear; omitted for unselected defaults.
     Arrays are nonempty, sorted and deduplicated. OR within an axis, AND across axes."""
@@ -8413,9 +9672,9 @@ class EdgeHunterRankedSignal(TypedDict):
     # Piled-side graded USD held by one-way wallets (share-weighted allocation of backed_sharp_usd). Null when the
     # directional read was not computed or classified nobody.
     one_way_graded_usd: float | None
-    # One-way fraction of the piled graded dollars, in [0, 1] -- the metric orthogonal to sharp_pct. Stale,
-    # unknown, hedged, and two-sided dollars dilute it toward zero (conservative). Null when the directional read
-    # was not ...
+    # One-way fraction, in [0, 1], of the piled graded dollars the directional read classified: hedged and two-
+    # sided dollars count against it, unclassified ones are left out. Null when the read was not computed or over
+    # 10% of ...
     directional_confidence: float | None
     # Recorded side ordering score; higher values sort first.
     directional_rank_score: float
@@ -8465,11 +9724,12 @@ class EdgeHunterObservationsResponse(_EdgeHunterObservationsResponseRequired, to
     # The ranked_at of the view=signals snapshot whose listed markets this snapshot excluded from wider_holder as
     # primary_slate_candidate. The refresh that computed this snapshot read it as it started, so it can be one ...
     signals_as_of: str | None
+    # admission=most_held_48h and most_held_48h_by_type only: for each sport in the response's category scope that
+    # most_held_48h admitted a market in, the last market it admitted in the same snapshot (the 8th when 8 are ...
+    most_held_48h_cutoffs: list[EdgeHunterMostHeld48hCutoff]
 
 
-class EdgeHunterObservation(TypedDict):
-    """One explicitly observation-only holder-pile measurement. It is evidence for cohort evaluation, not
-    an execution instruction, and is isolated from the funded Edge Hunter signals view."""
+class _EdgeHunterObservationRequired(TypedDict):
     # The side profitable wallets hold, as a provider-backed display label. Canonical spelling of piled_side
     # (#16310), same value: when provider group context is unavailable it may remain a bare Yes/No/Over/Under, so
     # do not ...
@@ -8565,6 +9825,15 @@ class EdgeHunterObservation(TypedDict):
     # S, A and B graded wallets in the 0xinsider index holding either outcome of the market, as the stored market
     # universe last counted them. Every most-held place ranks by this count: admission=most_held_48h and ...
     indexed_graded_holders: int | None
+
+
+class EdgeHunterObservation(_EdgeHunterObservationRequired, total=False):
+    """One explicitly observation-only holder-pile measurement. It is evidence for cohort evaluation, not
+    an execution instruction, and is isolated from the funded Edge Hunter signals view."""
+    # admission=most_held_48h and most_held_48h_by_type only: the market's 1-based place in its sport's
+    # most_held_48h admission order, every market type ranked together, from the same refresh that admitted the
+    # row. The order ...
+    most_held_48h_position: int | None
 
 
 class EdgeHunterObservationDegradationReason(TypedDict):
@@ -8674,6 +9943,28 @@ class EdgeHunterObservationDeparture(TypedDict):
 # is intentional bounded provider-work admission and does not itself set the snapshot degraded.
 # board_source_unavailable is a completed board-source failure; board_deadline_unavailable ...
 EdgeHunterObservationTerminalReason = Union[Literal["outside_horizon", "resolved", "provider_closed", "provider_excluded", "invalid_market", "missing_token", "missing_stored_market", "not_provider_live", "board_source_unavailable", "board_deadline_unavailable", "primary_slate_candidate", "zero_indexed_holder_research", "capacity_limited", "provider_unavailable", "holder_deadline_unavailable", "holder_computation_unavailable", "holder_scan_incomplete", "no_current_graded_holder", "split_holder_pile", "price_unavailable", "wider_holder_emitted", "in_play_emitted", "in_play_stale_observed", "in_play_directional_unavailable", "internal_unclassified"], str]
+
+
+class EdgeHunterMostHeld48hCutoff(TypedDict):
+    """One sport's most_held_48h cutoff: the last market the selection admitted and the values it was
+    ranked by."""
+    # Canonical sport bucket, as on a row's category.
+    sport: str
+    # The market's place in the sport's most_held_48h admission order, which is the number of markets
+    # most_held_48h admitted in the sport: 8 when the sport has 8 to admit.
+    position: int
+    # The market. It may have no card in an admission=most_held_48h response when its holder read ended without
+    # one (a split pile, no read).
+    condition_id: str
+    # The first ranking value: S, A and B graded wallets in the 0xinsider index holding either outcome, as on a
+    # row's indexed_graded_holders.
+    indexed_graded_holders: int
+    # The second ranking value, as on a row's volume. null only for a market without a stored volume, which the
+    # ranking never holds: such a market counts as invalid_market.
+    volume: float | None
+    # The third ranking value: of two markets with equal holders and volume, the earlier kickoff ranks first, then
+    # the lower condition_id. Format: date-time.
+    game_start_time: str
 
 
 class ExportJobCancelledEvent(TypedDict):
@@ -8943,19 +10234,6 @@ class LiveSportsUpdatedData(TypedDict):
     snapshot_url: str
 
 
-class _LiveSportsScoreEntryRequired(TypedDict):
-    # Team name, ordered for the league (away first where the league reads that way).
-    team: str
-    # This side's score as the provider sends it.
-    score: str
-
-
-class LiveSportsScoreEntry(_LiveSportsScoreEntryRequired, total=False):
-    """One side's score line inside a `live_sports_updated` pulse."""
-    # Esports series only: this side's current-map score. Absent on other sports.
-    map_score: str
-
-
 class MarketPriceMovedEvent(TypedDict):
     """Fires when a sports or esports market's outcome-0 midpoint moves at least your
     price_move_filters.min_move_cents over price_move_filters.window_seconds (60, 120, 300 or 900),
@@ -8971,82 +10249,6 @@ class MarketPriceMovedEvent(TypedDict):
     # is not the time of the attempt. Format: date-time.
     created_at: str
     data: MarketPriceMovedData
-
-
-class MarketPriceMovedData(TypedDict):
-    """`market_price_moved` data, also the MarketPriceMoved frame on GET /api/v1/stream: a sports or
-    esports market's outcome-0 midpoint moved a whole-cent level over one window. Prices are decimal
-    strings at full precision. A missing value is null with its *_unavailable_reason."""
-    best_ask: str
-    best_bid: str
-    concurrent_sharp_flow: MarketPriceMovedDataConcurrentSharpFlow1 | None
-    concurrent_sharp_flow_unavailable_reason: Literal["read_failed"] | None
-    condition_id: str
-    # Format: date-time.
-    detected_at: str
-    direction: Literal["up", "down"] | str
-    event_slug: str | None
-    from_price: str
-    game_state: MarketPriceMovedDataGameState1 | None
-    game_state_unavailable_reason: Literal["no_event_slug", "no_game_state", "read_failed"] | str | None
-    gap_before: bool
-    label: str | None
-    league: str | None
-    level_cents: int
-    market_slug: str | None
-    move_cents: str
-    # Format: date-time.
-    observed_at: str | None
-    outcome_index: int
-    # Where the game stood at detected_at. in_play: its live state reports it live. pre_game: its live state is
-    # neither live nor ended, or it has no live state yet and the market's scheduled start (the games endpoints'
-    # ...
-    phase: Literal["pre_game", "in_play", "unknown"] | str
-    previous_level_cents: int
-    source: str
-    spread_cents: str
-    to_price: str
-    window_seconds: int
-    # Format: date-time.
-    window_start: str
-    # Why book_depth_within_2c is null, and null when it is present. no_book: no full order book has arrived for
-    # the market since tracking began, only quotes. book_changed: the best bid or ask moved after the latest full
-    # ...
-    book_depth_unavailable_reason: Literal["no_book", "book_changed", "band_not_covered"] | str | None
-    # USD resting within 2 cents of outcome 0's midpoint on each side at detected_at, or null with
-    # book_depth_unavailable_reason.
-    book_depth_within_2c: MarketPriceMovedDataBookDepthWithin2c1 | None
-
-
-class MarketPriceMovedDataConcurrentSharpFlow1(TypedDict):
-    detected: bool
-    grade_floor: Literal["S", "A", "B", "C", "D", "F"] | str
-    net_flow_usd: float
-    ranked_large_trades: int
-    # Large trades on the market in the same window at any grade, ungraded wallets included. ranked_large_trades
-    # is the part of them at grade_floor or better.
-    large_trades_in_window: int | None
-
-
-class MarketPriceMovedDataGameState1(TypedDict):
-    clock: str | None
-    ended: bool
-    live: bool | None
-    period: str | None
-    scores: list[LiveSportsScoreEntry]
-    status: str | None
-    # Format: date-time.
-    updated_at: str
-
-
-class MarketPriceMovedDataBookDepthWithin2c1(TypedDict):
-    # USD resting on asks priced at or below the midpoint plus 0.02 (price times size), as a decimal string.
-    ask_usd: str
-    # USD resting on bids priced at or above the midpoint minus 0.02 (price times size), as a decimal string.
-    bid_usd: str
-    # When we received the full order book the sums come from. Its best bid and ask are the event's best_bid and
-    # best_ask; deeper levels may have changed since. Format: date-time.
-    book_observed_at: str
 
 
 class MarketSettledEvent(TypedDict):
