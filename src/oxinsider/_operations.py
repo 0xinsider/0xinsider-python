@@ -90,6 +90,7 @@ from .types import (
     ListSettledMarketsResponse,
     ListSmartMoneyFlowsResponse,
     ListSuspiciousTradesResponse,
+    ListTradersGradeAtResponse,
     ListTrendingWalletsResponse,
     ListWebhookDeliveriesResponse,
     ListWebhookEventsResponse,
@@ -128,6 +129,7 @@ OPERATIONS: dict[str, Operation] = {
     "getTrader": Operation("GET", "/api/v1/trader/{address}", streaming=False, redirect=False),
     "getTraderContextMarkdown": Operation("GET", "/api/v1/trader/{address}/context.md", streaming=False, redirect=False, accept="text/markdown"),
     "getTraderGradeAt": Operation("GET", "/api/v1/trader/{address}/grade-at", streaming=False, redirect=False),
+    "listTradersGradeAt": Operation("GET", "/api/v1/traders/grade-at", streaming=False, redirect=False),
     "getTraderClv": Operation("GET", "/api/v1/trader/{address}/clv", streaming=False, redirect=False),
     "getTraderMarkets": Operation("GET", "/api/v1/trader/{address}/markets", streaming=False, redirect=False),
     "getTraderContext": Operation("GET", "/api/v1/trader/{address}/context", streaming=False, redirect=False),
@@ -408,6 +410,58 @@ class OperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: GetTraderGradeAtResponse | NotModifiedResponse = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListTradersGradeAtResponse: ...
+
+    @overload
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListTradersGradeAtResponse | NotModifiedResponse: ...
+
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListTradersGradeAtResponse | NotModifiedResponse:
+        """List the wallets graded S, A or B at a past instant.
+
+        ``GET /api/v1/traders/grade-at`` (operationId ``listTradersGradeAt``).
+
+        Lists every wallet whose grade was min_grade or better (S, A or B; default B) at as_of,
+        read from the same prospective grade observations as GET /api/v1/trader/{address}/grade-
+        at, so a backtest or audit reads the whole set at one instant without one call per
+        wallet. A wallet with status graded ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 past instant whose recorded grades are listed. Future instants are refused. With cursor, send the as_of the cursor was issued for.
+            min_grade: The worst grade listed: S lists S, A lists S and A, B lists S, A and B. Any other value returns 400 with error.param=min_grade. With cursor, omit it or send ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque tga_v1_ cursor from next_cursor. It continues the walk after the last wallet the previous page checked and keeps the as_of and min_grade it was issued ...
+        """
+        result: ListTradersGradeAtResponse | NotModifiedResponse = self._call("listTradersGradeAt", path_params={}, query={"as_of": as_of, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -751,6 +805,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -769,6 +824,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -786,6 +842,7 @@ class OperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -812,11 +869,12 @@ class OperationsMixin:
             status: active (default), closed, or all. closed means the provider closed the market or it resolved.
             max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
             min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            protocol_version: v1 keeps the props that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Judged ...
             limit: Page size. Out-of-range values are clamped to 1..200.
             cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
             expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
         """
-        result: ListPropsResponse | NotModifiedResponse = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListPropsResponse | NotModifiedResponse = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -900,6 +958,7 @@ class OperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListPositionsResponse: ...
 
@@ -916,6 +975,7 @@ class OperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListPositionsResponse | NotModifiedResponse: ...
 
@@ -931,6 +991,7 @@ class OperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListPositionsResponse | NotModifiedResponse:
         """List current positions (positions-board feed).
@@ -955,8 +1016,9 @@ class OperationsMixin:
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
+            protocol_version: v1 keeps the positions on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each position's condition_id. ...
         """
-        result: ListPositionsResponse | NotModifiedResponse = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ListPositionsResponse | NotModifiedResponse = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     def list_large_positions(
@@ -1005,6 +1067,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListLargeTradesResponse: ...
 
@@ -1024,6 +1087,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListLargeTradesResponse | NotModifiedResponse: ...
 
@@ -1042,6 +1106,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListLargeTradesResponse | NotModifiedResponse:
         """List large trades.
@@ -1069,8 +1134,9 @@ class OperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -1089,6 +1155,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -1108,6 +1175,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -1126,6 +1194,7 @@ class OperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -1153,8 +1222,9 @@ class OperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3117,6 +3187,7 @@ class OperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -3133,6 +3204,7 @@ class OperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -3148,6 +3220,7 @@ class OperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -3159,24 +3232,25 @@ class OperationsMixin:
 
         One coherent game view per row: both sides with their provider ids and live scores, the
         UTC kickoff, the provider's own status, the esports series format, and the game's winner
-        markets (the moneyline, or a soccer game's three 1X2 legs) with their condition ids and
-        outcome token ids. Spreads, ...
+        markets (the moneyline, or the three legs of a game that can end in a draw: a soccer 1X2
+        event, or a Test or first-class ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb, bkbsl. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
             window: Which games to read. all, the default, lists the whole covered catalog, which can start with games the provider still holds open weeks after kickoff. now lists ...
+            protocol_version: v1 lists the games with a market on Polymarket's CTF exchanges, v2 the ones with a market on Protocol V2 (ExchangeV3), and each listed game's markets[] keeps ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
             expand: sharp_money adds each game's sharp_money, the GameSharpMoney object GET /api/v1/games/{event_slug}/sharp-money returns, read from the sport board's cached ...
         """
-        result: ListGamesResponse | NotModifiedResponse = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListGamesResponse | NotModifiedResponse = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -3205,10 +3279,10 @@ class OperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
-        home, draw and away market sides and draw_offered. The slug is the identity the
-        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
-        from a pulse. A slug outside the ...
+        The same game object GET /api/v1/games returns, for one event_slug, including the home,
+        draw and away market sides of a three-way game (soccer 1X2, a cricket match that can end
+        in a draw) and draw_offered. The slug is the identity the live_sports_updated webhook
+        pulse carries, so a receiver can ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -3223,6 +3297,7 @@ class OperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -3236,6 +3311,7 @@ class OperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -3248,6 +3324,7 @@ class OperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -3268,11 +3345,12 @@ class OperationsMixin:
         Query parameters:
             sports_market_type: Comma-separated provider market types to keep, case-insensitive: spreads, totals, points, first_half_totals. Omitted keeps every type. An unknown type returns ...
             status: active, closed or all. closed means the provider closed the market or it resolved.
+            protocol_version: v1 keeps the markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Any ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gmk_v1_ cursor from next_cursor, sent with the same filters. It pins the page position (sports_market_type, line, condition_id), not a snapshot. A ...
             expand: sharp_money adds each row's sharp_money: the game page's per-line split, side USD and S, A and B wallet counts per outcome. One read for the event whatever the ...
         """
-        result: ListGameMarketsResponse | NotModifiedResponse = self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListGameMarketsResponse | NotModifiedResponse = self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -4433,7 +4511,8 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -4455,7 +4534,8 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -4476,7 +4556,8 @@ class OperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -4507,6 +4588,7 @@ class OperationsMixin:
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets that view=signals ...
             admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
+            place_exits_since: view=observations with cohort=wider_holder and an admission only; rejected otherwise. An RFC 3339 time within the last 48 hours: the response adds place_exits, ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -4519,7 +4601,7 @@ class OperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "place_exits_since": place_exits_since, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -4688,6 +4770,58 @@ class ResponseOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListTradersGradeAtResponse]: ...
+
+    @overload
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse]:
+        """List the wallets graded S, A or B at a past instant.
+
+        ``GET /api/v1/traders/grade-at`` (operationId ``listTradersGradeAt``).
+
+        Lists every wallet whose grade was min_grade or better (S, A or B; default B) at as_of,
+        read from the same prospective grade observations as GET /api/v1/trader/{address}/grade-
+        at, so a backtest or audit reads the whole set at one instant without one call per
+        wallet. A wallet with status graded ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 past instant whose recorded grades are listed. Future instants are refused. With cursor, send the as_of the cursor was issued for.
+            min_grade: The worst grade listed: S lists S, A lists S and A, B lists S, A and B. Any other value returns 400 with error.param=min_grade. With cursor, omit it or send ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque tga_v1_ cursor from next_cursor. It continues the walk after the last wallet the previous page checked and keeps the as_of and min_grade it was issued ...
+        """
+        result: ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse] = self._call("listTradersGradeAt", path_params={}, query={"as_of": as_of, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5031,6 +5165,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -5049,6 +5184,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -5066,6 +5202,7 @@ class ResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -5092,11 +5229,12 @@ class ResponseOperationsMixin:
             status: active (default), closed, or all. closed means the provider closed the market or it resolved.
             max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
             min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            protocol_version: v1 keeps the props that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Judged ...
             limit: Page size. Out-of-range values are clamped to 1..200.
             cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
             expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
         """
-        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5180,6 +5318,7 @@ class ResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListPositionsResponse]: ...
 
@@ -5196,6 +5335,7 @@ class ResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -5211,6 +5351,7 @@ class ResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse]:
         """List current positions (positions-board feed).
@@ -5235,8 +5376,9 @@ class ResponseOperationsMixin:
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
+            protocol_version: v1 keeps the positions on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each position's condition_id. ...
         """
-        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     def list_large_positions(
@@ -5285,6 +5427,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLargeTradesResponse]: ...
 
@@ -5304,6 +5447,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -5322,6 +5466,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List large trades.
@@ -5349,8 +5494,9 @@ class ResponseOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -5369,6 +5515,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -5388,6 +5535,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -5406,6 +5554,7 @@ class ResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -5433,8 +5582,9 @@ class ResponseOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7397,6 +7547,7 @@ class ResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -7413,6 +7564,7 @@ class ResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -7428,6 +7580,7 @@ class ResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -7439,24 +7592,25 @@ class ResponseOperationsMixin:
 
         One coherent game view per row: both sides with their provider ids and live scores, the
         UTC kickoff, the provider's own status, the esports series format, and the game's winner
-        markets (the moneyline, or a soccer game's three 1X2 legs) with their condition ids and
-        outcome token ids. Spreads, ...
+        markets (the moneyline, or the three legs of a game that can end in a draw: a soccer 1X2
+        event, or a Test or first-class ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb, bkbsl. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
             window: Which games to read. all, the default, lists the whole covered catalog, which can start with games the provider still holds open weeks after kickoff. now lists ...
+            protocol_version: v1 lists the games with a market on Polymarket's CTF exchanges, v2 the ones with a market on Protocol V2 (ExchangeV3), and each listed game's markets[] keeps ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
             expand: sharp_money adds each game's sharp_money, the GameSharpMoney object GET /api/v1/games/{event_slug}/sharp-money returns, read from the sport board's cached ...
         """
-        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -7485,10 +7639,10 @@ class ResponseOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
-        home, draw and away market sides and draw_offered. The slug is the identity the
-        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
-        from a pulse. A slug outside the ...
+        The same game object GET /api/v1/games returns, for one event_slug, including the home,
+        draw and away market sides of a three-way game (soccer 1X2, a cricket match that can end
+        in a draw) and draw_offered. The slug is the identity the live_sports_updated webhook
+        pulse carries, so a receiver can ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -7503,6 +7657,7 @@ class ResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -7516,6 +7671,7 @@ class ResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -7528,6 +7684,7 @@ class ResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -7548,11 +7705,12 @@ class ResponseOperationsMixin:
         Query parameters:
             sports_market_type: Comma-separated provider market types to keep, case-insensitive: spreads, totals, points, first_half_totals. Omitted keeps every type. An unknown type returns ...
             status: active, closed or all. closed means the provider closed the market or it resolved.
+            protocol_version: v1 keeps the markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Any ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gmk_v1_ cursor from next_cursor, sent with the same filters. It pins the page position (sports_market_type, line, condition_id), not a snapshot. A ...
             expand: sharp_money adds each row's sharp_money: the game page's per-line split, side USD and S, A and B wallet counts per outcome. One read for the event whatever the ...
         """
-        result: ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse] = self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse] = self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -8713,7 +8871,8 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8735,7 +8894,8 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8756,7 +8916,8 @@ class ResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -8787,6 +8948,7 @@ class ResponseOperationsMixin:
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets that view=signals ...
             admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
+            place_exits_since: view=observations with cohort=wider_holder and an admission only; rejected otherwise. An RFC 3339 time within the last 48 hours: the response adds place_exits, ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -8799,7 +8961,7 @@ class ResponseOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "place_exits_since": place_exits_since, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -8969,6 +9131,58 @@ class AsyncOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: GetTraderGradeAtResponse | NotModifiedResponse = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ListTradersGradeAtResponse: ...
+
+    @overload
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ListTradersGradeAtResponse | NotModifiedResponse: ...
+
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ListTradersGradeAtResponse | NotModifiedResponse:
+        """List the wallets graded S, A or B at a past instant.
+
+        ``GET /api/v1/traders/grade-at`` (operationId ``listTradersGradeAt``).
+
+        Lists every wallet whose grade was min_grade or better (S, A or B; default B) at as_of,
+        read from the same prospective grade observations as GET /api/v1/trader/{address}/grade-
+        at, so a backtest or audit reads the whole set at one instant without one call per
+        wallet. A wallet with status graded ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 past instant whose recorded grades are listed. Future instants are refused. With cursor, send the as_of the cursor was issued for.
+            min_grade: The worst grade listed: S lists S, A lists S and A, B lists S, A and B. Any other value returns 400 with error.param=min_grade. With cursor, omit it or send ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque tga_v1_ cursor from next_cursor. It continues the walk after the last wallet the previous page checked and keeps the as_of and min_grade it was issued ...
+        """
+        result: ListTradersGradeAtResponse | NotModifiedResponse = await self._call("listTradersGradeAt", path_params={}, query={"as_of": as_of, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -9312,6 +9526,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -9330,6 +9545,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -9347,6 +9563,7 @@ class AsyncOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -9373,11 +9590,12 @@ class AsyncOperationsMixin:
             status: active (default), closed, or all. closed means the provider closed the market or it resolved.
             max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
             min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            protocol_version: v1 keeps the props that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Judged ...
             limit: Page size. Out-of-range values are clamped to 1..200.
             cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
             expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
         """
-        result: ListPropsResponse | NotModifiedResponse = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListPropsResponse | NotModifiedResponse = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -9461,6 +9679,7 @@ class AsyncOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListPositionsResponse: ...
 
@@ -9477,6 +9696,7 @@ class AsyncOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListPositionsResponse | NotModifiedResponse: ...
 
@@ -9492,6 +9712,7 @@ class AsyncOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListPositionsResponse | NotModifiedResponse:
         """List current positions (positions-board feed).
@@ -9516,8 +9737,9 @@ class AsyncOperationsMixin:
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
+            protocol_version: v1 keeps the positions on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each position's condition_id. ...
         """
-        result: ListPositionsResponse | NotModifiedResponse = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ListPositionsResponse | NotModifiedResponse = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     async def list_large_positions(
@@ -9566,6 +9788,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListLargeTradesResponse: ...
 
@@ -9585,6 +9808,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListLargeTradesResponse | NotModifiedResponse: ...
 
@@ -9603,6 +9827,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListLargeTradesResponse | NotModifiedResponse:
         """List large trades.
@@ -9630,8 +9855,9 @@ class AsyncOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListLargeTradesResponse | NotModifiedResponse = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -9650,6 +9876,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ListWhaleTradesResponse: ...
 
@@ -9669,6 +9896,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse: ...
 
@@ -9687,6 +9915,7 @@ class AsyncOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ListWhaleTradesResponse | NotModifiedResponse:
         """List whale trades.
@@ -9714,8 +9943,9 @@ class AsyncOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ListWhaleTradesResponse | NotModifiedResponse = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11678,6 +11908,7 @@ class AsyncOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -11694,6 +11925,7 @@ class AsyncOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -11709,6 +11941,7 @@ class AsyncOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -11720,24 +11953,25 @@ class AsyncOperationsMixin:
 
         One coherent game view per row: both sides with their provider ids and live scores, the
         UTC kickoff, the provider's own status, the esports series format, and the game's winner
-        markets (the moneyline, or a soccer game's three 1X2 legs) with their condition ids and
-        outcome token ids. Spreads, ...
+        markets (the moneyline, or the three legs of a game that can end in a draw: a soccer 1X2
+        event, or a Test or first-class ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb, bkbsl. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
             window: Which games to read. all, the default, lists the whole covered catalog, which can start with games the provider still holds open weeks after kickoff. now lists ...
+            protocol_version: v1 lists the games with a market on Polymarket's CTF exchanges, v2 the ones with a market on Protocol V2 (ExchangeV3), and each listed game's markets[] keeps ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
             expand: sharp_money adds each game's sharp_money, the GameSharpMoney object GET /api/v1/games/{event_slug}/sharp-money returns, read from the sport board's cached ...
         """
-        result: ListGamesResponse | NotModifiedResponse = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListGamesResponse | NotModifiedResponse = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -11766,10 +12000,10 @@ class AsyncOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
-        home, draw and away market sides and draw_offered. The slug is the identity the
-        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
-        from a pulse. A slug outside the ...
+        The same game object GET /api/v1/games returns, for one event_slug, including the home,
+        draw and away market sides of a three-way game (soccer 1X2, a cricket match that can end
+        in a draw) and draw_offered. The slug is the identity the live_sports_updated webhook
+        pulse carries, so a receiver can ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -11784,6 +12018,7 @@ class AsyncOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -11797,6 +12032,7 @@ class AsyncOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -11809,6 +12045,7 @@ class AsyncOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -11829,11 +12066,12 @@ class AsyncOperationsMixin:
         Query parameters:
             sports_market_type: Comma-separated provider market types to keep, case-insensitive: spreads, totals, points, first_half_totals. Omitted keeps every type. An unknown type returns ...
             status: active, closed or all. closed means the provider closed the market or it resolved.
+            protocol_version: v1 keeps the markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Any ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gmk_v1_ cursor from next_cursor, sent with the same filters. It pins the page position (sports_market_type, line, condition_id), not a snapshot. A ...
             expand: sharp_money adds each row's sharp_money: the game page's per-line split, side USD and S, A and B wallet counts per outcome. One read for the event whatever the ...
         """
-        result: ListGameMarketsResponse | NotModifiedResponse = await self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ListGameMarketsResponse | NotModifiedResponse = await self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -12994,7 +13232,8 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -13016,7 +13255,8 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -13037,7 +13277,8 @@ class AsyncOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -13068,6 +13309,7 @@ class AsyncOperationsMixin:
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets that view=signals ...
             admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
+            place_exits_since: view=observations with cohort=wider_holder and an admission only; rejected otherwise. An RFC 3339 time within the last 48 hours: the response adds place_exits, ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -13080,7 +13322,7 @@ class AsyncOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse | NotModifiedResponse = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "place_exits_since": place_exits_since, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 
 
@@ -13249,6 +13491,58 @@ class AsyncResponseOperationsMixin:
             as_of: Required. RFC3339 instant whose historically visible grade is requested. Future instants are refused. Send the trade or decision time, not the ranking date.
         """
         result: ApiResponse[GetTraderGradeAtResponse] | ApiResponse[NotModifiedResponse] = await self._call("getTraderGradeAt", path_params={"address": address}, query={"as_of": as_of}, if_none_match=if_none_match)
+        return result
+
+    @overload
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: None = None,
+    ) -> ApiResponse[ListTradersGradeAtResponse]: ...
+
+    @overload
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None,
+    ) -> ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse]: ...
+
+    async def list_traders_grade_at(
+        self,
+        *,
+        as_of: str | None = None,
+        min_grade: Literal["S", "A", "B"] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        if_none_match: str | None = None,
+    ) -> ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse]:
+        """List the wallets graded S, A or B at a past instant.
+
+        ``GET /api/v1/traders/grade-at`` (operationId ``listTradersGradeAt``).
+
+        Lists every wallet whose grade was min_grade or better (S, A or B; default B) at as_of,
+        read from the same prospective grade observations as GET /api/v1/trader/{address}/grade-
+        at, so a backtest or audit reads the whole set at one instant without one call per
+        wallet. A wallet with status graded ...
+
+        Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
+        then returns ``NotModifiedResponse`` and your cached body is still current.
+
+        Query parameters:
+            as_of: Required. RFC3339 past instant whose recorded grades are listed. Future instants are refused. With cursor, send the as_of the cursor was issued for.
+            min_grade: The worst grade listed: S lists S, A lists S and A, B lists S, A and B. Any other value returns 400 with error.param=min_grade. With cursor, omit it or send ...
+            limit: Page size. Out-of-range values are clamped to 1..100.
+            cursor: Opaque tga_v1_ cursor from next_cursor. It continues the walk after the last wallet the previous page checked and keeps the as_of and min_grade it was issued ...
+        """
+        result: ApiResponse[ListTradersGradeAtResponse] | ApiResponse[NotModifiedResponse] = await self._call("listTradersGradeAt", path_params={}, query={"as_of": as_of, "min_grade": min_grade, "limit": limit, "cursor": cursor}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -13592,6 +13886,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -13610,6 +13905,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -13627,6 +13923,7 @@ class AsyncResponseOperationsMixin:
         status: Literal["active", "closed", "all"] | None = None,
         max_spread_c: float | None = None,
         min_book_usd_within_2c: int | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["quotes"]] | None = None,
@@ -13653,11 +13950,12 @@ class AsyncResponseOperationsMixin:
             status: active (default), closed, or all. closed means the provider closed the market or it resolved.
             max_spread_c: Keep only props with an outcome whose cached best ask less best bid is at most this many cents: above 0, at most 100, in steps of 0.01. The books are the ones ...
             min_book_usd_within_2c: Keep only props with an outcome whose cached book holds at least this many USD on each side within 2 cents of its midpoint: bids at or above the midpoint minus ...
+            protocol_version: v1 keeps the props that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Judged ...
             limit: Page size. Out-of-range values are clamped to 1..200.
             cursor: Opaque prp_v1_ cursor from next_cursor, sent with the same filters. A cursor this endpoint did not issue returns 400 with error.param=cursor.
             expand: quotes adds each outcome's cached quote, as on GET /api/v1/games/{event_slug}/markets; it adds 1 to the cost, on every plan. Repeatable: quotes.
         """
-        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListPropsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listProps", path_params={}, query={"league": league, "starts_after": starts_after, "starts_before": starts_before, "player": player, "stat": stat, "status": status, "max_spread_c": max_spread_c, "min_book_usd_within_2c": min_book_usd_within_2c, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -13741,6 +14039,7 @@ class AsyncResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListPositionsResponse]: ...
 
@@ -13757,6 +14056,7 @@ class AsyncResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -13772,6 +14072,7 @@ class AsyncResponseOperationsMixin:
         wallet: list[str] | None = None,
         min_grade: Literal["S", "A", "B", "C", "D", "F"] | None = None,
         side: Literal["yes", "no"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse]:
         """List current positions (positions-board feed).
@@ -13796,8 +14097,9 @@ class AsyncResponseOperationsMixin:
             wallet: Scope to one wallet or a book of wallets (repeatable, up to 25 per request; comma-separated values inside one occurrence also work). Each value is a wallet ...
             min_grade: Minimum trader grade allowlist. `A` matches S and A; `B` matches S, A, B; etc.
             side: Filter by the binary outcome side. `yes` maps to outcome_index=0, `no` to outcome_index=1.
+            protocol_version: v1 keeps the positions on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each position's condition_id. ...
         """
-        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side}, if_none_match=if_none_match)
+        result: ApiResponse[ListPositionsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listPositions", path_params={}, query={"limit": limit, "cursor": cursor, "consistency": consistency, "min_size": min_size, "category": category, "condition_id": condition_id, "wallet": wallet, "min_grade": min_grade, "side": side, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     async def list_large_positions(
@@ -13846,6 +14148,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListLargeTradesResponse]: ...
 
@@ -13865,6 +14168,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -13883,6 +14187,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List large trades.
@@ -13910,8 +14215,9 @@ class AsyncResponseOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListLargeTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listLargeTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -13930,6 +14236,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: None = None,
     ) -> ApiResponse[ListWhaleTradesResponse]: ...
 
@@ -13949,6 +14256,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]: ...
 
@@ -13967,6 +14275,7 @@ class AsyncResponseOperationsMixin:
         since: str | None = None,
         condition_id: str | None = None,
         event_slug: str | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         if_none_match: str | None = None,
     ) -> ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse]:
         """List whale trades.
@@ -13994,8 +14303,9 @@ class AsyncResponseOperationsMixin:
             since: Return only the trades recorded after this one. Pass the id of a large trade this API returned (wt_<n>, or the bare integer). The answer keeps the list shape ...
             condition_id: Only this market's large trades: an exact raw provider condition_id. The page is read from the market's own index, newest first, and pages with cursor; it ...
             event_slug: Only the large trades in one game: every market of the game behind this event slug, the moneyline, spreads, totals and props, as GET ...
+            protocol_version: v1 keeps the large trades on markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), read from each trade's condition_id. ...
         """
-        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug}, if_none_match=if_none_match)
+        result: ApiResponse[ListWhaleTradesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listWhaleTrades", path_params={}, query={"limit": limit, "cursor": cursor, "min_size": min_size, "category": category, "min_grade": min_grade, "min_grade_at_trade": min_grade_at_trade, "suspicious_only": suspicious_only, "min_market_volume_share": min_market_volume_share, "sort": sort, "since": since, "condition_id": condition_id, "event_slug": event_slug, "protocol_version": protocol_version}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -15958,6 +16268,7 @@ class AsyncResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -15974,6 +16285,7 @@ class AsyncResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -15989,6 +16301,7 @@ class AsyncResponseOperationsMixin:
         starts_after: str | None = None,
         starts_before: str | None = None,
         window: Literal["all", "now"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "settlement"]] | None = None,
@@ -16000,24 +16313,25 @@ class AsyncResponseOperationsMixin:
 
         One coherent game view per row: both sides with their provider ids and live scores, the
         UTC kickoff, the provider's own status, the esports series format, and the game's winner
-        markets (the moneyline, or a soccer game's three 1X2 legs) with their condition ids and
-        outcome token ids. Spreads, ...
+        markets (the moneyline, or the three legs of a game that can end in a draw: a soccer 1X2
+        event, or a Test or first-class ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
 
         Query parameters:
             sport: Canonical sport bucket, case-insensitive, with - and _ read as a space: table-tennis and Table Tennis are the same bucket. Omit for every covered sport. A ...
-            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb. ...
+            league: League tag, case-insensitive, as this list's coverage.leagues spells it (GET /api/v1/coverage lists no leagues): nfl, epl, cs2, euroleague, cbb, cwbb, bkbsl. ...
             status: Keep only games in this state. ended, cancelled and postponed also list finished games that have left the live board, read from their stored records, for ...
             starts_after: RFC 3339 instant. Keep only games whose kickoff is at or after it. Games with no published kickoff are excluded whenever either bound is set. With a finished ...
             starts_before: RFC 3339 instant. Keep only games whose kickoff is at or before it. Must be at or after starts_after.
             window: Which games to read. all, the default, lists the whole covered catalog, which can start with games the provider still holds open weeks after kickoff. now lists ...
+            protocol_version: v1 lists the games with a market on Polymarket's CTF exchanges, v2 the ones with a market on Protocol V2 (ExchangeV3), and each listed game's markets[] keeps ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gms_v1_ cursor from next_cursor. It pins the page position (kickoff and event_slug), not a snapshot: the catalog is live, so a game added or removed ...
             expand: sharp_money adds each game's sharp_money, the GameSharpMoney object GET /api/v1/games/{event_slug}/sharp-money returns, read from the sport board's cached ...
         """
-        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListGamesResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGames", path_params={}, query={"sport": sport, "league": league, "status": status, "starts_after": starts_after, "starts_before": starts_before, "window": window, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -16046,10 +16360,10 @@ class AsyncResponseOperationsMixin:
 
         ``GET /api/v1/games/{event_slug}`` (operationId ``getGame``).
 
-        The same game object GET /api/v1/games returns, for one event_slug, including soccer 1X2
-        home, draw and away market sides and draw_offered. The slug is the identity the
-        live_sports_updated webhook pulse carries, so a receiver can read the full game straight
-        from a pulse. A slug outside the ...
+        The same game object GET /api/v1/games returns, for one event_slug, including the home,
+        draw and away market sides of a three-way game (soccer 1X2, a cricket match that can end
+        in a draw) and draw_offered. The slug is the identity the live_sports_updated webhook
+        pulse carries, so a receiver can ...
 
         Pass ``if_none_match`` with the previous ``etag`` to make the read conditional: a 304
         then returns ``NotModifiedResponse`` and your cached body is still current.
@@ -16064,6 +16378,7 @@ class AsyncResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -16077,6 +16392,7 @@ class AsyncResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -16089,6 +16405,7 @@ class AsyncResponseOperationsMixin:
         *,
         sports_market_type: str | None = None,
         status: Literal["active", "closed", "all"] | None = None,
+        protocol_version: Literal["v1", "v2"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         expand: list[Literal["sharp_money", "quotes", "trading_terms"]] | None = None,
@@ -16109,11 +16426,12 @@ class AsyncResponseOperationsMixin:
         Query parameters:
             sports_market_type: Comma-separated provider market types to keep, case-insensitive: spreads, totals, points, first_half_totals. Omitted keeps every type. An unknown type returns ...
             status: active, closed or all. closed means the provider closed the market or it resolved.
+            protocol_version: v1 keeps the markets that trade on Polymarket's CTF exchanges, v2 the ones on Protocol V2 (ExchangeV3), each row's protocol_version. Omitted keeps both. Any ...
             limit: Page size. Out-of-range values are clamped to 1..100.
             cursor: Opaque gmk_v1_ cursor from next_cursor, sent with the same filters. It pins the page position (sports_market_type, line, condition_id), not a snapshot. A ...
             expand: sharp_money adds each row's sharp_money: the game page's per-line split, side USD and S, A and B wallet counts per outcome. One read for the event whatever the ...
         """
-        result: ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
+        result: ApiResponse[ListGameMarketsResponse] | ApiResponse[NotModifiedResponse] = await self._call("listGameMarkets", path_params={"event_slug": event_slug}, query={"sports_market_type": sports_market_type, "status": status, "protocol_version": protocol_version, "limit": limit, "cursor": cursor, "expand": expand}, if_none_match=if_none_match)
         return result
 
     @overload
@@ -17274,7 +17592,8 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -17296,7 +17615,8 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -17317,7 +17637,8 @@ class AsyncResponseOperationsMixin:
         view: Literal["board", "signals", "observations"] | None = None,
         category: str | None = None,
         cohort: Literal["wider_holder", "in_play", "emerging_pile"] | None = None,
-        admission: Literal["most_held_48h", "most_held_48h_by_type"] | None = None,
+        admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | None = None,
+        place_exits_since: str | None = None,
         min_grade: Literal["S", "A", "B"] | None = None,
         limit: int | None = None,
         cursor: str | None = None,
@@ -17348,6 +17669,7 @@ class AsyncResponseOperationsMixin:
             category: Legacy canonical bucket alias, now accepted in every view. Provider aliases canonicalize: NFL reaches Football and EPL reaches Soccer. Use leagues for a ...
             cohort: Required for view=observations; wider_holder, in_play or emerging_pile. Rejected for board and signals. wider_holder covers pregame markets that view=signals ...
             admission: Opt-in admission rule for view=observations with cohort=wider_holder; rejected for every other view and cohort. most_held_48h returns the most-held selection ...
+            place_exits_since: view=observations with cohort=wider_holder and an admission only; rejected otherwise. An RFC 3339 time within the last 48 hours: the response adds place_exits, ...
             min_grade: Board and signals: S, A or B, default B. Requires a piled-side holder at the selected grade floor or better, without removing other holders. Rejected for ...
             limit: Board row cap defaults to 30 and clamps integer values to 1..30; total counts selected admitted rows before the cap. Signals and observations page size ...
             cursor: Opaque canonical Edge Hunter cursor from next_cursor. Bound to view, every normalized selection axis, grade/horizon where applicable, source snapshot and ...
@@ -17360,6 +17682,6 @@ class AsyncResponseOperationsMixin:
             event_slugs: Exact provider event slugs. Use event_slug returned on the row; no title or slug-prefix guessing. All views. Repeat this query key or put comma-separated ...
             series_slugs: Exact provider series slugs. Read market_context.series_slug; a missing selected series excludes the row. All views. Repeat this query key or put ...
         """
-        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
+        result: ApiResponse[EdgeHunterBoardResponse | EdgeHunterSignalsResponse | EdgeHunterObservationsResponse] | ApiResponse[NotModifiedResponse] = await self._call("getEdgeHunter", path_params={}, query={"view": view, "category": category, "cohort": cohort, "admission": admission, "place_exits_since": place_exits_since, "min_grade": min_grade, "limit": limit, "cursor": cursor, "horizon_hours": horizon_hours, "kind": kind, "sports": sports, "leagues": leagues, "market_types": market_types, "condition_ids": condition_ids, "event_slugs": event_slugs, "series_slugs": series_slugs}, if_none_match=if_none_match)
         return result
 

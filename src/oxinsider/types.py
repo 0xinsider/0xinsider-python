@@ -60,6 +60,7 @@ __all__ = [
     "BatchTraderItem",
     "Candle",
     "CategoryLeader",
+    "CategoryNumbers",
     "CategorySkillModelReadiness",
     "CategorySkillV2",
     "Clv",
@@ -108,6 +109,7 @@ __all__ = [
     "EdgeHunterObservationCoverage",
     "EdgeHunterObservationDegradationReason",
     "EdgeHunterObservationDeparture",
+    "EdgeHunterObservationPlaceExit",
     "EdgeHunterObservationTerminalReason",
     "EdgeHunterObservationsResponse",
     "EdgeHunterOutcome",
@@ -164,6 +166,8 @@ __all__ = [
     "GameCoverage",
     "GameFreshness",
     "GameHoldersItem",
+    "GameMap",
+    "GameMapState",
     "GameMarket",
     "GameMarketLiquidity",
     "GameMarketPriceBindingProvenance",
@@ -297,6 +301,7 @@ __all__ = [
     "ListGameMarketsResponseDataItemTradingTerms",
     "ListGameMarketsResponseDataItemTradingTermsFeeSchedule1",
     "ListGameMarketsResponseDataItemTradingTermsRewardAllocationsItem",
+    "ListGameMarketsResponseDataItemTradingTermsTrading",
     "ListGameMarketsResponseFamiliesItem",
     "ListGameTradesResponse",
     "ListGamesResponse",
@@ -322,6 +327,9 @@ __all__ = [
     "ListSettledMarketsResponse",
     "ListSmartMoneyFlowsResponse",
     "ListSuspiciousTradesResponse",
+    "ListTradersGradeAtResponse",
+    "ListTradersGradeAtResponseDataItem",
+    "ListTradersGradeAtResponseDataItemObservation1",
     "ListTrendingWalletsResponse",
     "ListWebhookDeliveriesResponse",
     "ListWebhookEventsResponse",
@@ -445,10 +453,10 @@ __all__ = [
     "ProofPendingPickSlot",
     "RedeliverWebhookDeliveryResponse",
     "RegisterAgentResponse",
+    "ReportLargeTrade",
     "ReportPayload",
     "ReportPayloadCategoriesItem",
     "ReportPayloadGradeDistributionItem",
-    "ReportPayloadTopLargeTradesItem",
     "ReportReconciliation",
     "ReportSnapshot",
     "ReportSourceRange",
@@ -800,6 +808,9 @@ class Trader(_TraderRequired, total=False):
     # hold-time and first-trade-hour bands, position sizes with category concentration, and entry-price buckets
     # ...
     breakdowns: TraderBreakdowns
+    # Whether category_strengths and category_records take the wallet's latest settlements (#36089). Present
+    # exactly when expand=categories or expand[]=categories is requested.
+    category_numbers: CategoryNumbers
 
 
 class TraderPnl(TypedDict, total=False):
@@ -1491,6 +1502,22 @@ class TraderEntryPriceUnbucketed(TypedDict):
     total_pnl: float
 
 
+class CategoryNumbers(TypedDict):
+    """Whether a wallet's category figures take its latest settlements (#36089). The figures are updated
+    from a queue as the wallet's markets settle. state is behind when an update for this wallet has
+    waited over an hour, because the whole queue is behind or because the wallet's own updates wait
+    until its settled record is complete; the figures then stay served, and as_of says when the oldest
+    waiting update was queued. Read from a check the server runs about every three minutes, never on the
+    request."""
+    # When the oldest waiting update for this wallet was queued, UTC: the figures take nothing newer than about
+    # this instant. null unless state is behind. Format: date-time.
+    as_of: str | None
+    # current: no update of this wallet's category figures has waited over an hour. behind: one has, since as_of.
+    # unknown: the check has no result from the last 375 seconds, so the figures are neither confirmed current nor
+    # ...
+    state: Literal["current", "behind", "unknown"] | str
+
+
 class GetTraderGradeAtResponse(TypedDict):
     object: Literal["trader_grade_at"]
     data: TraderGradeAt
@@ -1534,6 +1561,52 @@ class TraderGradeAtObservation(TypedDict):
     # Database-clock upper bound on when the grading pass read its cohort inputs. Not the event time or source
     # freshness of every input; null when unknown. Format: date-time.
     source_observed_by: str | None
+
+
+class ListTradersGradeAtResponse(TypedDict):
+    object: Literal["list"]
+    # The wallets, in a stable internal order.
+    data: list[ListTradersGradeAtResponseDataItem]
+    # True when more wallets may follow: send next_cursor for them. A page can hold fewer than limit wallets, even
+    # none, while this is true.
+    has_more: bool
+    # Opaque tga_v1_ cursor for the next page; null when has_more is false.
+    next_cursor: str | None
+    # The instant read. Format: date-time.
+    as_of: str
+    # The worst grade listed.
+    min_grade: Literal["S", "A", "B"] | str
+    # recorded when as_of is at or after available_from; unknown before it, when data is empty because the set is
+    # not known.
+    status: Literal["recorded", "unknown"] | str
+    # The first instant the record names the whole set; null while recording of the set has not finished. Format:
+    # date-time.
+    available_from: str | None
+    meta: ResponseMeta
+
+
+class ListTradersGradeAtResponseDataItem(TypedDict):
+    # The wallet address, lowercase.
+    address: str
+    # The grade visible at as_of; null when status is unknown.
+    grade: Literal["S", "A", "B"] | str | None
+    # The trd_-prefixed trader id of the wallet.
+    id: str
+    # The grade observation visible at as_of, as GET /api/v1/trader/{address}/grade-at returns it; null when
+    # status is unknown.
+    observation: ListTradersGradeAtResponseDataItemObservation1 | None
+    # graded: the grade was visibly recorded at as_of. unknown: a grade change was in flight at as_of and one of
+    # the listed grades is among those it could have held.
+    status: Literal["graded", "unknown"] | str
+
+
+class ListTradersGradeAtResponseDataItemObservation1(TypedDict):
+    # The immutable observation id.
+    id: int
+    # Lower bound: the grade writer had begun the transition at this instant. Format: date-time.
+    observed_at: str
+    # Upper bound: a later read confirmed the observation was committed by this instant. Format: date-time.
+    published_by: str
 
 
 class GetTraderClvResponse(TypedDict):
@@ -1851,6 +1924,10 @@ class PositionTimelineEvent(TypedDict):
     # Cumulative buy-weighted average of stored fills for this outcome, including older pages; not provider
     # current-position avgPrice. Sells do not change this value. 0 when no stored buys have occurred yet.
     running_avg_price: float
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class GetTraderCategoryRecordsResponse(TypedDict):
@@ -1992,6 +2069,10 @@ class ListPropsResponseDataItem(TypedDict):
     player_unavailable_reason: Literal["missing_provider_title"] | None
     # Format: date-time.
     resolved_at: str | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class _ListPropsResponseDataItemOutcomesItemRequired(TypedDict):
@@ -2084,6 +2165,10 @@ class FairPrice(TypedDict):
     thresholds: FairPriceThresholds
     # When this answer was read. Format: date-time.
     as_of: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class FairPriceOutcome(TypedDict):
@@ -2306,6 +2391,10 @@ class _PositionMarketRequired(TypedDict):
     id: str
     condition_id: str
     title: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class PositionMarket(_PositionMarketRequired, total=False):
@@ -2448,6 +2537,10 @@ class _LargePositionMarketRequired(TypedDict):
     # Prefixed ID (`mkt_...`).
     id: str
     condition_id: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class LargePositionMarket(_LargePositionMarketRequired, total=False):
@@ -2549,6 +2642,10 @@ class _LargeTradeMarketRequired(TypedDict):
     id: str
     condition_id: str
     title: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class LargeTradeMarket(_LargeTradeMarketRequired, total=False):
@@ -3064,9 +3161,8 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     thesis: str
     # Canonical web market URL.
     market_url: str
-    # Where this pick's outbound Polymarket link lands: Polymarket's own redirect answer for
-    # `/event/<event_slug>`, carrying the referral tag. Omitted until that redirect has been resolved; link to the
-    # event page instead when ...
+    # The pick's event on Polymarket, carrying the 0xinsider tags:
+    # `https://polymarket.com/event/<event_slug>?via=0xinsider&r=0xinsidercom`. Present whenever `event_slug` is.
     polymarket_url: str
     # The canonical /event game-page slug (one neutral page per game); omitted when the game has no neutral event
     # page.
@@ -3166,6 +3262,10 @@ class PickOfTheDay(_PickOfTheDayRequired, total=False):
     # map_handicap and others, the value the archive row returns for the pick. Omitted when the market states
     # none. ...
     sports_market_type: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class ScheduledPickSlot(TypedDict):
@@ -3304,6 +3404,14 @@ class PickHolder(_PickHolderRequired, total=False):
     # and redemptions 0xinsider stores. Sits beside the release `shares`, which never change. `state` is `held`,
     # ...
     after_release: PickHolderAfterRelease
+    # Gross shares of the backed outcome this wallet held when the pick was released, from the same observation as
+    # `other_outcome_shares`; `shares` is the figure the pick lists. Present on `display_holders` items only,
+    # always ...
+    backed_outcome_shares: float
+    # Shares of the other outcome this wallet held when the pick was released, from the same observation as
+    # `backed_outcome_shares`: 0 means it held none then. Beside `after_release.other_shares_change`, it says
+    # whether the ...
+    other_outcome_shares: float
 
 
 class PickHolderCategoryWinRecord(TypedDict):
@@ -3365,18 +3473,19 @@ class _PickHolderAfterReleaseRequired(TypedDict):
     # End of the redemption window: settlement plus 72 hours once stored, else `observed_at`. Format: date-time.
     redemptions_through: str
     # `held`: no change to its backed shares before the game. `added`: bought more. `reduced`: sold or merged
-    # some. `exited`: left under one backed share. `redeemed`: redeemed backed shares after settlement.
-    # `unavailable`: ...
-    state: Literal["held", "added", "reduced", "exited", "redeemed", "unavailable"] | str
+    # some. `exited`: left under one backed share. `hedged`: bought more of the other outcome than of the backed
+    # one, ...
+    state: Literal["held", "added", "reduced", "exited", "hedged", "switched", "redeemed", "unavailable"] | str
 
 
 class PickHolderAfterRelease(_PickHolderAfterReleaseRequired, total=False):
     """What this wallet did on the pick's market after the pick was released, read from the fills, merges,
     splits and redemptions 0xinsider stores. Sits beside the release `shares`, which never change.
-    `state` is `held`, `added`, `reduced` or `exited` for the time between release and the game's start,
-    then `redeemed` once the wallet redeemed backed shares after settlement. Read `unavailable` as
-    unknown, never as held. Present on `display_holders` items of a full pick; absent on teasers and on
-    payloads predating the field."""
+    `state` is `held`, `added`, `reduced`, `exited`, `hedged` or `switched` for the time between release
+    and the game's start, then `redeemed` once the wallet redeemed backed shares after settlement,
+    unless it switched. The state reads both outcomes: compare the release `backed_outcome_shares` and
+    `other_outcome_shares` with `shares_after` and `other_shares_after`. Read `unavailable` as unknown,
+    never as ..."""
     # Time of the wallet's latest fill, merge or split on either outcome in the change window. Absent when it made
     # none. Format: date-time.
     last_change_at: str
@@ -3398,6 +3507,9 @@ class PickHolderAfterRelease(_PickHolderAfterReleaseRequired, total=False):
     # request can answer. `wallet_not_indexed` or `market_not_indexed`: 0xinsider stores no fills of that wallet
     # or on ...
     unavailable_reason: Literal["read_failed", "wallet_not_indexed", "market_not_indexed"] | str
+    # The release `other_outcome_shares` plus `other_shares_change`, never below zero: the other outcome's shares
+    # at the end of the change window. Absent when the release roster did not record the other outcome.
+    other_shares_after: float
 
 
 class _PickSportsContextRequired(TypedDict):
@@ -3846,6 +3958,10 @@ class GetPickOfTheDayResponseData3PicksItem(_GetPickOfTheDayResponseData3PicksIt
     sharp_positioned_usd: float
     # The full pick's sports_market_type.
     sports_market_type: str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class _GetPickOfTheDayResponseData3ProofPendingPicksItemRequired(TypedDict):
@@ -5057,6 +5173,9 @@ class SportLeaderboardRowsItem(TypedDict):
     win_rate_wilson_lb: float | None
     # Markets n_resolved counts that settled at a realized profit.
     wins: int
+    # Whether this row's figures take the wallet's latest settlements (#36089). A row whose state is behind keeps
+    # its rank and its figures, dated by as_of.
+    category_numbers: CategoryNumbers
 
 
 class SportLeaderboardRowsItemPriceEdge1(TypedDict):
@@ -5108,6 +5227,8 @@ class CategoryLeader(TypedDict):
     unresolved_events: int
     username: str | None
     win_rate: float | None
+    # Whether n_resolved, win_rate and pnl take the wallet's latest settlements (#36089).
+    category_numbers: CategoryNumbers
 
 
 class _GetCategoryLeaderboardResponseRequired(TypedDict):
@@ -5229,8 +5350,8 @@ class MarketSettledData(TypedDict):
     # oracle_status resolved, settled true. payouts is null on a resolved UMA question row, whose result and ...
     settlement: MarketSettledDataSettlement
     # The Polymarket protocol the market settles and redeems on, Gamma's market version: v1 (ConditionalTokens) or
-    # v2 (the Protocol V2 modules: the new markets from 2026-11-09 and the polyv2 copies). Read from the condition
-    # ...
+    # v2 (the Protocol V2 modules: every market whose Gamma version reads v2, the polyv2 copies included). Read
+    # from ...
     protocol_version: Literal["v1", "v2"] | str
 
 
@@ -5395,6 +5516,10 @@ class ExploreMarket(TypedDict):
     discover_score: float | None
     score_components: ExploreMarketScoreComponents
     freshness: ExploreMarketFreshness
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class ExploreMarketScoreComponents(TypedDict):
@@ -5471,6 +5596,10 @@ class SmartMoneyFlowMarketMarket(TypedDict):
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
     platform: Literal["polymarket", None] | str | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class SmartMoneyFlowMarketSharpMoney(TypedDict):
@@ -5691,6 +5820,10 @@ class _MarketHoldersMarketRequired(TypedDict):
     token_id_no: str | None
     # A settled market's roster is whatever the provider still lists as open; it empties as holders redeem.
     status: Literal["open", "closed", "resolved"] | str
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketHoldersMarket(_MarketHoldersMarketRequired, total=False):
@@ -5944,6 +6077,10 @@ class MarketFlowMarket(TypedDict):
     category: str | None
     # Provider platform. Always polymarket, or null when the row carries no stored value.
     platform: Literal["polymarket", None] | str | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketFlowSharpMoney(TypedDict):
@@ -6076,6 +6213,10 @@ class MarketClose(TypedDict):
     # provider_invalid_contract and capture_window_closed are the capture's own stored refusals;
     # no_game_start_time: the market has no ...
     unavailable_reason: Literal["no_observation_in_lookback", "provider_empty_window", "provider_invalid_contract", "capture_window_closed", "no_game_start_time", "not_one_sided_resolution", "not_captured", "close_token_mismatch", "anchor_stale", "outcome_unknown"] | str | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketCloseOutcomesItem(TypedDict):
@@ -6150,6 +6291,10 @@ class MarketSnapshotMarket(TypedDict):
     end_date: str | None
     # Format: date-time.
     resolved_at: str | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class _MarketSnapshotOutcomesItemRequired(TypedDict):
@@ -6323,6 +6468,10 @@ class _MarketCandlesRequired(TypedDict):
     resolution: Literal["5m", "1h", "1d", "1w"] | str
     # One entry per present provider token (YES first, then NO); empty when no tokens have been fetched yet.
     outcomes: list[OutcomeCandles]
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketCandles(_MarketCandlesRequired, total=False):
@@ -6488,6 +6637,10 @@ class ListMarketTradesResponse(TypedDict):
     # traded.
     coverage: ListMarketTradesResponseCoverage
     meta: ResponseMeta
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class MarketTrade(TypedDict):
@@ -6940,11 +7093,13 @@ class _GameRequired(TypedDict):
     # first in US leagues and the home team first in soccer. Read a market's side for home and away. Empty when
     # the ...
     competitors: list[GameCompetitor]
-    # Whether this read includes a market classified as paying on a draw, including soccer's independent 1X2 draw
-    # leg. Read this instead of assuming a two-outcome moneyline.
+    # Whether this read includes a market classified as paying on a draw, including the independent draw leg of a
+    # soccer 1X2 event or of a cricket match that can end in a draw. Read this instead of assuming a two-outcome
+    # ...
     draw_offered: bool
-    # The game's winner markets the sports board binds to its sides (the moneyline, or a soccer game's three 1X2
-    # legs), ordered by condition_id. Spreads, totals, period lines and props are on GET ...
+    # The game's winner markets the sports board binds to its sides (the moneyline, or the three legs of a game
+    # that can end in a draw: a soccer 1X2 event, or a Test or first-class cricket match), ordered by
+    # condition_id. ...
     markets: list[GameMarket]
     freshness: GameFreshness
     coverage: GameCoverage
@@ -6983,6 +7138,10 @@ class Game(_GameRequired, total=False):
     # 0xinsider's reviewed registry, the same facts the game's page states. Omitted outside tennis, on a finished
     # game ...
     tournament: GameTournament
+    # An esports series' maps, each with its score per competitor and its result, the map in play, and when the
+    # reading behind them was taken. The same per-map state the game's page shows. Present on every esports game,
+    # ...
+    map_state: GameMapState
 
 
 class _GameStatusRequired(TypedDict):
@@ -7053,12 +7212,20 @@ class _GameMarketRequired(TypedDict):
     id: str
     # The raw provider condition id.
     condition_id: str
+    # The Polymarket protocol the market trades on: v1 (CTF) or v2 (Protocol V2), read from the condition id, as
+    # GET /api/v1/games/{event_slug}/markets serves it. On a v2 market each outcome_token_ids entry is a V2
+    # position ...
+    protocol_version: Literal["v1", "v2"] | str
     # Always polymarket.
     platform: Literal["polymarket"]
 
 
 class GameMarket(_GameMarketRequired, total=False):
     """One Polymarket market linked to this game."""
+    # The game's Protocol V2 copy event (polyv2...) this market belongs to, on a market GET
+    # /api/v1/games?protocol_version=v2 lists from that copy; GET /api/v1/games/{event_slug}/markets with this
+    # slug lists the copy's other ...
+    copy_event_slug: str
     # The provider's market slug. Omitted when the provider sent none.
     slug: str
     # The provider's own market type, for example moneyline or spread. Omitted when the provider sent none. Not an
@@ -7066,11 +7233,15 @@ class GameMarket(_GameMarketRequired, total=False):
     sports_market_type: str
     # Which side of the game this market's YES leg pays. home and away are the provider's own home/away
     # designation of the team the YES leg names (Polymarket's teams[].ordering), never its place in competitors.
-    # Soccer 1X2 ...
+    # The legs of a ...
     side: Literal["home", "away", "draw", "other"] | str
-    # The provider's label for the YES outcome. Omitted when the provider sent none.
+    # What the market's YES outcome is. On a two-outcome market it is Polymarket's own text for its first outcome,
+    # usually a team or player, and outcome_no names the other. A three-way game, a soccer 1X2 event or a cricket
+    # ...
     outcome_yes: str
-    # The provider's label for the NO outcome. Omitted when the provider sent none.
+    # What the market's NO outcome is. On a two-outcome market it is Polymarket's own text for its second outcome,
+    # usually the other team or player. Omitted on a leg of a three-way game, whose NO outcome is every result but
+    # ...
     outcome_no: str
     # Polymarket CLOB token ids in the provider's own outcome-index order. Omitted when the provider has published
     # none for this market.
@@ -7228,7 +7399,7 @@ class GameMarketQuote(_GameMarketQuoteRequired, total=False):
 
 class _GameFreshnessRequired(TypedDict):
     # What produced this game: live or upcoming, the board half that carried it, or stored, the stored record of a
-    # finished game that has left the board (GET /api/v1/games/{event_slug}, and GET /api/v1/games with a finished
+    # started game that has left the board (GET /api/v1/games/{event_slug}, and GET /api/v1/games with a finished
     # ...
     source: Literal["live", "upcoming", "stored"] | str
     # Whether that half returned a truthful source body for this read.
@@ -7477,13 +7648,69 @@ class GameTournamentLocation(TypedDict):
     country_code: str
 
 
+class _GameMapStateRequired(TypedDict):
+    # available: maps holds the series' maps. unavailable: there is no map reading to serve; reason says why.
+    # not_applicable: the series has no per-map state to read: it has not started, or it is a single-map series
+    # whose map ...
+    availability: Literal["available", "unavailable", "not_applicable"] | str
+
+
+class GameMapState(_GameMapStateRequired, total=False):
+    """The per-map state of an esports series, read from 0xinsider's stored composition of Polymarket's
+    per-map breakdown (the GRID data behind Polymarket's own esports scoreboard), which 0xinsider checks
+    against the series score every 5 to 10 seconds while the series is in play. No provider is read for
+    this response. maps is present only when availability is available; a series with no map reading
+    says why in reason and never carries an empty or guessed list."""
+    # Why maps is absent. not_started: the series has not started. single_map_series: a best-of-1, or a series
+    # that ended after one map; competitors[].score is that map's result. no_map_reading: no per-map reading is
+    # stored: ...
+    reason: Literal["not_started", "single_map_series", "no_map_reading", "reading_unavailable", "reading_disagrees", "sides_unbound", "store_unavailable"] | str
+    # The series' maps in order: every finished map, then the map in play. Empty only while no map has finished or
+    # started. Present only when availability is available.
+    maps: list[GameMap]
+    # The number of the map in play, the last entry of maps. Omitted when no map is in play: before the series,
+    # after it, and while the deciding map has been played but the provider has not yet ended the series.
+    current_map: int
+    # How complete the stored score is: full when it parsed and no map reading was unavailable or disagreed with
+    # the series score; partial when one was; unavailable when the provider score did not parse. Omitted when no
+    # ...
+    quality: Literal["full", "partial", "unavailable"] | str
+    # When the per-map reading behind this state was taken, never this response's clock. A later reading that
+    # changed nothing does not move it, so a quiet map can show a reading minutes old. Omitted when no reading is
+    # stored. ...
+    observed_at: str
+    # Seconds from observed_at to the response's as_of, measured as freshness.scores_age_seconds is; 0 when the
+    # reading is newer than as_of. Omitted with observed_at.
+    age_seconds: int
+
+
+class _GameMapRequired(TypedDict):
+    # The map's number in the series, 1 for the first. Polymarket's breakdown names no map, so the number is its
+    # identity.
+    number: int
+    # finished: played to its end. current: the map in play, 0-0 before its first round.
+    state: Literal["finished", "current"] | str
+    # Each competitor's score in this map, in competitors order: rounds in CS2 and Valorant, kills in League of
+    # Legends and Dota 2.
+    scores: list[int]
+
+
+class GameMap(_GameMapRequired, total=False):
+    """One map of an esports series."""
+    # Each competitor's result in this map, in competitors order. Kills do not decide a League of Legends or Dota
+    # 2 map, so read the winner here, never from scores. Present on a finished map whose winner is known; omitted
+    # on ...
+    results: list[Literal["win", "loss"] | str]
+
+
 class GamesCoverage(TypedDict):
     """What this deployment covers, published with every page so a client never has to guess whether an
     empty list means no games or no coverage."""
     # Canonical sport buckets served, sorted.
     sports: list[str]
-    # League tags served, sorted. EuroLeague is euroleague, NCAA men's college basketball cbb and NCAA women's
-    # college basketball cwbb, all under the Basketball sport bucket.
+    # League tags served, sorted. EuroLeague is euroleague, NCAA men's college basketball cbb, NCAA women's
+    # college basketball cwbb and Turkey's Basketbol Super Ligi bkbsl, all under the Basketball sport bucket. Any
+    # other ...
     leagues: list[str]
     # Scopes whose source half was unavailable for this read, as <sport>:<half>. Empty means every scope answered.
     sources_unavailable: list[str]
@@ -7517,6 +7744,10 @@ class _ListGameMarketsResponseDataItemRequired(TypedDict):
     outcomes: list[ListGameMarketsResponseDataItemOutcomesItem]
     status: str
     settlement: ListGameMarketsResponseDataItemSettlement
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # an ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class ListGameMarketsResponseDataItem(_ListGameMarketsResponseDataItemRequired, total=False):
@@ -7591,7 +7822,7 @@ class ListGameMarketsResponseDataItemSettlement(TypedDict):
     oracle_updated_at: str | None
 
 
-class ListGameMarketsResponseDataItemTradingTerms(TypedDict):
+class _ListGameMarketsResponseDataItemTradingTermsRequired(TypedDict):
     fee_schedule: ListGameMarketsResponseDataItemTradingTermsFeeSchedule1 | None
     fees_enabled: bool | None
     # Format: date-time.
@@ -7603,6 +7834,13 @@ class ListGameMarketsResponseDataItemTradingTerms(TypedDict):
     status: Literal["observed", "not_listed", "unavailable"] | str
     tick_size: float | None
     min_order_size_shares: float | None
+
+
+class ListGameMarketsResponseDataItemTradingTerms(_ListGameMarketsResponseDataItemTradingTermsRequired, total=False):
+    # Where an order on this market is signed and which balance it draws on, from the row's protocol_version and
+    # negative_risk: Polymarket's order-signing table, not the Gamma record, so it is present whatever status
+    # says. ...
+    trading: ListGameMarketsResponseDataItemTradingTermsTrading
 
 
 class ListGameMarketsResponseDataItemTradingTermsFeeSchedule1(TypedDict):
@@ -7617,6 +7855,25 @@ class ListGameMarketsResponseDataItemTradingTermsRewardAllocationsItem(TypedDict
     rewards_amount: float | None
     rewards_daily_rate: float | None
     start_date: str | None
+
+
+class ListGameMarketsResponseDataItemTradingTermsTrading(TypedDict):
+    """Where an order on this market is signed and which balance it draws on, from the row's
+    protocol_version and negative_risk: Polymarket's order-signing table, not the Gamma record, so it is
+    present whatever status says. The EIP-712 domain name is Polymarket CTF Exchange and the chain id
+    137 on both protocols. Absent on a v1 market whose negative_risk is not stored."""
+    # The CLOB asset_type of the market's positions on a balance or allowance read: CONDITIONAL on a v1 market,
+    # CONDITIONAL-V2 on a v2 market.
+    balance_asset_type: Literal["CONDITIONAL", "CONDITIONAL-V2"] | str
+    # The EIP-712 domain version of an order: 2 on a v1 market, 3 on a v2 market. Not the market's
+    # protocol_version.
+    eip712_domain_version: Literal["2", "3"] | str
+    # The exchange an order is signed for: ctf_exchange_v2 or neg_risk_ctf_exchange_v2 on a v1 market, by its
+    # negative_risk; exchange_v3 on every v2 market.
+    exchange: Literal["ctf_exchange_v2", "neg_risk_ctf_exchange_v2", "exchange_v3"] | str
+    # The domain's verifyingContract, the exchange's Polygon address: 0xE111180000d2663C0091e4f400237545B87B996B
+    # (CTF Exchange), 0xe2222d279d744050d28e00520010520000310F59 (Neg Risk CTF Exchange) or ...
+    verifying_contract: str
 
 
 class _ListGameMarketsResponseFamiliesItemRequired(TypedDict):
@@ -8321,8 +8578,8 @@ class ReportPayload(TypedDict):
     active_traders: int | None
     # Canonical key since #16304; top_whale_trades is its deprecated spelling, emitted beside it with the same
     # value until its sunset on 2027-02-01 (#29352).
-    top_large_trades: list[ReportPayloadTopLargeTradesItem] | None
-    top_whale_trades: list[ReportPayloadTopLargeTradesItem] | None
+    top_large_trades: list[ReportLargeTrade] | None
+    top_whale_trades: list[ReportLargeTrade] | None
     categories: list[ReportPayloadCategoriesItem] | None
     # Counts of current grades for distinct Polymarket traders with at least one whale alert in the report's
     # source date range. The grade is the current projection at snapshot materialization time, not a historical
@@ -8334,7 +8591,7 @@ class ReportPayload(TypedDict):
     market_scope: Literal["all_markets", "sports_and_esports"] | str
 
 
-class ReportPayloadTopLargeTradesItem(TypedDict):
+class ReportLargeTrade(TypedDict):
     # Provider outcome label for the traded side.
     outcome: str | None
     # Trade direction (BUY or SELL), not the outcome side.
@@ -8362,6 +8619,13 @@ class ReportPayloadTopLargeTradesItem(TypedDict):
     pseudonym: str | None
     # Trader grade (S-F) at snapshot time.
     trader_grade: Literal["S", "A", "B", "C", "D", "F", None] | str | None
+    # The trade's market. Null in a report body built before this field shipped in November 2026: a closed period
+    # keeps the body it was built with.
+    condition_id: str | None
+    # The Polymarket protocol of the trade's market: v1 (CTF, ConditionalTokens) or v2 (Protocol V2), read from
+    # condition_id. On a v2 market token_id is a V2 position id. Null when condition_id is null: the protocol is
+    # ...
+    protocol_version: Literal["v1", "v2"] | str | None
 
 
 class ReportPayloadCategoriesItem(TypedDict):
@@ -8783,7 +9047,7 @@ class UsageDataMonthlyQuota(TypedDict):
     """The monthly request quota (#16111): where the account stands against the requests the current Pro or
     Max plan includes per UTC calendar month. Reading it here spends nothing. null only when the month's
     count could not be read for this response."""
-    # Admitted requests so far this UTC calendar month.
+    # Requests this UTC calendar month that answered below 500. A 4xx counts. A 5xx does not.
     used: int
     # Requests the account's plan includes per UTC calendar month: 500,000 for Pro, 2,000,000 for Max.
     limit: int
@@ -9143,7 +9407,9 @@ class ComboFill(TypedDict):
     trader: str | None
     trader_name: str | None
     trader_grade: Literal["S", "A", "B", "C", "D", "F", None] | str | None
-    # Recorded wallet-wide trade time. Format: date-time.
+    # The wallet's newest known trade: the later of its recorded wallet-wide trade time and this fill's
+    # block_timestamp. Since 2026-11-20 (#36342) it is never earlier than the fill and is set for a wallet with no
+    # recorded ...
     last_traded_at: str | None
     action: Literal["buy", "sell"] | str
     # Combo identifier: 0x followed by 62 lowercase hex characters. This differs from a binary market condition
@@ -9220,10 +9486,16 @@ class _ComboLegMarketRequired(TypedDict):
     # /api/v1/games/{event_slug} reads. A market in a child event, such as a soccer game's more-markets event,
     # reads its parent game. ...
     game_ended: bool | None
+    # The day the game is played, as its event page names it. The event slug's date while that date holds the
+    # kickoff in some time zone from UTC-12 to UTC+14, so an evening game west of UTC that starts after midnight
+    # UTC ...
+    game_day: str | None
 
 
 class ComboLegMarket(_ComboLegMarketRequired, total=False):
-    # Provider-resolved URL including the referral tag. Format: uri.
+    # The leg's event on Polymarket, carrying the 0xinsider tags:
+    # `https://polymarket.com/event/<event_slug>?via=0xinsider&r=0xinsidercom`. Present whenever `event_slug` is.
+    # Format: uri.
     polymarket_url: str
 
 
@@ -9422,6 +9694,10 @@ class EdgeHunterRow(TypedDict):
     # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
     # require sidecar readiness and fail closed with 503 instead.
     market_context: EdgeHunterMarketContext | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class _EdgeHunterParticipantRequired(TypedDict):
@@ -9684,6 +9960,10 @@ class EdgeHunterRankedSignal(TypedDict):
     # Required nullable frozen metadata context. Null only during the legacy-generation transition; selected reads
     # require sidecar readiness and fail closed with 503 instead.
     market_context: EdgeHunterMarketContext | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class _EdgeHunterObservationsResponseRequired(TypedDict):
@@ -9716,10 +9996,10 @@ class EdgeHunterObservationsResponse(_EdgeHunterObservationsResponseRequired, to
     selection: EdgeHunterSelection
     # Echoes the opt-in admission rule a request named; omitted on a default read. When present, data, funnel,
     # coverage, degraded and degradation_reasons describe that selection, not the default one.
-    admission: Literal["most_held_48h", "most_held_48h_by_type"] | str
-    # cohort=wider_holder only, for the default selection and for admission=most_held_48h: markets that had a
-    # wider_holder card in an earlier snapshot of the same selection, have none in this one, and have not kicked
-    # off. ...
+    admission: Literal["most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | str
+    # cohort=wider_holder only, for the default selection and for each admission, each selection its own: markets
+    # that had a wider_holder card in an earlier snapshot of the same selection, have none in this one, and have
+    # not ...
     departures: list[EdgeHunterObservationDeparture]
     # The ranked_at of the view=signals snapshot whose listed markets this snapshot excluded from wider_holder as
     # primary_slate_candidate. The refresh that computed this snapshot read it as it started, so it can be one ...
@@ -9727,6 +10007,10 @@ class EdgeHunterObservationsResponse(_EdgeHunterObservationsResponseRequired, to
     # admission=most_held_48h and most_held_48h_by_type only: for each sport in the response's category scope that
     # most_held_48h admitted a market in, the last market it admitted in the same snapshot (the 8th when 8 are ...
     most_held_48h_cutoffs: list[EdgeHunterMostHeld48hCutoff]
+    # With place_exits_since only: the selection's place stays that ended before kickoff at or after
+    # place_exits_since, newest left_at first, each with why it ended. Unlike departures, an exit stays readable
+    # after the game ...
+    place_exits: list[EdgeHunterObservationPlaceExit]
 
 
 class _EdgeHunterObservationRequired(TypedDict):
@@ -9765,7 +10049,7 @@ class _EdgeHunterObservationRequired(TypedDict):
     # Which evaluation place in its sport the row took this refresh. most_held: a wider_holder place for up to 8
     # markets per sport kicking off within 24 hours, most graded holders first, kept until kickoff while the
     # holder ...
-    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h", "most_held_48h_by_type"] | str
+    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | str
     # Always true. This row must not be routed to an order executor.
     observation_only: Literal[True]
     # Nullable provider-backed piled-outcome display label. When provider group context is unavailable, it may
@@ -9825,6 +10109,10 @@ class _EdgeHunterObservationRequired(TypedDict):
     # S, A and B graded wallets in the 0xinsider index holding either outcome of the market, as the stored market
     # universe last counted them. Every most-held place ranks by this count: admission=most_held_48h and ...
     indexed_graded_holders: int | None
+    # The Polymarket protocol the market trades on, Gamma's market version: v1 (CTF, ConditionalTokens) or v2
+    # (Protocol V2). Read from the condition id, the same value GET /api/v1/markets/settled serves. On a v2 market
+    # every ...
+    protocol_version: Literal["v1", "v2"] | str
 
 
 class EdgeHunterObservation(_EdgeHunterObservationRequired, total=False):
@@ -9834,6 +10122,10 @@ class EdgeHunterObservation(_EdgeHunterObservationRequired, total=False):
     # most_held_48h admission order, every market type ranked together, from the same refresh that admitted the
     # row. The order ...
     most_held_48h_position: int | None
+    # admission=most_held_48h_min_25_usd only: of indexed_graded_holders, the S, A and B graded wallets whose
+    # position in the market is worth $25 or more, both outcomes together, at the value the 0xinsider index last
+    # read for ...
+    indexed_graded_holders_min_25_usd: int
 
 
 class EdgeHunterObservationDegradationReason(TypedDict):
@@ -9905,9 +10197,8 @@ class EdgeHunterSportFunnelReport(TypedDict):
     # a ...
     board_upcoming_status: Literal["unknown", "not_configured", "available", "capacity_limited", "source_unavailable", "cold_unavailable", "deadline_unavailable"] | str
     # Configured upcoming scopes that did not complete as available. Values are category, a provider league tag
-    # slug (nfl, cfb, nba, wnba, euroleague-basketball, ncaa-basketball, cwbb, nhl, mls, valorant, league-of-
-    # legends, ...
-    board_upcoming_unavailable_scopes: list[Literal["category", "nfl", "cfb", "nba", "wnba", "euroleague-basketball", "ncaa-basketball", "cwbb", "nhl", "mls", "valorant", "league-of-legends", "counter-strike-2", "dota-2", "registry", "union", "wave"] | str]
+    # slug (nfl, cfb, nba, wnba, euroleague-basketball, ncaa-basketball, cwbb, bkbsl, nhl, mls, valorant, ...
+    board_upcoming_unavailable_scopes: list[Literal["category", "nfl", "cfb", "nba", "wnba", "euroleague-basketball", "ncaa-basketball", "cwbb", "bkbsl", "nhl", "mls", "valorant", "league-of-legends", "counter-strike-2", "dota-2", "registry", "union", "wave"] | str]
     # Stored-universe rows plus provider-board rows missing from storage.
     input: int
     # Sparse counts over the closed 25-value terminal vocabulary: outside_horizon, resolved, provider_closed,
@@ -9926,8 +10217,8 @@ class EdgeHunterObservationDeparture(TypedDict):
     event_slug: str | None
     # Canonical sport bucket the departed card carried.
     category: Literal["Basketball", "Football", "Baseball", "Hockey", "MMA", "Boxing", "Soccer", "Cricket", "Golf", "Tennis", "Esports", "Racing", "Table Tennis", "Pickleball"] | str
-    # The departed card's admitted_by: most_held_48h on an admission=most_held_48h response.
-    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h", "most_held_48h_by_type"] | str
+    # The departed card's admitted_by: the response's admission on an admission response.
+    admitted_by: Literal["most_held", "soonest_kickoff", "most_held_48h", "most_held_48h_by_type", "most_held_48h_min_25_usd"] | str
     # Kickoff the departed card carried, in UTC. The entry leaves the list once it passes. Format: date-time.
     game_start_time: str
     # The departed card's observed_at: when its last evaluation finished. Format: date-time.
@@ -9945,9 +10236,7 @@ class EdgeHunterObservationDeparture(TypedDict):
 EdgeHunterObservationTerminalReason = Union[Literal["outside_horizon", "resolved", "provider_closed", "provider_excluded", "invalid_market", "missing_token", "missing_stored_market", "not_provider_live", "board_source_unavailable", "board_deadline_unavailable", "primary_slate_candidate", "zero_indexed_holder_research", "capacity_limited", "provider_unavailable", "holder_deadline_unavailable", "holder_computation_unavailable", "holder_scan_incomplete", "no_current_graded_holder", "split_holder_pile", "price_unavailable", "wider_holder_emitted", "in_play_emitted", "in_play_stale_observed", "in_play_directional_unavailable", "internal_unclassified"], str]
 
 
-class EdgeHunterMostHeld48hCutoff(TypedDict):
-    """One sport's most_held_48h cutoff: the last market the selection admitted and the values it was
-    ranked by."""
+class _EdgeHunterMostHeld48hCutoffRequired(TypedDict):
     # Canonical sport bucket, as on a row's category.
     sport: str
     # The market's place in the sport's most_held_48h admission order, which is the number of markets
@@ -9965,6 +10254,46 @@ class EdgeHunterMostHeld48hCutoff(TypedDict):
     # The third ranking value: of two markets with equal holders and volume, the earlier kickoff ranks first, then
     # the lower condition_id. Format: date-time.
     game_start_time: str
+
+
+class EdgeHunterMostHeld48hCutoff(_EdgeHunterMostHeld48hCutoffRequired, total=False):
+    """One sport's most_held_48h cutoff: the last market the selection admitted and the values it was
+    ranked by."""
+    # admission=most_held_48h_min_25_usd only: the first ranking value of that selection, the market's
+    # indexed_graded_holders_min_25_usd; volume and game_start_time follow it. Omitted on the other admissions,
+    # which rank by ...
+    indexed_graded_holders_min_25_usd: int
+
+
+class EdgeHunterObservationPlaceExit(TypedDict):
+    """A market's stay in a most-held selection's places that ended before kickoff, with why it ended."""
+    # Raw Polymarket condition id.
+    condition_id: str
+    event_slug: str | None
+    # Canonical sport bucket.
+    category: str
+    # Provider market type when the market entered, as market_context.market_type.
+    market_type: str | None
+    # Kickoff, in UTC. Format: date-time.
+    game_start_time: str
+    # snapshot_as_of of the first snapshot that held the market in the selection's places. Format: date-time.
+    entered_at: str
+    # The count the selection ranked the market by when it entered: indexed_graded_holders, or
+    # indexed_graded_holders_min_25_usd on admission=most_held_48h_min_25_usd.
+    entered_holders: int
+    # Its most_held_48h_position when it entered; null when it had none.
+    entered_position: int | None
+    # snapshot_as_of of the first snapshot that computed the selection for the market's scope without it. Later
+    # than the real exit by any refresh that was not published. Format: date-time.
+    left_at: str
+    # The same count in that snapshot; null when the market was no longer in the stored market universe.
+    left_holders: int | None
+    # Its most_held_48h_position in that snapshot; null when it had none.
+    left_position: int | None
+    # Why the stay ended, in the funnel's names: capacity_limited when more-held markets took the places,
+    # provider_excluded when the provider stopped its game or its price is decided, primary_slate_candidate when
+    # view=signals ...
+    reason: EdgeHunterObservationTerminalReason | None
 
 
 class ExportJobCancelledEvent(TypedDict):
